@@ -1,0 +1,281 @@
+{
+  "project": "DEFNEX MLOps Backend",
+  "branchName": "ralph/mlops-backend-domains",
+  "description": "DEFNEX MLOps Backend MVP - Phase 1-8 domain implementation (dataset, validation, training, model registry, evaluation, promotion, deployment, end-to-end integration). Phase 0 (foundation) is already implemented and committed.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add Dataset & DatasetVersion models + migration",
+      "description": "As a backend, I need persisted Dataset and DatasetVersion tables so dataset lineage can be tracked.",
+      "acceptanceCriteria": [
+        "SQLAlchemy models Dataset and DatasetVersion added under app/models/, matching docs/prd/mlops-backend-mvp.md §6/§7 (dataset_id, dataset_version as INTEGER, source info, canonical schema metadata, manifest metadata)",
+        "Models imported in app/models/__init__.py so Alembic autogenerate detects them",
+        "alembic revision --autogenerate generates a migration and alembic upgrade head applies it cleanly",
+        "pytest passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add dataset Pydantic schemas + service layer",
+      "description": "As a backend, I need a service layer to register datasets and create/read dataset versions, matching the DatasetManifest/DatasetVersion schemas in docs/api/openapi.yaml.",
+      "acceptanceCriteria": [
+        "Pydantic schemas in app/schemas/dataset.py matching openapi.yaml's DatasetManifest, DatasetVersionCreateRequest, DatasetVersion, DatasetSummary",
+        "Service functions in app/services/dataset_service.py: register_dataset, create_dataset_version, get_dataset_version, list_dataset_versions",
+        "dataset_version handled as INTEGER end-to-end (per PRD §7's resolved deviation, not the string type still in docs/dataset/validation-rules.md)",
+        "pytest passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add dataset API endpoints",
+      "description": "As a frontend, I need dataset endpoints available so I can register datasets and browse versions, per docs/api/openapi.yaml.",
+      "acceptanceCriteria": [
+        "GET /datasets, POST /datasets/{dataset_id}/versions, GET /datasets/{dataset_id}/versions, GET /datasets/{dataset_id}/versions/{version} implemented per openapi.yaml paths/schemas",
+        "404 responses use the standard error envelope from PRD §18 (e.g. DATASET_NOT_FOUND)",
+        "API tests cover request validation, response schema, and the 404 error case",
+        "pytest passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add ValidationReport model + migration",
+      "description": "As a backend, I need a persisted ValidationReport table linked to a dataset version.",
+      "acceptanceCriteria": [
+        "SQLAlchemy model ValidationReport added, matching docs/dataset/validation-rules.md's record shape (status VALID/INVALID/NEEDS_REVIEW, no separate warning status)",
+        "alembic revision --autogenerate + alembic upgrade head apply cleanly",
+        "pytest passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add validation service (schema/duplicate/leakage checks)",
+      "description": "As a backend, I need a validation service that runs the rules defined in docs/dataset/validation-rules.md against a dataset version and produces a report.",
+      "acceptanceCriteria": [
+        "Validation service in app/services/validation_service.py implements schema validation, required-field validation, role/message validation, malformed-data detection, duplicate detection, and train/eval leakage detection exactly as specified in docs/dataset/validation-rules.md",
+        "No new numeric thresholds invented beyond what validation-rules.md already defines",
+        "Service returns a validation report object matching the ValidationReport schema in openapi.yaml",
+        "pytest passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add validation API endpoints",
+      "description": "As a frontend, I need to trigger validation on a dataset version and fetch its validation reports.",
+      "acceptanceCriteria": [
+        "POST /datasets/{dataset_id}/versions/{version}/validate, GET .../validation-reports, GET .../validation-reports/latest implemented per openapi.yaml",
+        "API tests cover request validation, response schema, error response, and the VALID/INVALID/NEEDS_REVIEW status values",
+        "pytest passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add TrainingRun model + training config schema + migration",
+      "description": "As a backend, I need a persisted TrainingRun table storing the training config snapshot actually used for that run.",
+      "acceptanceCriteria": [
+        "SQLAlchemy model TrainingRun added per PRD §9/§11 (training_run_id, dataset reference, training_config snapshot, status, timestamps, artifact reference, error info)",
+        "TrainingConfig Pydantic schema matches openapi.yaml, with the baseline defaults from PRD §11 (base_model Qwen/Qwen3.8-27B, PEFT DoRA, BF16, 4-bit=false, max_seq_length=4096) as configurable, non-hardcoded values",
+        "alembic revision --autogenerate + alembic upgrade head apply cleanly",
+        "pytest passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add training service, state machine, and lightweight worker",
+      "description": "As a backend, I need training runs to execute asynchronously via a lightweight worker process, not block the HTTP request.",
+      "acceptanceCriteria": [
+        "Training service creates a TrainingRun in QUEUED status without waiting for training to finish",
+        "State machine enforces QUEUED -> RUNNING -> COMPLETED or QUEUED -> RUNNING -> FAILED (per PRD §9)",
+        "Lightweight worker in app/workers/ picks up queued jobs, transitions status, and can run independently of the FastAPI process (per PRD §10)",
+        "pytest passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add mock training runner",
+      "description": "As a developer without VM/GPU access, I need training runs to complete end-to-end using a mock runner that produces a fake artifact.",
+      "acceptanceCriteria": [
+        "Mock runner takes a QUEUED TrainingRun through RUNNING to COMPLETED and writes a fake/test artifact reference, without requiring Unsloth or a GPU (per PRD §20)",
+        "Mock runner is swappable for the real Unsloth runner later without changing the API contract",
+        "pytest passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add training run API endpoints",
+      "description": "As a frontend, I need to create training runs and poll their status.",
+      "acceptanceCriteria": [
+        "POST /training-runs and GET /training-runs/{training_run_id} implemented per openapi.yaml",
+        "POST /training-runs returns immediately with QUEUED status, does not block on training completion",
+        "API tests cover request validation, response schema, error response, and lifecycle transitions",
+        "pytest passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add Model & ModelVersion models + migration",
+      "description": "As a backend, I need a persisted model registry with lineage fields, matching docs/registry/model-artifact-versioning-lineage.md exactly.",
+      "acceptanceCriteria": [
+        "SQLAlchemy models Model and ModelVersion added with lineage fields per docs/registry/model-artifact-versioning-lineage.md: model_id, version, status, training_run_id (required), dataset_id, dataset_version, base_model (top-level, not nested in training_config), training_config, artifacts, created_at, promotion_decision_ref",
+        "Do NOT add an evaluation_id field - it is not defined in docs/registry/model-artifact-versioning-lineage.md or docs/api/openapi.yaml; evaluation is embedded directly on the model version record instead",
+        "alembic revision --autogenerate + alembic upgrade head apply cleanly",
+        "pytest passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Add model registry service + artifact storage abstraction",
+      "description": "As a backend, I need a service that registers a model artifact produced by a completed training run, plus a storage abstraction so the artifact location isn't hardcoded to local disk.",
+      "acceptanceCriteria": [
+        "Service in app/services/model_service.py registers a ModelVersion from a COMPLETED TrainingRun with full lineage per docs/registry/model-artifact-versioning-lineage.md §7",
+        "Artifact storage abstraction (e.g. a small interface) wraps the local filesystem path used in Phase 0-era prototyping, so it can be swapped later without changing callers",
+        "pytest passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add model registry API endpoints",
+      "description": "As a frontend, I need to list models and fetch a specific model version's lineage.",
+      "acceptanceCriteria": [
+        "GET /models and GET /models/{model_id}/versions/{version} implemented per openapi.yaml",
+        "Response includes full lineage fields (training_run_id, dataset_id, dataset_version, base_model, artifacts, status)",
+        "API tests cover response schema and the 404 error case",
+        "pytest passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add evaluation persistence, service, and API",
+      "description": "As a backend, I need to store evaluation results (eval loss trend, 20-question benchmark, general-domain regression check) against a model version.",
+      "acceptanceCriteria": [
+        "Evaluation fields persisted on the model version record per docs/registry/model-artifact-versioning-lineage.md §5 (not a separate evaluation_id foreign key)",
+        "GET and POST .../evaluation endpoints implemented per openapi.yaml, accepting the three evidence types from PRD §13 without inventing a numeric pass/fail threshold",
+        "API tests cover request validation and response schema",
+        "pytest passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Add PromotionDecision model + migration",
+      "description": "As a backend, I need a persisted PromotionDecision table capturing a frozen evidence snapshot at decision time.",
+      "acceptanceCriteria": [
+        "SQLAlchemy model PromotionDecision added per docs/registry/model-promotion-approval-workflow.md §8: decision_id, model_id, version, decision, decided_by, decided_at, evidence_snapshot (frozen copy, not a live reference), rationale, rollback_of_version",
+        "alembic revision --autogenerate + alembic upgrade head apply cleanly",
+        "pytest passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Add promotion/rejection service, state transitions, and API",
+      "description": "As a human reviewer, I need to promote or reject an EVALUATED model version, recording a rationale and evidence snapshot.",
+      "acceptanceCriteria": [
+        "Service enforces the state machine REGISTERED -> EVALUATED -> PROMOTED|REJECTED -> DEPLOYED -> RETIRED per docs/registry/model-promotion-approval-workflow.md §2",
+        "POST .../decisions endpoint implemented per openapi.yaml; decision is human-controlled only, no automatic promotion based on numeric thresholds",
+        "State transition tests cover valid and invalid transitions",
+        "pytest passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Add rollback endpoint",
+      "description": "As a human reviewer, I need to roll back a deployed model to a previous version using the same decision-record mechanism.",
+      "acceptanceCriteria": [
+        "POST /models/{model_id}/rollback implemented per openapi.yaml, reusing the PromotionDecision record with decision=ROLLBACK and evidence_snapshot=null per docs/registry/model-promotion-approval-workflow.md §9",
+        "API tests cover the rollback request/response and error cases",
+        "pytest passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Add Deployment model + migration",
+      "description": "As a backend, I need a persisted Deployment table kept conceptually separate from the model registry.",
+      "acceptanceCriteria": [
+        "SQLAlchemy model Deployment added per PRD §15: deployment_id, model_id, model_version, environment, status, deployed_at",
+        "Deployment table has no foreign dependency that would merge it with the model registry's own status field",
+        "alembic revision --autogenerate + alembic upgrade head apply cleanly",
+        "pytest passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Add deployment service, API, and mock serving abstraction",
+      "description": "As a frontend, I need to deploy a promoted model version and check what's currently deployed, without the backend assuming a concrete serving stack.",
+      "acceptanceCriteria": [
+        "POST .../deploy and GET /models/{model_id}/deployment implemented per openapi.yaml",
+        "Serving implementation stays mock/TBD - no vLLM/llama.cpp specifics assumed before the VM environment is confirmed (per PRD §15/§26)",
+        "API tests cover request validation, response schema, and error response",
+        "pytest passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add end-to-end integration test across the full lifecycle",
+      "description": "As a project stakeholder, I need proof that the full closed-loop lifecycle works together, not just in isolated domain tests.",
+      "acceptanceCriteria": [
+        "Integration test exercises Dataset -> Validation -> Training Run -> Model Registry -> Evaluation -> Promotion -> Deployment using the mock training runner, per PRD §19/§25",
+        "Test asserts IDs stay consistent and lineage is complete end-to-end (dataset_id/version -> training_run_id -> model_id/version -> evaluation -> promotion_decision_ref -> deployment_id)",
+        "docker compose up brings up the backend and the integration test suite runs against it (or an equivalent local run) without requiring a GPU",
+        "pytest passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

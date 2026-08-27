@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.dataset import Dataset, DatasetVersion as DatasetVersionModel
 from app.schemas.dataset import (
     DatasetManifest,
+    DatasetSummary,
     DatasetVersion as DatasetVersionSchema,
     DatasetVersionCreateRequest,
 )
@@ -67,6 +68,25 @@ def get_dataset_version(db: Session, dataset_id: str, version: int) -> DatasetVe
             DatasetVersionModel.version == version,
         )
     )
+
+
+def list_datasets(db: Session) -> list[DatasetSummary]:
+    """Every dataset with its latest version + that version's status, for GET /datasets.
+
+    No single ORM entity maps to this composed view, so it returns the response
+    schema directly instead of an ORM instance (unlike the other functions here).
+    """
+
+    datasets = db.scalars(select(Dataset).order_by(Dataset.dataset_id))
+    return [
+        DatasetSummary(
+            dataset_id=dataset.dataset_id,
+            latest_version=dataset.versions[-1].version,
+            status=dataset.versions[-1].status,
+        )
+        for dataset in datasets
+        if dataset.versions
+    ]
 
 
 def list_dataset_versions(db: Session, dataset_id: str) -> list[DatasetVersionModel]:

@@ -25,8 +25,25 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   a structural mismatch.
 - Service functions take ORM/domain identifiers (e.g. `dataset_id: str`) and
   return ORM model instances, not schemas — schema conversion is a separate,
-  explicit step (`to_schema`), kept out of the API layer's concern for now
-  since API endpoints aren't implemented yet in the dataset domain.
+  explicit step (`to_schema`), kept out of the API layer's concern. Exception:
+  composed/aggregate views with no matching ORM entity (e.g. `list_datasets`
+  for `GET /datasets`) return the response schema directly from the service.
+- Standard error envelope (PRD §18, openapi.yaml `Error` schema) is
+  `{"error": {"code": ..., "message": ...}}` — NOT FastAPI's default
+  `{"detail": ...}`. Pattern: raise `app.api.errors.APIError(status_code,
+  code, message)` from any endpoint; a global `HTTPException` handler in
+  `app/main.py` serializes its `detail` dict as-is instead of wrapping it
+  again. Reuse `APIError` for every future domain's error responses instead
+  of raising bare `HTTPException`.
+- API-level tests (hitting routes via `TestClient`, not calling service
+  functions directly) need a `create_engine("sqlite://", ...,
+  poolclass=StaticPool)` + `app.dependency_overrides[get_db]` fixture —
+  plain `"sqlite://"` without `StaticPool` gives each new connection a
+  *separate* empty in-memory DB, so `Base.metadata.create_all` runs against
+  a table the request handler's own connection can't see ("no such table").
+  The `db_session` fixture in `conftest.py` (single `Session` object, no
+  pooling concern) is fine for service-layer tests but insufficient for
+  this pattern.
 
 ## [2026-08-27] - US-001
 - Implemented Dataset and DatasetVersion SQLAlchemy models per PRD §6/§7 and
@@ -63,5 +80,26 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   tests/test_dataset_service.py (new).
 - **Learnings for future iterations:**
   - See Codebase Patterns above (db_session fixture, flat-vs-nested mapping).
+  - No models changed this story, so no Alembic migration was needed/run.
+---
+
+## [2026-08-27] - US-003
+- Implemented the 4 dataset API endpoints per openapi.yaml: `GET /datasets`
+  (new `dataset_service.list_datasets` aggregation), `POST
+  /datasets/{dataset_id}/versions`, `GET /datasets/{dataset_id}/versions`,
+  `GET /datasets/{dataset_id}/versions/{version}`. The two `GET .../versions*`
+  routes 404 with the PRD §18 error envelope (`DATASET_NOT_FOUND`) when the
+  dataset doesn't exist.
+- Added `app/schemas/common.py` (`ErrorResponse`/`ErrorDetail`, matches
+  openapi.yaml's `Error` schema) and `app/api/errors.py` (`APIError`, an
+  `HTTPException` subclass that pre-builds the envelope-shaped `detail`), plus
+  a global `HTTPException` handler in `app/main.py` that serializes that
+  `detail` as-is instead of FastAPI's default `{"detail": ...}` wrapper.
+- Files changed: app/api/datasets.py (new), app/api/errors.py (new),
+  app/schemas/common.py (new), app/main.py, app/services/dataset_service.py
+  (added `list_datasets`), tests/test_dataset_api.py (new).
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (error envelope / `APIError` pattern,
+    `StaticPool` for API-level SQLite tests, composed-view service returns).
   - No models changed this story, so no Alembic migration was needed/run.
 ---

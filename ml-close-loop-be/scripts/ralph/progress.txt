@@ -14,6 +14,19 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
 - Domain models live in one file per entity under `app/models/`, exported
   from `app/models/__init__.py` (which `alembic/env.py` imports) so Alembic
   autogenerate picks them up. Follow this per new entity.
+- `tests/conftest.py` provides a `db_session` fixture: in-memory SQLite engine
+  (`create_engine("sqlite://")`), tables created from `Base.metadata`, one
+  fresh DB per test. Use this for all service-layer tests instead of hitting
+  `data/app.db`.
+- ORM models are flat (columns match the manifest fields 1:1); API response
+  schemas (e.g. `DatasetVersion`) nest a sub-object (`manifest`). Services own
+  the flat<->nested mapping via a `to_schema()` helper in the service module —
+  don't try to make Pydantic's `from_attributes` do this automatically across
+  a structural mismatch.
+- Service functions take ORM/domain identifiers (e.g. `dataset_id: str`) and
+  return ORM model instances, not schemas — schema conversion is a separate,
+  explicit step (`to_schema`), kept out of the API layer's concern for now
+  since API endpoints aren't implemented yet in the dataset domain.
 
 ## [2026-08-27] - US-001
 - Implemented Dataset and DatasetVersion SQLAlchemy models per PRD §6/§7 and
@@ -29,4 +42,26 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   - `dataset_version` is INTEGER per PRD §7 and openapi.yaml's resolved
     deviation — validation-rules.md still says string, ignore that per
     US-002's acceptance criteria.
+---
+
+## [2026-08-27] - US-002
+- Added Pydantic schemas (`DatasetManifest`, `DatasetVersionCreateRequest`,
+  `DatasetVersion`, `DatasetSummary`) matching openapi.yaml, and a service
+  layer (`register_dataset`, `create_dataset_version`, `get_dataset_version`,
+  `list_dataset_versions`, `to_schema`) in `app/services/dataset_service.py`.
+- `create_dataset_version` auto-registers the Dataset row, computes the next
+  integer version per dataset_id (max existing + 1), and sets status
+  `PROCESSING` on creation — matching openapi.yaml's documented POST
+  response. There is no intake/normalization pipeline or worker in this
+  PRD's story list for the dataset domain, so nothing ever transitions a
+  version past `PROCESSING` yet; `row_count`/`seed`/`cleaning_steps_applied`
+  stay null/empty until a future story (if any) adds that pipeline. This is
+  a deliberate scope choice, not a gap in this story — the acceptance
+  criteria only ask for register/create/get/list functions.
+- Files changed: app/schemas/dataset.py (new), app/services/dataset_service.py
+  (new), tests/conftest.py (new, `db_session` fixture),
+  tests/test_dataset_service.py (new).
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (db_session fixture, flat-vs-nested mapping).
+  - No models changed this story, so no Alembic migration was needed/run.
 ---

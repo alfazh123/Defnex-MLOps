@@ -95,8 +95,12 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
   fi
   
-  # Check for completion signal
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  # Check for completion signal. Require BOTH the promise tag AND all stories
+  # actually passing in prd.json - the agent's own prose can mention the tag
+  # literal while explicitly explaining it did NOT emit it as a real signal,
+  # which a plain grep on raw output can't distinguish from the real thing.
+  REMAINING=$(jq '[.userStories[] | select(.passes != true)] | length' "$PRD_FILE" 2>/dev/null || echo "1")
+  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>" && [ "$REMAINING" = "0" ]; then
     echo ""
     echo "Ralph completed all tasks!"
     echo "Completed at iteration $i of $MAX_ITERATIONS"

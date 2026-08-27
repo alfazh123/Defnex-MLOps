@@ -1,0 +1,34 @@
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_8e2440a8a4c827::t_37739cf1512bef 282-325
+ml-close-loop-be/scripts/ralph/prd.json
+  s_8e2440a8a4c827::t_3646376158ed47 113
+ml-close-loop-be/app/services/training_service.py
+  s_8e2440a8a4c827::t_6d58c411cdf3c8 1-73
+ml-close-loop-be/app/workers/training_worker.py
+  s_8e2440a8a4c827::t_49b9e513b8a011 1-56
+ml-close-loop-be/tests/test_training_service.py
+  s_8e2440a8a4c827::t_fcd0dd44191cd4 1-89
+ml-close-loop-be/tests/test_training_worker.py
+  s_8e2440a8a4c827::t_d97e48e65eebf1 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d8b99ebf4307c8914c3cfd5edcf43c99c1ee92b9",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8e2440a8a4c827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6d3afcb1-c11a-430a-a8e4-fa74d6b9a468",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,3 +1,32 @@
 # Ralph Progress Log
 Started: Thu Aug 27 04:16:05 PM WIB 2026
 ---
+
+## Codebase Patterns
+
+- SQLite dev DB (`data/app.db`, gitignored) is stale between iterations — after
+  adding models, `alembic upgrade head` must be run *before*
+  `alembic revision --autogenerate` on a fresh checkout, or autogenerate fails
+  with "Target database is not up to date."
+- `list[str]`-typed columns need an explicit `mapped_column(JSON, ...)` —
+  SQLAlchemy 2.0's `Mapped[list[str]]` has no default type-map entry (unlike
+  `dict`, which maps to JSON automatically), so a bare `mapped_column()` fails.
+- Domain models live in one file per entity under `app/models/`, exported
+  from `app/models/__init__.py` (which `alembic/env.py` imports) so Alembic
+  autogenerate picks them up. Follow this per new entity.
+
+## [2026-08-27] - US-001
+- Implemented Dataset and DatasetVersion SQLAlchemy models per PRD §6/§7 and
+  openapi.yaml's DatasetManifest/DatasetVersion schemas: `Dataset.dataset_id`
+  (PK), `DatasetVersion` with `dataset_id` FK, integer `version`, `status`,
+  and manifest fields (source_url_or_hf_id, source_commit_or_snapshot_date,
+  source_format, seed, row_count, cleaning_steps_applied, created_at,
+  created_by), unique on (dataset_id, version).
+- Files changed: app/models/dataset.py (new), app/models/__init__.py,
+  alembic/versions/b6079426a4fc_us_001_add_dataset_and_dataset_version_.py (new)
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (JSON columns, migration ordering).
+  - `dataset_version` is INTEGER per PRD §7 and openapi.yaml's resolved
+    deviation — validation-rules.md still says string, ignore that per
+    US-002's acceptance criteria.
+---

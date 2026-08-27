@@ -132,3 +132,61 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     Dataset's manifest fields, no explicit `mapped_column(JSON, ...)`
     needed for `dict` (only `list[str]` needs it, see Codebase Patterns).
 ---
+
+## [2026-08-27] - US-005
+- Added `app/services/validation_service.py`: `validate_dataset_version(db, dataset_version,
+  records, eval_records=None, rule_set_version="2.2.0")` runs validation-rules.md's hard-error
+  rule set (H1-H9: required fields, valid roles, non-empty content, min length, empty-enumeration
+  artifact, boilerplate markers, exact-duplicate detection, train/eval leakage, control-character
+  encoding) against an in-memory `records: list[dict]` (canonical ChatML schema per
+  dataset-lifecycle-and-schema.md §4) and persists a `ValidationReport` row. Also added
+  `list_validation_reports`, `get_latest_validation_report`, `to_schema` (mirrors the dataset
+  domain's flat-ORM/derived-nested-schema split — `dataset_id`/`dataset_version` are derived from
+  the `dataset_version` relationship, not stored redundantly).
+- **Deliberate scope decisions (not gaps):**
+  - **No filesystem I/O.** Nothing in this PRD's story list ever writes canonical-schema records to
+    `processed/{dataset_id}/{version}/` (Phase 1 explicitly says "Validation belum perlu
+    diimplementasikan penuh pada phase ini" and no intake/normalization story exists — see US-002's
+    prior note). The service therefore takes `records` as an explicit in-memory parameter instead of
+    reading a file path that nothing in this codebase ever creates. Sourcing records for the real
+    `POST .../validate` endpoint (US-006) is deferred to that story.
+  - **Warning rules (W1-W5) and quality-review rules (Q1-Q4) are NOT implemented.** Only H1-H9 (hard
+    errors) plus duplicate/leakage detection are implemented, matching this story's AC list exactly
+    (schema/required-field/role-message/malformed-data/duplicate/leakage). Several W/Q rules (W2
+    "approaches max_seq_length" with no % given, W5 "large proportion" with no threshold, Q2
+    near-duplicate "fuzzy match" with no algorithm, Q4 "largely a restatement" with no algorithm) have
+    no concrete number/algorithm in validation-rules.md — implementing them would mean inventing a
+    threshold, which the project rules and validation-rules.md §9 itself ("recommend the latter
+    [deferring]... rather than guessing thresholds now") both say not to do. `status_counts.NEEDS_REVIEW`
+    and `warnings_summary` therefore stay at `0`/`{}` until a future story adds those rules with
+    real, sourced thresholds.
+  - **Gate decision uses only the one rule the doc actually gives a decision procedure for:**
+    validation-rules.md §6 says leakage (H8) alone forces FAIL "regardless of other rates", and §9.1
+    says the hard-error-rate/NEEDS_REVIEW-size PASS/FAIL thresholds are `[UNKNOWN]`, recommending
+    "start permissive" instead of guessing a number. Implemented as: `gate_decision = "FAIL" if any
+    leakage else "PASS"` — not more punitive than that.
+  - **`max_seq_length` for a future W2 implementation should be 4096, not validation-rules.md's own
+    "2048"** — confirmed by cross-referencing `docs/registry/model-artifact-versioning-lineage.md`
+    line 191 ("`max_seq_length` raised from the 7B/T4 practice's 2048 as a starting point"): 2048 was
+    the old 7B/T4-era value; 4096 is PRD §11's now-confirmed baseline (also used everywhere else:
+    openapi.yaml, mlops-api-contract.md). Not a blocking conflict — just noted here since W2 isn't
+    implemented yet and a future iteration might otherwise copy the stale "2048" verbatim.
+  - **H7 duplicate semantics:** first occurrence of an identical normalized (user, assistant) content
+    pair stays as-is; every later occurrence is marked INVALID with `H7_duplicate`. Not specified
+    verbatim in the doc, but the most natural reading of "no two records share identical... pairs".
+- Files changed: app/services/validation_service.py (new), app/schemas/validation.py (new — was
+  already present untracked from a prior interrupted run, matched openapi.yaml exactly so kept as-is),
+  tests/test_validation_service.py (new, 11 tests covering H1/H2/H3/H4/H6/H7/H8, gate PASS/FAIL,
+  list/get-latest, to_schema).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run.
+  - Before implementing a "runs against a dataset version" service, check whether the underlying data
+    the rules operate on (here: actual JSONL records) is ever actually persisted anywhere in this
+    codebase — it often isn't yet, and the AC only asks for the rule *logic*, not a storage layer that
+    isn't in scope. Design the function to take that data as an explicit parameter rather than
+    guessing a file path or storage convention.
+  - When a source doc gives a rule qualitatively ("approaches", "large proportion", "fuzzy match")
+    with no number/algorithm, that's a strong signal it's out of scope for the current story, not a
+    detail to fill in — cross-check the doc's own "Open questions" section (usually says so
+    explicitly) before spending time on an implementation you'd have to invent thresholds for.
+---

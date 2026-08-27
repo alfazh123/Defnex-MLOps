@@ -190,3 +190,48 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     detail to fill in — cross-check the doc's own "Open questions" section (usually says so
     explicitly) before spending time on an implementation you'd have to invent thresholds for.
 ---
+
+## [2026-08-27] - US-006
+- Added `app/api/validation.py` with the 3 endpoints per openapi.yaml: `POST
+  /datasets/{dataset_id}/versions/{version}/validate` (404 if dataset/version unknown, 409
+  `VALIDATION_INCOMPLETE` if `status != PROCESSED`, else 201 with the report), `GET
+  .../validation-reports` (404 if dataset/version unknown, else array, empty if none run yet), `GET
+  .../validation-reports/latest` (404 `DATASET_NOT_FOUND` if dataset/version unknown, 404
+  `VALIDATION_REPORT_NOT_FOUND` if none run yet). Wired into `app/main.py` alongside the existing
+  routers.
+- **Resolved the "where do `validate`'s records come from" question US-005 deferred to this
+  story:** no story in this PRD's 20-story list ever writes actual JSONL record content anywhere
+  (no intake/normalization pipeline, no `processed/{dataset_id}/{version}/` writer), and
+  openapi.yaml's request body for this endpoint is `additionalProperties: false` with only an
+  optional `rule_set_version` field, so records cannot be supplied by the caller either without
+  changing the frozen request schema (disallowed by project rules). The endpoint therefore calls
+  `validation_service.validate_dataset_version(db, dataset_version, records=[], ...)`, an honest
+  reflection of what data actually exists in this codebase today, not a guessed threshold or
+  business rule. This means real report content (`status_counts`, `dataset_statistics`) is always
+  zero/empty via the API today; the VALID/INVALID/NEEDS_REVIEW rule *logic* itself is already
+  covered by US-005's direct service-level tests. A future story that adds real dataset-content
+  storage (intake pipeline) should replace the `records=[]` call with a real read from that
+  storage - nothing else here needs to change.
+- `dataset_version.status` never actually reaches `PROCESSED` anywhere in this codebase either
+  (`create_dataset_version` always sets `PROCESSING`, per US-002's note, and no story transitions
+  it further), so API tests reach the `201` path by setting `status = "PROCESSED"` directly on the
+  row via a raw `Session` against the test's shared `StaticPool` engine, not through any service
+  call.
+- Error code for the 409 case (`VALIDATION_INCOMPLETE`) was not invented - it's openapi.yaml's own
+  documented example value for the `Error.code` field (paired with the exact message "Dataset
+  version has not completed processing yet."), so reused verbatim rather than picking a new code.
+- Files changed: app/api/validation.py (new), app/main.py, tests/test_validation_api.py (new, 11
+  tests: 404/409/201 for validate, request-validation 422, list empty/populated, latest 404s and
+  most-recent-wins).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run.
+  - When an openapi.yaml endpoint's description implies reading from storage that no story in the
+    PRD actually builds (e.g. "runs against `processed/{dataset_id}/{version}/`" when nothing ever
+    writes that path), check whether the request/response schemas are frozen before assuming you
+    need to invent the storage layer - if the schema can't carry the missing data either, the
+    correct scope decision is usually "operate on what's actually persisted (often empty/None) and
+    document it," not "stop as a blocked conflict." This isn't a doc-vs-doc conflict, just a
+    not-yet-built pipeline; treat it like US-002/US-005's prior scope decisions.
+  - `Error.code` examples given in openapi.yaml's schema definitions (not just per-endpoint
+    `examples:` blocks) are worth grepping for before inventing a new error code string.
+---

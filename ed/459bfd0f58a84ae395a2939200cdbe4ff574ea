@@ -1,0 +1,26 @@
+ml-close-loop-be/scripts/ralph/prd.json
+  s_b3195573875a8c::t_a68638104a0140 17
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_b3195573875a8c::t_36daab85260609 4-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ed459bfd0f58a84ae395a2939200cdbe4ff574ea",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b3195573875a8c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df0a4f8b-7b4f-4bca-a4b8-6862c6882e62",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

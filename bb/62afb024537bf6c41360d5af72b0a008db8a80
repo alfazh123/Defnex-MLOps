@@ -1,0 +1,103 @@
+docs/api/openapi.yaml
+  s_6fe293320be3ed::t_f815417b6c5608 1098
+  s_6fe293320be3ed::t_07c84ae195c5e7 977
+  s_6fe293320be3ed::t_c7b351b6f002c9 1038
+  s_6fe293320be3ed::t_82f32c9f4ee16b 1045
+  s_6fe293320be3ed::t_fb7a8e46a13d8b 1161
+  s_6fe293320be3ed::t_a8b33a0e4dac59 1267
+  s_6fe293320be3ed::t_428fc47314058e 1051
+  s_6fe293320be3ed::t_3c12b0052da1f2 1277
+  s_6fe293320be3ed::t_691bc162a7c321 1323
+  s_6fe293320be3ed::t_b8ac781e00a0e1 210
+  s_6fe293320be3ed::t_56270c4ea74b72 1061
+  s_6fe293320be3ed::t_ce05d8252f8047 838
+  s_6fe293320be3ed::t_0e5dffce534c3d 913
+  s_6fe293320be3ed::t_62fc371939ceb2 869
+  s_6fe293320be3ed::t_e761ba82ef618f 1092
+  s_6fe293320be3ed::t_03e69b7c723d29 1107
+  s_6fe293320be3ed::t_8304f7cfc38f63 909
+  s_6fe293320be3ed::t_515e02d5ee4c74 865
+  s_6fe293320be3ed::t_e1ccfcf0bd3cac 1048
+  s_6fe293320be3ed::t_21f88034824123 311-312
+  s_6fe293320be3ed::t_93baaa9afb3bbd 318
+  s_6fe293320be3ed::t_eba4a4ba6f0f66 892
+  s_6fe293320be3ed::t_1af0d0d003c7e2 905
+  s_6fe293320be3ed::t_4b312e06022d65 1058
+  s_6fe293320be3ed::t_698a71ee6d232a 834
+  s_6fe293320be3ed::t_e7d3e456bfc705 1088
+  s_6fe293320be3ed::t_ba4d9af466f872 924-928
+  s_6fe293320be3ed::t_e9bcfa7bec54de 1065
+  s_6fe293320be3ed::t_73be7b80daabcc 207-209
+  s_6fe293320be3ed::t_d18014e870c9cc 211-213,308-310
+  s_6fe293320be3ed::t_0b8cf56dac9aa0 313-317
+  s_6fe293320be3ed::t_f637977a97f325 319-321,831-833
+  s_6fe293320be3ed::t_404b7c666890e5 835-837
+  s_6fe293320be3ed::t_4603776e4c24d6 839-841,862-864
+  s_6fe293320be3ed::t_93ed6ee6c1819c 866-868
+  s_6fe293320be3ed::t_def12693f4c204 870-872,889-891
+  s_6fe293320be3ed::t_5e9185b72d629a 893-895,902-904
+  s_6fe293320be3ed::t_843cd83b96f631 906-908
+  s_6fe293320be3ed::t_ea8487f63bbd66 910-912
+  s_6fe293320be3ed::t_ae0d0c2431c7c2 914-916,921-923
+  s_6fe293320be3ed::t_a4094b7713f5de 929-931,974-976
+  s_6fe293320be3ed::t_92548c83bd4746 978-980,1035-1037
+  s_6fe293320be3ed::t_c25a56242bc481 1039-1044
+  s_6fe293320be3ed::t_869197c8578545 1046-1047
+  s_6fe293320be3ed::t_4650947619708d 1049-1050
+  s_6fe293320be3ed::t_d6bf15ca7b1150 1052-1057
+  s_6fe293320be3ed::t_0319f5a8fb0af1 1059-1060
+  s_6fe293320be3ed::t_2bb358f1390359 1062-1064
+  s_6fe293320be3ed::t_506321930f86e6 1066-1068,1085-1087
+  s_6fe293320be3ed::t_9a574950195dbe 1089-1091
+  s_6fe293320be3ed::t_caff2217eb2e2c 1093-1097
+  s_6fe293320be3ed::t_dc45389c5a7675 1099-1101,1104-1106
+  s_6fe293320be3ed::t_722440b460d0ae 1108-1110,1158-1160
+  s_6fe293320be3ed::t_d4aba7626000a5 1162-1164,1264-1266
+  s_6fe293320be3ed::t_137832ac39f81c 1268-1270,1274-1276
+  s_6fe293320be3ed::t_b63749a3c4b4de 1278-1280,1320-1322
+  s_6fe293320be3ed::t_6db943d9e80592 1324-1326
+  s_3635ab345fdb0d::t_4a47e2e2851e9c 1-206,214-307,322-830,842-861,873-888,896-901,917-920,932-973,981-1034,1069-1084,1102-1103,1111-1157,1165-1263,1271-1273,1281-1319,1327-1411
+docs/api/mlops-api-contract.md
+  s_3635ab345fdb0d::t_f1bc04b75da2f1 1-622
+docs/architecture/mlops-architecture.md
+  s_3635ab345fdb0d::t_c3ffb0aec47b32 1-295
+docs/dataset/dataset-lifecycle-and-schema.md
+  s_3635ab345fdb0d::t_a0726204d08199 1-328
+docs/dataset/validation-rules.md
+  s_3635ab345fdb0d::t_65446812d8b632 1-291
+docs/prd/mlops-backend-mvp.md
+  s_3635ab345fdb0d::t_356967e7b8ac86 1-1088
+docs/registry/model-artifact-versioning-lineage.md
+  s_3635ab345fdb0d::t_d31036778e3166 1-369
+docs/registry/model-promotion-approval-workflow.md
+  s_3635ab345fdb0d::t_65e3539409709a 1-388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "bb62afb024537bf6c41360d5af72b0a008db8a80",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3635ab345fdb0d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "449f55f2-51fb-4f8c-bc02-71b04273039b",
+        "model": "unknown"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_6fe293320be3ed": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fbdba9f23ffeTtOX6G3SzSxCXo",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

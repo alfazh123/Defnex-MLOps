@@ -1,0 +1,60 @@
+ml-close-loop-be/.dockerignore
+  s_3635ab345fdb0d::t_a4be86ff0f6280 1-7
+ml-close-loop-be/app/db/base.py
+  s_3635ab345fdb0d::t_578b294f2fb11b 1-5
+ml-close-loop-be/docker-compose.yml
+  s_3635ab345fdb0d::t_60f07dfbf2a67d 1-11
+ml-close-loop-be/app/main.py
+  s_3635ab345fdb0d::t_a77952954bc861 1-7
+ml-close-loop-be/pyproject.toml
+  s_3635ab345fdb0d::t_f7b35a6f6c01d1 1-28
+ml-close-loop-be/.gitignore
+  s_3635ab345fdb0d::t_611760b46a157b 1-4,6-7
+  s_3635ab345fdb0d::t_fdbf12d94995f1 5
+ml-close-loop-be/README.md
+  s_3635ab345fdb0d::t_0e40ef4a3c79ad 1-45
+ml-close-loop-be/alembic/README
+  s_3635ab345fdb0d::t_b0d1b36d351fd6 1
+ml-close-loop-be/.env.example
+  s_3635ab345fdb0d::t_b993d4be87c879 1
+ml-close-loop-be/tests/test_health.py
+  s_3635ab345fdb0d::t_b4093e32b4f9ac 1-11
+ml-close-loop-be/app/db/session.py
+  s_3635ab345fdb0d::t_e82a7ae3291136 1-17
+ml-close-loop-be/alembic.ini
+  s_3635ab345fdb0d::t_b0d1b36d351fd6 1-149
+ml-close-loop-be/app/api/health.py
+  s_3635ab345fdb0d::t_37c9d1c0553ce5 1-8
+ml-close-loop-be/alembic/versions/895882637307_initial_no_domain_models_yet.py
+  s_3635ab345fdb0d::t_22d5e17b53bc23 1-32
+ml-close-loop-be/alembic/script.py.mako
+  s_3635ab345fdb0d::t_b0d1b36d351fd6 1-28
+ml-close-loop-be/alembic/env.py
+  s_3635ab345fdb0d::t_b0d1b36d351fd6 1-7,12-14,16-21,23-79
+  s_3635ab345fdb0d::t_b4067f8ea48abf 8-11,15,22
+ml-close-loop-be/app/config.py
+  s_3635ab345fdb0d::t_57411d57720940 1-10
+ml-close-loop-be/Dockerfile
+  s_3635ab345fdb0d::t_b1c0c82ff72bce 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "da343bf14d23cc13aac5f36b73a6cbc8ed792cef",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3635ab345fdb0d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "449f55f2-51fb-4f8c-bc02-71b04273039b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,1411 @@
+openapi: 3.1.0
+info:
+  title: MLOps Closed Loop API — Phase A Prototype
+  version: 0.1.0
+  summary: Formal OpenAPI 3.1 rendering of docs/api/mlops-api-contract.md (MVP endpoints only).
+  description: |
+    Backend API contract for the MLOps Closed Loop prototype: dataset intake → validation → split →
+    training → model registry → evaluation → promotion/rejection → deployment.
+
+    Source of truth (this file must not silently diverge from these without a flagged reason — see the
+    "Known deviations" section below):
+    - `docs/architecture/mlops-architecture.md` (WBS 1.1 — architecture & component boundaries)
+    - `docs/dataset/dataset-lifecycle-and-schema.md` (WBS 2.1 — dataset lifecycle & canonical schema)
+    - `docs/dataset/validation-rules.md` (WBS 2.2 — validation rules & quality gate)
+    - `docs/registry/model-artifact-versioning-lineage.md` (WBS 3.2 — model registry & lineage)
+    - `docs/registry/model-promotion-approval-workflow.md` (WBS 3.3 — promotion/approval workflow)
+    - `docs/api/mlops-api-contract.md` (cross-cutting — the prose API contract this file formalizes)
+
+    **This is the MVP subset only.** `docs/api/mlops-api-contract.md` §2 also documents optional/future
+    endpoints (benchmark-set registration, training-run listing, lineage composition, decision-history
+    listing, feedback intake) that are intentionally **not** included here, to keep this Phase A contract
+    minimal. Add them to this file only once actually needed.
+
+    **Hard scope boundaries carried from the source documents — an implementation of this contract must not
+    silently violate these:**
+    - Frontend talks **only** to this API — never to Unsloth Core, the training runner, or dataset/artifact
+      storage directly (`mlops-architecture.md` §1.2/§1.4).
+    - Model Registry state (`/models/{model_id}/versions/{version}`) and Deployment state
+      (`/models/{model_id}/deployment`) are separate resources, even where one action updates both
+      (`model-artifact-versioning-lineage.md` §4).
+    - No numeric promotion or validation thresholds are defined anywhere in this contract — none exist in
+      the project's own notes (`model-promotion-approval-workflow.md` §6; `validation-rules.md` §6).
+      Threshold-shaped fields are typed but their value-space is intentionally left open.
+    - No Kafka/Airflow/MLflow/Kubernetes. No authentication/authorization system is defined — it is
+      explicitly **TBD** and out of scope for this Phase A prototype (see fields like `decided_by`,
+      `created_by`, `triggered_by`: plain free-text strings, not tied to any identity system).
+    - Promotion (`POST .../decisions`) and rollback (`POST .../rollback`) must remain human-triggered only
+      — no numeric threshold exists to automate them against
+      (`model-promotion-approval-workflow.md` §10 Decision 1).
+
+    **Known deviations from `docs/api/mlops-api-contract.md` (resolved here, not silently — see the final
+    task report for the full list):**
+    1. `dataset_version` is typed as **integer** everywhere in this file. `validation-rules.md` §5/§7 types
+       it as a string (`"v1"`); `model-artifact-versioning-lineage.md` §6/§8 types it as an integer (`1`).
+       Per explicit instruction, this file standardizes on integer. `validation-rules.md` itself is
+       **unchanged** and still shows the string form — that document was not in scope to edit for this task.
+    2. `training_run_id` is now a **required, persisted** field on the model registry record
+       (`ModelRegistryRecord.training_run_id`), matching an update made to
+       `model-artifact-versioning-lineage.md` §6/§7/§8/§9 as part of this same task. It is no longer
+       API-assembled only.
+    3. `TrainingConfig.base_model` is a top-level sibling of `training_config` on both
+       `TrainingRunCreateRequest` and `ModelRegistryRecord` (matching `model-artifact-versioning-lineage.md`
+       §6's own sample, which never nests `base_model` inside `training_config`) — **not** nested inside
+       `training_config` as `mlops-api-contract.md` §3.4's own request example showed. That example
+       contradicted WBS 3.2's own established structure; this file follows WBS 3.2.
+    4. `EvalLossTrend`, `QualitativeComparison`, and `GeneralDomainRegressionCheck` are given concrete typed
+       shapes here, taken directly from `model-artifact-versioning-lineage.md` §5's prose and §6's sample
+       record. WBS 3.2 §8's own JSON Schema left these as bare `{"type": "object"}` — this file formalizes
+       the shape those examples already consistently show, adding no new fields.
+  contact:
+    name: MLOps Closed Loop project — internal Phase A prototype (not a public API)
+tags:
+  - name: Datasets
+    description: Dataset intake, manifests, and versioning (WBS 2.1).
+  - name: Validation
+    description: Dataset quality gate — validation reports and the train/eval holdout split (WBS 2.2, WBS 2.1 §3).
+  - name: Training
+    description: >-
+      Training run creation and status. This entity is [NEW]: no source WBS document schematizes "a training
+      run in progress" — mlops-architecture.md §1.2 only names "training job records" as backend-owned state,
+      and WBS 3.2's registry lineage begins at REGISTERED (i.e. after a run already completed).
+  - name: Models
+    description: Model artifact registry — versioning, lineage, and lifecycle status (WBS 3.2).
+  - name: Evaluation
+    description: The three-signal evaluation payload stored on a model version (WBS 3.2 §5).
+  - name: Decisions
+    description: Promotion and rejection decisions (WBS 3.3). Human-triggered only — see info.description.
+  - name: Deployment
+    description: Deployment pointer state and rollback — deliberately separate from model registry state (WBS 3.2 §4, WBS 3.3 §9).
+
+paths:
+  /datasets:
+    get:
+      operationId: listDatasets
+      tags: [Datasets]
+      summary: List known datasets
+      description: Lists every `dataset_id` known to the registry, each with its latest version number and that version's processing status.
+      responses:
+        '200':
+          description: List of dataset summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetSummary'
+              example:
+                - dataset_id: no_robots
+                  latest_version: 1
+                  status: PROCESSED
+                - dataset_id: alpaca_cleaned
+                  latest_version: 1
+                  status: PROCESSING
+
+  /datasets/{dataset_id}/versions:
+    post:
+      operationId: createDatasetVersion
+      tags: [Datasets]
+      summary: Intake a new dataset version
+      description: |
+        Creates a new dataset version by running WBS 2.1 §1's intake pipeline (source → intake →
+        normalization → canonical ChatML `messages` → `processed/`) as one backend-orchestrated job.
+        Returns immediately with `status: PROCESSING`; poll `GET /datasets/{dataset_id}/versions/{version}`
+        for completion.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetVersionCreateRequest'
+            example:
+              source_type: huggingface
+              source_dataset: HuggingFaceH4/no_robots
+              source_commit_or_snapshot_date: '2026-08-01'
+              source_format: chatml
+      responses:
+        '201':
+          description: Dataset version created; intake/normalization/cleaning started asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetVersion'
+              example:
+                dataset_id: no_robots
+                version: 1
+                status: PROCESSING
+                manifest:
+                  source_url_or_hf_id: HuggingFaceH4/no_robots
+                  source_commit_or_snapshot_date: '2026-08-01'
+                  source_format: chatml
+                  seed: null
+                  row_count: null
+                  cleaning_steps_applied: []
+                  created_at: '2026-08-27T10:00:00Z'
+                  created_by: 'UNKNOWN — fill from actual user/session identity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      operationId: listDatasetVersions
+      tags: [Datasets]
+      summary: List versions of a dataset
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+      responses:
+        '200':
+          description: All versions of this dataset, most recent first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetVersion'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /datasets/{dataset_id}/versions/{version}:
+    get:
+      operationId: getDatasetVersion
+      tags: [Datasets]
+      summary: Get one dataset version's manifest and status
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+        - $ref: '#/components/parameters/DatasetVersionParam'
+      responses:
+        '200':
+          description: Dataset version manifest + status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetVersion'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /datasets/{dataset_id}/versions/{version}/validate:
+    post:
+      operationId: validateDatasetVersion
+      tags: [Validation]
+      summary: Run the WBS 2.2 validation rule set against a processed dataset version
+      description: |
+        Runs the full hard-error (H1-H9) / warning (W1-W5) / quality-review (Q1-Q4) rule set
+        (`validation-rules.md` §1) against `processed/{dataset_id}/{version}/` and writes a report. Runs
+        **synchronously** for Phase A scale — see `mlops-api-contract.md` §3.2. Requires `dataset_id`/`version`
+        to already be `PROCESSED`.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+        - $ref: '#/components/parameters/DatasetVersionParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                rule_set_version:
+                  type: string
+                  description: Pin a specific validation rule-set version instead of the current default.
+                  examples: [2.2.0]
+      responses:
+        '201':
+          description: Validation run completed; report written.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Dataset version is not yet `PROCESSED` — nothing to validate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /datasets/{dataset_id}/versions/{version}/validation-reports:
+    get:
+      operationId: listValidationReports
+      tags: [Validation]
+      summary: List all validation report runs for a dataset version
+      description: A report's identity is `{dataset_id}/{version}` + `run_at` (`dataset-lifecycle-and-schema.md` §2) — there is no separate report version counter, so re-running validation produces additional entries here.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+        - $ref: '#/components/parameters/DatasetVersionParam'
+      responses:
+        '200':
+          description: All validation reports for this dataset version, most recent first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationReport'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /datasets/{dataset_id}/versions/{version}/validation-reports/latest:
+    get:
+      operationId: getLatestValidationReport
+      tags: [Validation]
+      summary: Get the most recent validation report for a dataset version
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+        - $ref: '#/components/parameters/DatasetVersionParam'
+      responses:
+        '200':
+          description: The most recent validation report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+              example:
+                dataset_id: no_robots
+                dataset_version: 1
+                rule_set_version: 2.2.0
+                run_at: '2026-08-27T10:15:00Z'
+                record_count: 500
+                status_counts: {VALID: 468, INVALID: 21, NEEDS_REVIEW: 11}
+                warnings_summary: {W1_rhetorical_question: 4, W4_citation_pattern_present: 32}
+                dataset_statistics:
+                  row_counts_by_stage: {raw: 500, after_empty_filter: 497, after_length_filter: 481, final: 468}
+                  length_distribution_words: {min: 8, median: 61, mean: 74.2, max: 512}
+                  duplicate_count: 3
+                  near_duplicate_count: 5
+                  leakage_check: {checked_against: ['eval/holdout/1', 'eval/benchmark/1'], overlaps_found: 0}
+                gate_decision: PASS
+                gate_reason: No hard-error rate breach; no leakage found; NEEDS_REVIEW queue within threshold.
+        '404':
+          description: No validation report has been run yet for this dataset version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /datasets/{dataset_id}/versions/{version}/split:
+    post:
+      operationId: splitDatasetVersion
+      tags: [Validation]
+      summary: Trigger the automatic train/eval holdout split
+      description: |
+        Triggers WBS 2.1 §3's automatic, fixed-seed holdout split, writing `train/` and `eval/holdout/`.
+        Precondition: the latest validation report's `gate_decision` must be `PASS`
+        (`validation-rules.md` §6 flow) — this enforces the existing WBS 2.2 gate, it does not add a new rule.
+        The hand-curated `eval/benchmark/` set (WBS 2.1 §3) is registered separately and is out of scope for
+        this endpoint (see `mlops-api-contract.md` §3.3 — that endpoint is optional and not part of this MVP
+        OpenAPI file).
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+        - $ref: '#/components/parameters/DatasetVersionParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                holdout_ratio:
+                  type: number
+                  exclusiveMinimum: 0
+                  exclusiveMaximum: 1
+                  default: 0.05
+                  description: >-
+                    Fraction of processed/ held out for eval/holdout/. WBS 2.1 §3 explicitly calls 0.05 (95/5)
+                    "a default candidate only, not a hard requirement" — this is not an invented threshold,
+                    it is the documented default from actual practice at ~2,000-row scale.
+                  examples: [0.05]
+      responses:
+        '201':
+          description: Split completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitResult'
+              example:
+                dataset_id: no_robots
+                version: 1
+                train_row_count: 445
+                eval_holdout_row_count: 23
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Latest validation report is `FAIL` or none exists yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /training-runs:
+    post:
+      operationId: createTrainingRun
+      tags: [Training]
+      summary: Create a training run
+      description: |
+        Creates a training run consuming a split, validated dataset version and a training configuration.
+        This is the pipeline stage none of the five source WBS documents schematize
+        (`mlops-api-contract.md` §9.2) — the schema here is [NEW].
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingRunCreateRequest'
+            example:
+              dataset_id: no_robots
+              dataset_version: 1
+              model_id: qwen-sft-domain-x
+              base_model: Qwen/Qwen3.8-27B
+              training_config:
+                peft_method: dora
+                load_in_4bit: false
+                lora_r: 16
+                lora_alpha: 16
+                learning_rate: null
+                epochs: 2
+                max_seq_length: 4096
+              triggered_by: 'UNKNOWN — fill from actual user/session identity'
+      responses:
+        '201':
+          description: Training run created and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingRun'
+              example:
+                training_run_id: run-8f2a1c
+                status: PENDING
+                dataset_id: no_robots
+                dataset_version: 1
+                model_id: qwen-sft-domain-x
+                base_model: Qwen/Qwen3.8-27B
+                training_config:
+                  peft_method: dora
+                  load_in_4bit: false
+                  lora_r: 16
+                  lora_alpha: 16
+                  learning_rate: null
+                  epochs: 2
+                  max_seq_length: 4096
+                triggered_by: 'UNKNOWN — fill from actual user/session identity'
+                created_at: '2026-08-27T10:30:00Z'
+                current_epoch: null
+                current_step: null
+                train_loss: null
+                eval_loss: null
+                model_version: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: The referenced dataset version has not completed `split`, or `model_id` cannot be resolved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /training-runs/{training_run_id}:
+    get:
+      operationId: getTrainingRun
+      tags: [Training]
+      summary: Get a training run's status/progress
+      description: >-
+        Per mlops-architecture.md §2's feasibility table, the training process itself reports status/metrics
+        to the backend. `model_version` is populated once the backend's internal WBS 3.2 Register call
+        succeeds on `COMPLETED` — this is the only place this contract links a `training_run_id` forward to
+        the model version it produced (the reverse link is now also persisted — see
+        `ModelRegistryRecord.training_run_id`).
+      parameters:
+        - $ref: '#/components/parameters/TrainingRunIdParam'
+      responses:
+        '200':
+          description: Current training run record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingRun'
+              example:
+                training_run_id: run-8f2a1c
+                status: COMPLETED
+                dataset_id: no_robots
+                dataset_version: 1
+                model_id: qwen-sft-domain-x
+                base_model: Qwen/Qwen3.8-27B
+                training_config:
+                  peft_method: dora
+                  load_in_4bit: false
+                  lora_r: 16
+                  lora_alpha: 16
+                  learning_rate: null
+                  epochs: 2
+                  max_seq_length: 4096
+                triggered_by: 'UNKNOWN — fill from actual user/session identity'
+                created_at: '2026-08-27T10:30:00Z'
+                current_epoch: 2
+                current_step: 238
+                train_loss: 0.98
+                eval_loss: 0.842
+                model_version: 5
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models:
+    get:
+      operationId: listModels
+      tags: [Models]
+      summary: List models
+      description: Lists every `model_id` known to the registry, each with its latest version and status. Supports filtering by lifecycle status (WBS 3.2 §7's Read/list operation).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter to model versions currently in this lifecycle status.
+          schema:
+            $ref: '#/components/schemas/ModelLifecycleStatus'
+      responses:
+        '200':
+          description: List of model summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelSummary'
+              example:
+                - model_id: qwen-sft-domain-x
+                  latest_version: 5
+                  status: EVALUATED
+
+  /models/{model_id}/versions/{version}:
+    get:
+      operationId: getModelVersion
+      tags: [Models]
+      summary: Get a model registry record
+      description: Full WBS 3.2 §8 schema — see `ModelRegistryRecord`. This is the Read/list operation from WBS 3.2 §7, scoped to a single version.
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+        - $ref: '#/components/parameters/ModelVersionParam'
+      responses:
+        '200':
+          description: Model registry record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelRegistryRecord'
+              example:
+                model_id: qwen-sft-domain-x
+                version: 5
+                status: EVALUATED
+                training_run_id: run-8f2a1c
+                base_model: Qwen/Qwen3.8-27B
+                dataset_id: no_robots
+                dataset_version: 1
+                dataset_validation_report_ref: validation/no_robots/1/report.json
+                training_config:
+                  peft_method: dora
+                  load_in_4bit: false
+                  lora_r: 16
+                  lora_alpha: 16
+                  learning_rate: 'UNKNOWN — fill from actual run config'
+                  epochs: 2
+                  max_seq_length: 4096
+                created_at: '2026-08-27T10:15:00Z'
+                created_by: 'UNKNOWN — fill from actual run'
+                evaluation:
+                  eval_loss_trend: {previous_version_eval_loss: 0.91, this_version_eval_loss: 0.842}
+                  qualitative_comparison: {question_table_version: 1, wins: 13, losses: 5, ties: 2, total: 20}
+                  general_domain_regression_check: {checked: true, regressions_found: []}
+                artifacts:
+                  - type: adapter
+                    uri: 'UNKNOWN — persistent storage location not yet decided'
+                    size_bytes: 104857600
+                promotion_decision_ref: null
+                previous_model_id: null
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models/{model_id}/versions/{version}/evaluation:
+    post:
+      operationId: submitEvaluation
+      tags: [Evaluation]
+      summary: Submit or update the three-signal evaluation payload
+      description: |
+        Accepts a full or **partial** evaluation payload (WBS 3.2 §5 fields) and merges it onto the record.
+        Caller identity is intentionally mixed per `model-promotion-approval-workflow.md` §7:
+        `eval_loss_trend` may be system-submitted by the training runner at completion; `qualitative_comparison`
+        and `general_domain_regression_check` require a human eval pass. Once all three fields are present,
+        the backend auto-transitions the version `REGISTERED → EVALUATED`
+        (`model-promotion-approval-workflow.md` §2's exact condition) — no separate "mark evaluated" call
+        exists.
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+        - $ref: '#/components/parameters/ModelVersionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationUpdateRequest'
+            example:
+              eval_loss_trend: {previous_version_eval_loss: 0.91, this_version_eval_loss: 0.842}
+      responses:
+        '200':
+          description: Updated evaluation object and current lifecycle status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evaluation, status]
+                properties:
+                  evaluation:
+                    $ref: '#/components/schemas/EvaluationObject'
+                  status:
+                    $ref: '#/components/schemas/ModelLifecycleStatus'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Version is not currently `REGISTERED` or `EVALUATED` (e.g. already `PROMOTED`) — evaluation data is not editable after a decision has been made against it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: getEvaluation
+      tags: [Evaluation]
+      summary: Get the current evaluation object for a model version
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+        - $ref: '#/components/parameters/ModelVersionParam'
+      responses:
+        '200':
+          description: Current evaluation object (fields may be null if not yet submitted).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationObject'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models/{model_id}/versions/{version}/decisions:
+    post:
+      operationId: createDecision
+      tags: [Decisions]
+      summary: Record a promotion or rejection decision
+      description: |
+        WBS 3.3 §8 decision record. **Human-triggered only** — no numeric threshold exists to automate this
+        against (`model-promotion-approval-workflow.md` §10 Decision 1); the backend must not expose any
+        service-account/system-caller path to this endpoint. `evidence_snapshot` is populated by the backend
+        from the version's current evaluation object at decision time (not supplied by the caller), so it
+        cannot be tampered with or omitted — see WBS 3.3 §8 Decision 4. The task brief's "APPROVED" state is
+        `PROMOTED` here, per `model-promotion-approval-workflow.md` §10 Decision 3 — not a separate value.
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+        - $ref: '#/components/parameters/ModelVersionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionCreateRequest'
+            example:
+              decision: PROMOTED
+              decided_by: 'UNKNOWN — fill from actual decision-maker identity/role'
+              rationale: >-
+                All three signals aligned: eval_loss down, majority win on 20-question table, no
+                general-domain regression found in this pass.
+      responses:
+        '201':
+          description: Decision recorded; version status updated to `PROMOTED` or `REJECTED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+              example:
+                decision_id: promo-qwen-sft-domain-x-v5-001
+                model_id: qwen-sft-domain-x
+                version: 5
+                decision: PROMOTED
+                decided_by: 'UNKNOWN — fill from actual decision-maker identity/role'
+                decided_at: '2026-08-27T11:00:00Z'
+                evidence_snapshot:
+                  eval_loss_trend: {previous_version_eval_loss: 0.91, this_version_eval_loss: 0.842}
+                  qualitative_comparison: {question_table_version: 1, wins: 13, losses: 5, ties: 2, total: 20}
+                  general_domain_regression_check: {checked: true, regressions_found: []}
+                rationale: >-
+                  All three signals aligned: eval_loss down, majority win on 20-question table, no
+                  general-domain regression found in this pass.
+                rollback_of_version: null
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Version is not `EVALUATED`, or a decision already exists for this version (WBS 3.3 §2 — no transition out of `REJECTED`; a `PROMOTED` version is not re-decided, a fix is a new version).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /models/{model_id}/versions/{version}/deploy:
+    post:
+      operationId: deployModelVersion
+      tags: [Deployment]
+      summary: Deploy a promoted model version
+      description: |
+        WBS 3.3 §3's release gate (`PROMOTED → DEPLOYED`). The previously-deployed version, if any, is marked
+        `RETIRED` as a side effect in the same call (supersession path, WBS 3.3 §4). What actually happens
+        inside this call (starting a vLLM/llama-server process, updating config, etc.) is **TBD** — the
+        deployment/serving stack is not locked (`mlops-architecture.md` §3 Decision 3); only this endpoint's
+        contract shape is defined here.
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+        - $ref: '#/components/parameters/ModelVersionParam'
+      responses:
+        '200':
+          description: Deployment updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResult'
+              example:
+                model_id: qwen-sft-domain-x
+                current_deployed_version: 5
+                previous_deployed_version: 4
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Version is not `PROMOTED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /models/{model_id}/deployment:
+    get:
+      operationId: getDeploymentStatus
+      tags: [Deployment]
+      summary: Get the current deployment pointer for a model
+      description: >-
+        Deliberately its own resource, separate from a model version's registry record, per the explicit
+        "keep Model Registry and Deployment state conceptually separate" constraint and
+        `model-artifact-versioning-lineage.md` §4's framing of `current_deployed_version` as registry-level,
+        not per-record.
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+      responses:
+        '200':
+          description: Current deployment pointer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentStatus'
+              example:
+                model_id: qwen-sft-domain-x
+                current_deployed_version: 5
+                deployed_at: '2026-08-27T11:05:00Z'
+                status: DEPLOYED
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /models/{model_id}/rollback:
+    post:
+      operationId: rollbackModel
+      tags: [Deployment]
+      summary: Roll back the deployed version to an earlier promoted version
+      description: |
+        WBS 3.3 §9's rollback action — model-scoped, not version-scoped, since it changes the model-level
+        deployment pointer. Reuses the same decision record shape as promotion/rejection, with
+        `decision: "ROLLBACK"` and `evidence_snapshot: null` (rollback responds to an observed production
+        problem, not new offline evaluation data — the problem must be described in `rationale` instead).
+        **Human-triggered only**, same reasoning as `POST .../decisions` — no monitoring/alerting system
+        exists in the project's notes to trigger this automatically
+        (`model-promotion-approval-workflow.md` §1, §9).
+      parameters:
+        - $ref: '#/components/parameters/ModelIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+            example:
+              rollback_of_version: 5
+              decided_by: 'UNKNOWN — fill from actual decision-maker identity/role'
+              rationale: 'UNKNOWN — must state the observed production problem'
+      responses:
+        '201':
+          description: Rollback recorded; deployment pointer updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+              example:
+                decision_id: rollback-qwen-sft-domain-x-v6-001
+                model_id: qwen-sft-domain-x
+                version: 6
+                decision: ROLLBACK
+                decided_by: 'UNKNOWN — fill from actual decision-maker identity/role'
+                decided_at: '2026-08-27T14:30:00Z'
+                evidence_snapshot: null
+                rationale: 'UNKNOWN — must state the observed production problem'
+                rollback_of_version: 5
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: '`rollback_of_version` is not `PROMOTED` or was not previously `DEPLOYED`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    DatasetIdParam:
+      name: dataset_id
+      in: path
+      required: true
+      description: Dataset slug identifier (e.g. `no_robots`). Not a description of dataset contents.
+      schema:
+        type: string
+      example: no_robots
+    DatasetVersionParam:
+      name: version
+      in: path
+      required: true
+      description: >-
+        Plain incrementing integer, starting at 1 (dataset-lifecycle-and-schema.md §2). Resolved here to
+        **integer** — see info.description "Known deviations" #1 for the cross-document type inconsistency
+        this resolves.
+      schema:
+        type: integer
+        minimum: 1
+      example: 1
+    ModelIdParam:
+      name: model_id
+      in: path
+      required: true
+      description: Model line slug identifier — stable across re-training rounds (model-artifact-versioning-lineage.md §2).
+      schema:
+        type: string
+      example: qwen-sft-domain-x
+    ModelVersionParam:
+      name: version
+      in: path
+      required: true
+      description: Plain incrementing integer per `model_id`, starting at 1 (model-artifact-versioning-lineage.md §2).
+      schema:
+        type: integer
+        minimum: 1
+      example: 5
+    TrainingRunIdParam:
+      name: training_run_id
+      in: path
+      required: true
+      description: Opaque training run identifier, assigned by the backend at creation time.
+      schema:
+        type: string
+      example: run-8f2a1c
+
+  responses:
+    NotFound:
+      description: The referenced `dataset_id`/`version`/`model_id`/`training_run_id` does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Malformed request body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      description: Common error envelope used across this API. [NEW] — no source WBS document defines HTTP error conventions.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              examples: [VALIDATION_INCOMPLETE]
+            message:
+              type: string
+              description: Human-readable explanation.
+              examples: ['Dataset version has not completed processing yet.']
+      examples:
+        - error: {code: NOT_FOUND, message: 'dataset_id "no_robots" version 3 not found'}
+
+    # ---------------------------------------------------------------- Datasets
+
+    DatasetVersionStatus:
+      type: string
+      description: >-
+        [NEW] Dataset intake/processing job status. Not defined in WBS 2.1 (which describes directories, not
+        a job-status enum) — added so the frontend's dataset upload UI (mlops-architecture.md §1.2) has
+        something to poll.
+      enum: [PENDING, PROCESSING, PROCESSED, FAILED]
+
+    DatasetSourceFormat:
+      type: string
+      description: Format of the source data before normalization (dataset-lifecycle-and-schema.md §1).
+      enum: [alpaca, sharegpt, chatml, other]
+
+    DatasetManifest:
+      type: object
+      description: Per-version manifest fields (dataset-lifecycle-and-schema.md §2).
+      required: [source_format, created_at]
+      properties:
+        source_url_or_hf_id:
+          type: [string, 'null']
+          description: Hugging Face repo id or source URL.
+          examples: [HuggingFaceH4/no_robots]
+        source_commit_or_snapshot_date:
+          type: [string, 'null']
+          format: date
+          examples: ['2026-08-01']
+        source_format:
+          $ref: '#/components/schemas/DatasetSourceFormat'
+        seed:
+          type: [integer, 'null']
+          description: Fixed seed used for any random operations on this version (e.g. shuffling before sampling).
+        row_count:
+          type: [integer, 'null']
+          minimum: 0
+          description: Final row count after cleaning. Null until processing completes.
+        cleaning_steps_applied:
+          type: array
+          items:
+            type: string
+          description: Ordered list of cleaning rule names/versions applied (validation-rules.md rule IDs, e.g. `H4`).
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: [string, 'null']
+          description: >-
+            TBD — no identity/auth system is defined for this Phase A prototype (see info.description). Free
+            text placeholder until one exists.
+          examples: ['UNKNOWN — fill from actual user/session identity']
+
+    DatasetVersionCreateRequest:
+      type: object
+      description: Request to intake a new dataset version.
+      required: [source_type]
+      properties:
+        source_type:
+          type: string
+          enum: [huggingface, file_upload]
+          description: >-
+            [NEW] `file_upload` is modeled for future use but is **TBD / not required for MVP** — both Phase
+            A datasets (dataset-lifecycle-and-schema.md §5) are Hugging Face-sourced.
+          examples: [huggingface]
+        source_dataset:
+          type: string
+          description: Required in practice when `source_type` is `huggingface` (a Hugging Face repo id).
+          examples: [HuggingFaceH4/no_robots]
+        source_commit_or_snapshot_date:
+          type: string
+          format: date
+          examples: ['2026-08-01']
+        source_format:
+          $ref: '#/components/schemas/DatasetSourceFormat'
+
+    DatasetVersion:
+      type: object
+      description: A dataset version's manifest and current processing status.
+      required: [dataset_id, version, status, manifest]
+      properties:
+        dataset_id:
+          type: string
+          examples: [no_robots]
+        version:
+          type: integer
+          minimum: 1
+          examples: [1]
+        status:
+          $ref: '#/components/schemas/DatasetVersionStatus'
+        manifest:
+          $ref: '#/components/schemas/DatasetManifest'
+
+    DatasetSummary:
+      type: object
+      description: Lightweight list-view entry for GET /datasets.
+      required: [dataset_id, latest_version, status]
+      properties:
+        dataset_id:
+          type: string
+        latest_version:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/DatasetVersionStatus'
+
+    # ---------------------------------------------------------------- Validation
+
+    ValidationStatusCounts:
+      type: object
+      description: Per-record status counts (validation-rules.md §2, §7).
+      required: [VALID, INVALID, NEEDS_REVIEW]
+      properties:
+        VALID:
+          type: integer
+          minimum: 0
+        INVALID:
+          type: integer
+          minimum: 0
+        NEEDS_REVIEW:
+          type: integer
+          minimum: 0
+
+    ValidationReport:
+      type: object
+      description: Dataset-level validation report (validation-rules.md §5, §7 JSON Schema — verbatim, except `dataset_version` is integer here, see info.description "Known deviations" #1).
+      required: [dataset_id, dataset_version, rule_set_version, run_at, record_count, status_counts, gate_decision, gate_reason]
+      properties:
+        dataset_id:
+          type: string
+        dataset_version:
+          type: integer
+          minimum: 1
+          description: Integer per this file's convention — validation-rules.md's own JSON Schema types this as a string (`"v1"`); see info.description "Known deviations" #1.
+        rule_set_version:
+          type: string
+          examples: [2.2.0]
+        run_at:
+          type: string
+          format: date-time
+        record_count:
+          type: integer
+          minimum: 0
+        status_counts:
+          $ref: '#/components/schemas/ValidationStatusCounts'
+        warnings_summary:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Map of warning rule ID (e.g. `W1_rhetorical_question`) to the number of records that triggered it.
+        dataset_statistics:
+          type: object
+          description: >-
+            Deliberately loosely typed, matching validation-rules.md §7's own generic `{"type": "object"}`.
+            Known example keys (not required, not exhaustive — see validation-rules.md §3, §5):
+            `row_counts_by_stage`, `length_distribution_words`, `duplicate_count`, `near_duplicate_count`,
+            `leakage_check`.
+          additionalProperties: true
+        gate_decision:
+          type: string
+          enum: [PASS, FAIL]
+        gate_reason:
+          type: string
+
+    SplitResult:
+      type: object
+      description: Result of the automatic holdout split (WBS 2.1 §3).
+      required: [dataset_id, version, train_row_count, eval_holdout_row_count]
+      properties:
+        dataset_id:
+          type: string
+        version:
+          type: integer
+        train_row_count:
+          type: integer
+          minimum: 0
+        eval_holdout_row_count:
+          type: integer
+          minimum: 0
+
+    # ---------------------------------------------------------------- Training
+
+    TrainingConfig:
+      type: object
+      description: >-
+        Training configuration knobs. Deliberately loosely typed (`additionalProperties: true`) matching
+        model-artifact-versioning-lineage.md §8's own generic `training_config` object — known properties
+        below are documented from its §6 sample record, not a locked schema. `base_model` is **not** included
+        here; it is a top-level sibling field — see info.description "Known deviations" #3.
+      additionalProperties: true
+      properties:
+        peft_method:
+          type: string
+          description: >-
+            Fine-tuning method identifier. Not a formal enum — no WBS document declares a closed set of
+            allowed values. Known example from the confirmed target-model recipe: `dora`
+            (Riset Metode Fine-Tuning Qwen3.8-27B... §7).
+          examples: [dora]
+        load_in_4bit:
+          type: boolean
+          description: >-
+            Whether the base model is loaded in 4-bit (QLoRA-style). `false` for the confirmed target-model
+            recipe (bf16, no quantization) — the opposite call from the earlier 7B/T4 practice, which
+            mandated `true` for VRAM reasons.
+          examples: [false]
+        lora_r:
+          type: integer
+          examples: [16]
+        lora_alpha:
+          type: integer
+          examples: [16]
+        learning_rate:
+          type: [number, 'string', 'null']
+          description: >-
+            Numeric once a real run exists; the literal placeholder string
+            `"UNKNOWN — fill from actual run config"` appears in source examples before that — both forms
+            are accepted here to match documented practice, not invented.
+          examples: [null]
+        epochs:
+          type: integer
+          examples: [2]
+        max_seq_length:
+          type: integer
+          description: Raised from the 7B/T4 practice's 2048 as a starting point for the confirmed target model, subject to VRAM profiling on the actual VM.
+          examples: [4096]
+
+    TrainingRunStatus:
+      type: string
+      description: '[NEW] Training run lifecycle. Not defined by any source WBS document.'
+      enum: [PENDING, RUNNING, COMPLETED, FAILED]
+
+    TrainingRunCreateRequest:
+      type: object
+      description: Request to create a training run.
+      required: [dataset_id, dataset_version, model_id, base_model, training_config]
+      properties:
+        dataset_id:
+          type: string
+        dataset_version:
+          type: integer
+          minimum: 1
+          description: Must reference a dataset version that has completed `split` (see POST .../split).
+        model_id:
+          type: string
+          description: >-
+            TBD whether `model_id` must be pre-registered or is created implicitly on first use — this
+            contract assumes implicit creation (mlops-api-contract.md §10.2).
+          examples: [qwen-sft-domain-x]
+        base_model:
+          type: string
+          description: Top-level field, matching model-artifact-versioning-lineage.md §6/§8 — not nested inside `training_config`. See info.description "Known deviations" #3.
+          examples: [Qwen/Qwen3.8-27B]
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        triggered_by:
+          type: [string, 'null']
+          description: 'TBD — no identity/auth system defined. Free text placeholder.'
+          examples: ['UNKNOWN — fill from actual user/session identity']
+
+    TrainingRun:
+      type: object
+      description: A training run's stored record plus live status/progress.
+      required: [training_run_id, status, dataset_id, dataset_version, model_id, base_model, training_config, created_at]
+      properties:
+        training_run_id:
+          type: string
+          examples: [run-8f2a1c]
+        status:
+          $ref: '#/components/schemas/TrainingRunStatus'
+        dataset_id:
+          type: string
+        dataset_version:
+          type: integer
+        model_id:
+          type: string
+        base_model:
+          type: string
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        triggered_by:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        current_epoch:
+          type: [integer, 'null']
+          description: Null until the run starts reporting progress.
+        current_step:
+          type: [integer, 'null']
+        train_loss:
+          type: [number, 'null']
+        eval_loss:
+          type: [number, 'null']
+        model_version:
+          type: [integer, 'null']
+          description: Populated once `status` is `COMPLETED` and the internal WBS 3.2 Register call has succeeded.
+
+    # ---------------------------------------------------------------- Model registry
+
+    ModelLifecycleStatus:
+      type: string
+      description: Model version lifecycle (model-artifact-versioning-lineage.md §4, model-promotion-approval-workflow.md §2).
+      enum: [REGISTERED, EVALUATED, PROMOTED, REJECTED, DEPLOYED, RETIRED]
+
+    ArtifactType:
+      type: string
+      enum: [adapter, merged, gguf]
+      description: model-artifact-versioning-lineage.md §3 — `adapter` is always required; `merged`/`gguf` are optional, recorded only if produced.
+
+    Artifact:
+      type: object
+      required: [type, uri]
+      properties:
+        type:
+          $ref: '#/components/schemas/ArtifactType'
+        uri:
+          type: string
+          description: >-
+            TBD — persistent artifact storage location is not yet decided
+            (model-artifact-versioning-lineage.md §10.1). Placeholder string until it is.
+          examples: ['UNKNOWN — persistent storage location not yet decided']
+        size_bytes:
+          type: integer
+          minimum: 0
+
+    EvalLossTrend:
+      type: object
+      description: >-
+        Formalized here from model-artifact-versioning-lineage.md §5's prose and §6's sample record — §8's
+        own JSON Schema left this as a bare object. See info.description "Known deviations" #4.
+      required: [this_version_eval_loss]
+      properties:
+        previous_version_eval_loss:
+          type: [number, 'null']
+          description: Null for a model_id's first version (no prior version to compare against).
+        this_version_eval_loss:
+          type: number
+
+    QualitativeComparison:
+      type: object
+      description: 20-question majority-win comparison table result (model-promotion-approval-workflow.md §1). Formalized here — see info.description "Known deviations" #4.
+      required: [question_table_version, wins, losses, ties, total]
+      properties:
+        question_table_version:
+          type: integer
+          minimum: 1
+        wins:
+          type: integer
+          minimum: 0
+        losses:
+          type: integer
+          minimum: 0
+        ties:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+          description: 20 per current practice — model-artifact-versioning-lineage.md §5 flags whether this stays fixed as UNKNOWN.
+
+    GeneralDomainRegressionCheck:
+      type: object
+      description: Formalized here from model-artifact-versioning-lineage.md §5/§6 — see info.description "Known deviations" #4.
+      required: [checked, regressions_found]
+      properties:
+        checked:
+          type: boolean
+        regressions_found:
+          type: array
+          description: >-
+            TBD item shape — no source document defines the structure of a single regression finding (e.g.
+            model-promotion-approval-workflow.md §1's SFT 7 example is a free-text observation, not a
+            formalized record). Left as a loosely typed object per item until a shape is established.
+          items:
+            type: object
+            additionalProperties: true
+
+    EvaluationObject:
+      type: object
+      description: The three-signal evaluation payload (model-artifact-versioning-lineage.md §5). No numeric thresholds are computed or stored here — WBS 3.3 defines the promotion decision, not this object.
+      properties:
+        eval_loss_trend:
+          oneOf:
+            - $ref: '#/components/schemas/EvalLossTrend'
+            - type: 'null'
+        qualitative_comparison:
+          oneOf:
+            - $ref: '#/components/schemas/QualitativeComparison'
+            - type: 'null'
+        general_domain_regression_check:
+          oneOf:
+            - $ref: '#/components/schemas/GeneralDomainRegressionCheck'
+            - type: 'null'
+
+    EvaluationUpdateRequest:
+      type: object
+      description: Partial evaluation payload — any subset of the three signal fields may be submitted; the backend merges onto the existing record.
+      properties:
+        eval_loss_trend:
+          $ref: '#/components/schemas/EvalLossTrend'
+        qualitative_comparison:
+          $ref: '#/components/schemas/QualitativeComparison'
+        general_domain_regression_check:
+          $ref: '#/components/schemas/GeneralDomainRegressionCheck'
+
+    ModelRegistryRecord:
+      type: object
+      description: >-
+        Full model registry record (model-artifact-versioning-lineage.md §8 JSON Schema). `training_run_id`
+        is now required and persisted — see info.description "Known deviations" #2 and
+        model-artifact-versioning-lineage.md §9 Decision 5. `base_model` is top-level, not nested in
+        `training_config` — see "Known deviations" #3.
+      required: [model_id, version, status, training_run_id, dataset_id, dataset_version, created_at, artifacts]
+      properties:
+        model_id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/ModelLifecycleStatus'
+        training_run_id:
+          type: string
+          description: Identifier of the training run that produced this version (see the Training tag). Required and persisted as of model-artifact-versioning-lineage.md §9 Decision 5.
+        base_model:
+          type: string
+          examples: [Qwen/Qwen3.8-27B]
+        dataset_id:
+          type: string
+        dataset_version:
+          type: integer
+          minimum: 1
+          description: Integer per this file's convention. See info.description "Known deviations" #1.
+        dataset_validation_report_ref:
+          type: string
+          description: Path-style pointer to the WBS 2.2 report this training run's data was gated by.
+          examples: [validation/no_robots/1/report.json]
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: [string, 'null']
+          description: 'TBD — no identity/auth system defined. Free text placeholder.'
+        evaluation:
+          $ref: '#/components/schemas/EvaluationObject'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artifact'
+        promotion_decision_ref:
+          type: [string, 'null']
+          description: Points to a DecisionRecord.decision_id once a promotion/rejection decision exists.
+        previous_model_id:
+          type: [string, 'null']
+
+    ModelSummary:
+      type: object
+      description: Lightweight list-view entry for GET /models.
+      required: [model_id, latest_version, status]
+      properties:
+        model_id:
+          type: string
+        latest_version:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ModelLifecycleStatus'
+
+    # ---------------------------------------------------------------- Decisions & Deployment
+
+    DecisionCreateRequest:
+      type: object
+      description: Request body for POST .../decisions. `decision` is restricted to PROMOTED|REJECTED here — ROLLBACK is only ever produced via POST /models/{model_id}/rollback.
+      required: [decision, decided_by, rationale]
+      properties:
+        decision:
+          type: string
+          enum: [PROMOTED, REJECTED]
+        decided_by:
+          type: [string, 'null']
+          description: 'TBD — no identity/auth system defined for this prototype. Free text placeholder.'
+          examples: ['UNKNOWN — fill from actual decision-maker identity/role']
+        rationale:
+          type: string
+          description: Mandatory free text — the only place nuance the fixed evidence schema can't capture (confidence level, "one signal only" caveats) survives (model-promotion-approval-workflow.md §5, §8).
+
+    RollbackRequest:
+      type: object
+      required: [rollback_of_version, decided_by, rationale]
+      properties:
+        rollback_of_version:
+          type: integer
+          minimum: 1
+          description: The model version to roll the deployment pointer back to. Must already be `PROMOTED` or have been previously `DEPLOYED`.
+        decided_by:
+          type: [string, 'null']
+          description: 'TBD — no identity/auth system defined. Free text placeholder.'
+        rationale:
+          type: string
+          description: Mandatory — must state the observed production problem, since no automated trigger/monitoring exists to justify a rollback otherwise (model-promotion-approval-workflow.md §9).
+
+    DecisionRecord:
+      type: object
+      description: WBS 3.3 §8 decision record — covers promotion, rejection, and rollback with one schema.
+      required: [decision_id, model_id, version, decision, decided_by, decided_at, rationale]
+      properties:
+        decision_id:
+          type: string
+        model_id:
+          type: string
+        version:
+          type: integer
+          description: For a ROLLBACK decision, this is the version being rolled back *from* (see `rollback_of_version` for the target).
+        decision:
+          type: string
+          enum: [PROMOTED, REJECTED, ROLLBACK]
+        decided_by:
+          type: [string, 'null']
+        decided_at:
+          type: string
+          format: date-time
+        evidence_snapshot:
+          description: >-
+            A frozen copy of the version's evaluation object at decision time (not a live reference) — so a
+            later re-run or correction of evaluation data can't silently invalidate why a past decision was
+            made (model-artifact-versioning-lineage.md §9 via model-promotion-approval-workflow.md §8
+            Decision 4). Null for ROLLBACK decisions (WBS 3.3 §9 — rollback responds to an observed
+            production problem, not new offline evaluation data).
+          oneOf:
+            - $ref: '#/components/schemas/EvaluationObject'
+            - type: 'null'
+        rationale:
+          type: string
+        rollback_of_version:
+          type: [integer, 'null']
+          description: Populated only for ROLLBACK decisions — the version the deployment pointer was moved back to.
+
+    DeployResult:
+      type: object
+      required: [model_id, current_deployed_version]
+      properties:
+        model_id:
+          type: string
+        current_deployed_version:
+          type: integer
+        previous_deployed_version:
+          type: [integer, 'null']
+          description: The version marked RETIRED as a side effect of this deploy, if any.
+
+    DeploymentStatus:
+      type: object
+      description: The model-level deployment pointer — a separate resource from any single version's registry record (model-artifact-versioning-lineage.md §4).
+      required: [model_id, current_deployed_version]
+      properties:
+        model_id:
+          type: string
+        current_deployed_version:
+          type: [integer, 'null']
+          description: Null if nothing has ever been deployed for this model_id.
+        deployed_at:
+          type: [string, 'null']
+          format: date-time
+        status:
+          description: >-
+            TBD full enum — only `"DEPLOYED"` is confirmed by any source document. Whether a distinct value
+            (vs. simply `current_deployed_version: null`) represents "nothing deployed yet" is undecided.
+          oneOf:
+            - type: string
+              enum: [DEPLOYED]
+            - type: 'null'

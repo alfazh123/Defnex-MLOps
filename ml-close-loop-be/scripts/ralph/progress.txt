@@ -103,3 +103,32 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     `StaticPool` for API-level SQLite tests, composed-view service returns).
   - No models changed this story, so no Alembic migration was needed/run.
 ---
+
+## [2026-08-27] - US-004
+- Added `ValidationReport` SQLAlchemy model (`app/models/validation.py`) per
+  validation-rules.md §5/§7 and openapi.yaml's `ValidationReport` schema:
+  `dataset_version_id` FK to `dataset_versions.id` (not denormalized
+  dataset_id/version columns — the service layer will derive those via the
+  `dataset_version` relationship when building the flat API schema, same
+  flat-ORM/nested-or-derived-schema split as the dataset domain),
+  `rule_set_version`, `run_at`, `record_count`, `status_counts` (JSON dict:
+  VALID/INVALID/NEEDS_REVIEW), `warnings_summary` (JSON dict, optional),
+  `dataset_statistics` (JSON dict, deliberately loosely typed per
+  openapi.yaml), `gate_decision` (PASS/FAIL), `gate_reason`. No separate
+  warning status — matches validation-rules.md §2 Decision 1 (warnings are
+  metadata on VALID records, not a 4th status). Added the inverse
+  `validation_reports` relationship on `DatasetVersion`.
+- Files changed: app/models/validation.py (new), app/models/dataset.py,
+  app/models/__init__.py,
+  alembic/versions/4e83458e8145_us_004_add_validation_report_model.py (new).
+- **Learnings for future iterations:**
+  - A report has no unique constraint on (dataset_version_id) — multiple
+    validation runs against the same dataset version are expected and all
+    persist as separate rows (openapi.yaml: "report's identity is
+    `{dataset_id}/{version}` + `run_at`... re-running validation produces
+    additional entries").
+  - `status_counts`/`warnings_summary`/`dataset_statistics` are all JSON
+    dict columns — same `Mapped[dict]` -> JSON auto-mapping used for
+    Dataset's manifest fields, no explicit `mapped_column(JSON, ...)`
+    needed for `dict` (only `list[str]` needs it, see Codebase Patterns).
+---

@@ -40,3 +40,6 @@ class DatasetVersion(Base):
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
 
     dataset: Mapped["Dataset"] = relationship(back_populates="versions")
+    validation_reports: Mapped[list["ValidationReport"]] = relationship(
+        back_populates="dataset_version"
+    )

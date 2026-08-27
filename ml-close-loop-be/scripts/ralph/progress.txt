@@ -235,3 +235,47 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   - `Error.code` examples given in openapi.yaml's schema definitions (not just per-endpoint
     `examples:` blocks) are worth grepping for before inventing a new error code string.
 ---
+
+## [2026-08-27] - US-007
+- Added `TrainingRun` SQLAlchemy model (`app/models/training.py`) per PRD §9/§11: `training_run_id`
+  (string PK), `dataset_version_id` FK to `dataset_versions.id` (flat-ORM/derived-nested pattern,
+  same as `ValidationReport`), `model_id`, `base_model` (top-level, matching openapi.yaml's known
+  deviation #3 - not nested in `training_config`), `training_config` (JSON), `status` (string,
+  default `PENDING`), `triggered_by`, `created_at`, `current_epoch`/`current_step`/`train_loss`/
+  `eval_loss` (nullable progress fields), `artifact_uri` and `error_message` (nullable, cover PRD
+  §9's "artifact reference ketika selesai" / "error information ketika gagal" - no field names given
+  by any source doc for these two, so named directly from the PRD's own English gloss). Added the
+  inverse `training_runs` relationship on `DatasetVersion`.
+- Added `app/schemas/training.py`: `TrainingConfig` (matches openapi.yaml's loosely-typed
+  `TrainingConfig`, `extra="allow"` for `additionalProperties: true`), `TrainingRunCreateRequest`,
+  `TrainingRun` - field names/types copied verbatim from openapi.yaml's schemas.
+- **Status enum naming resolved as NOT a doc conflict:** PRD §9's lifecycle diagram uses `QUEUED`,
+  but openapi.yaml's `TrainingRunStatus` enum (and `mlops-api-contract.md` §3.4/§9.2, which
+  openapi.yaml formalizes) both use `PENDING -> RUNNING -> COMPLETED | FAILED`. `mlops-api-contract.md`
+  explicitly marks this entity `[NEW]` (no source WBS document schematizes it), so `PENDING` is the
+  contract's own already-established term for the same "not started yet" state PRD's prose calls
+  `QUEUED` - not a second, competing definition. Used `PENDING` (matches the frozen API schema);
+  US-008's AC phrase "QUEUED -> RUNNING -> ..." should be read as the same 4-state lifecycle with
+  `PENDING` as the persisted/serialized value, not a literal string to introduce.
+- **TrainingConfig defaults are baseline-only, not example-run values:** PRD §11's confirmed
+  baseline is exactly 5 items (base_model, PEFT method=DoRA, precision=BF16, 4-bit=false,
+  max_seq_length=4096). `base_model` lives outside `TrainingConfig` (top-level field). "Precision:
+  BF16" has no dedicated field in openapi.yaml or model-artifact-versioning-lineage.md §6's sample
+  record - it's expressed only via `load_in_4bit=false` in this data model, so no separate
+  `precision` field was added. Gave `peft_method="dora"`, `load_in_4bit=False`, `max_seq_length=4096`
+  real defaults; left `lora_r`/`lora_alpha`/`learning_rate`/`epochs` with no default (`None`) since
+  their sample-record values (16/16/unknown/2) are one example run's numbers, not a PRD-confirmed
+  baseline - hardcoding them as defaults would be inventing an unconfirmed business rule.
+- Files changed: app/models/training.py (new), app/models/dataset.py (added `training_runs`
+  relationship), app/models/__init__.py, app/schemas/training.py (new),
+  alembic/versions/249fbe20ec68_us_007_add_training_runs_table.py (new).
+- **Learnings for future iterations:**
+  - No dedicated test file added - this is a pure model+schema story (no branches/logic to check),
+    matching US-001/US-004's precedent of relying on the migration applying cleanly + the existing
+    suite staying green, with real behavioral coverage added once a service/API story exercises it.
+  - When a source doc's status name (PRD prose) differs from the frozen API contract's enum
+    (openapi.yaml / the doc it formalizes), check whether the API doc's own info.description or
+    entity notes mark the entity `[NEW]`/self-originating before treating it as a blocking
+    inter-document conflict - an informally-worded PRD diagram paraphrasing an already-resolved
+    contract term is not the same as two authoritative docs disagreeing.
+---

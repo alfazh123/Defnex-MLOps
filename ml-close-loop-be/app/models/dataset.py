@@ -43,3 +43,4 @@ class DatasetVersion(Base):
     validation_reports: Mapped[list["ValidationReport"]] = relationship(
         back_populates="dataset_version"
     )
+    training_runs: Mapped[list["TrainingRun"]] = relationship(back_populates="dataset_version")

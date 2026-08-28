@@ -484,3 +484,45 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     code delegates to via constructor injection with a default - not a new parallel code path. Same
     shape as US-008's `TrainingRunner` Protocol precedent.
 ---
+
+## [2026-08-28] - US-013
+- Added `app/schemas/model.py` (`ModelLifecycleStatus`, `ArtifactType`, `Artifact`,
+  `EvalLossTrend`, `QualitativeComparison`, `GeneralDomainRegressionCheck`, `EvaluationObject`,
+  `ModelSummary`, `ModelRegistryRecord`) matching openapi.yaml's schemas of the same names -
+  `ModelRegistryRecord.training_config` reuses `app.schemas.training.TrainingConfig` rather than
+  redefining it. `evaluation` fields are defined (since `EvaluationObject` is referenced by
+  `ModelRegistryRecord`) but `to_schema()` always sets `evaluation=None` this story - the
+  underlying `ModelVersion` row has no evaluation columns yet (deferred to US-014 per US-011's own
+  note), so there's nothing to populate.
+- Added `list_models` and `get_model_version` + `to_schema` to `app/services/model_service.py`
+  (alongside US-012's existing `register_model_version`, unchanged). `list_models` iterates
+  `Model` rows and takes `model.versions[-1]` as "latest" (the `versions` relationship is already
+  `order_by="ModelVersion.version"` per US-011's model definition, so last-in-list = highest
+  version - no extra query needed), optionally filtered by the `status` query param matching that
+  latest version's status (openapi.yaml GET /models semantics: "Filter to model versions
+  currently in this lifecycle status"). `to_schema()` derives `dataset_id`/`dataset_version` via
+  the `model_version.training_run.dataset_version` 2-hop relationship chain flagged as
+  reachable-but-unstored in US-011/US-012's notes - this is the first story to actually exercise
+  that chain.
+- Added `app/api/models.py`: `GET /models` (optional `status` query param, typed as
+  `ModelLifecycleStatus | None` for automatic 422 on invalid values) and `GET
+  /models/{model_id}/versions/{version}`, 404s with `MODEL_NOT_FOUND` per the established
+  `APIError`/error-envelope pattern. Registered in `app/main.py` alongside the other routers.
+- Files changed: app/schemas/model.py (new), app/api/models.py (new),
+  app/services/model_service.py (added `list_models`/`get_model_version`/`to_schema`),
+  app/main.py (registered `models_router`), tests/test_model_api.py (new, 4 tests: 404 on
+  missing, full lineage response on GET .../versions/{version}, list includes latest
+  version+status, list filters by status).
+- **Learnings for future iterations:**
+  - No models changed this story (`Model`/`ModelVersion` already existed from US-011), so no
+    Alembic migration was needed - ran `alembic revision --autogenerate` as a sanity check, got an
+    empty migration, deleted it. Same precedent as US-012.
+  - API test fixture for a domain that needs a full COMPLETED training run + registered model
+    version (not just one POST) drives the pipeline directly through the service layer
+    (`training_service.start_training_run`/`complete_training_run`,
+    `MockTrainingRunner().run(...)`, `model_service.register_model_version`) inside a `with
+    Session(client.engine) as db:` block, rather than adding HTTP endpoints whose only purpose
+    would be to advance test fixtures. Reuses the same `StaticPool` engine the `client` fixture
+    already created (`client.engine`), so the service-layer writes and the `TestClient`'s own
+    request-scoped sessions see the same data.
+---

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.model import Model, ModelVersion
 from app.models.training import TrainingRun
+from app.schemas.model import ModelRegistryRecord, ModelSummary
 
 
 def register_model_version(db: Session, training_run: TrainingRun) -> ModelVersion:
@@ -49,3 +50,48 @@ def register_model_version(db: Session, training_run: TrainingRun) -> ModelVersi
     db.add(model_version)
     db.flush()
     return model_version
+
+
+def list_models(db: Session, status: str | None = None) -> list[ModelSummary]:
+    """List every model_id with its latest version and status (openapi.yaml GET /models),
+    optionally filtered to models whose latest version is currently in `status`."""
+
+    models = db.scalars(select(Model)).all()
+    summaries = []
+    for model in models:
+        if not model.versions:
+            continue
+        latest = model.versions[-1]
+        if status is not None and latest.status != status:
+            continue
+        summaries.append(ModelSummary(model_id=model.model_id, latest_version=latest.version, status=latest.status))
+    return summaries
+
+
+def get_model_version(db: Session, model_id: str, version: int) -> ModelVersion | None:
+    return db.scalar(select(ModelVersion).where(ModelVersion.model_id == model_id, ModelVersion.version == version))
+
+
+def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
+    """Build the full lineage response (openapi.yaml ModelRegistryRecord) from a ModelVersion row.
+
+    `dataset_id`/`dataset_version` are derived via the training_run -> dataset_version
+    relationship chain (not stored as columns - see US-011/US-012's notes)."""
+
+    dataset_version = model_version.training_run.dataset_version
+    return ModelRegistryRecord(
+        model_id=model_version.model_id,
+        version=model_version.version,
+        status=model_version.status,
+        training_run_id=model_version.training_run_id,
+        base_model=model_version.base_model,
+        dataset_id=dataset_version.dataset_id,
+        dataset_version=dataset_version.version,
+        dataset_validation_report_ref=model_version.dataset_validation_report_ref,
+        training_config=model_version.training_config,
+        created_at=model_version.created_at,
+        created_by=model_version.created_by,
+        artifacts=model_version.artifacts,
+        promotion_decision_ref=model_version.promotion_decision_ref,
+        previous_model_id=model_version.previous_model_id,
+    )

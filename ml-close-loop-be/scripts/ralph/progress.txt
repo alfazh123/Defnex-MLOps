@@ -725,3 +725,32 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   - `ModelLifecycleStatus`'s `DEPLOYED`/`RETIRED` values were already defined (US-013) but never
     reachable by any transition until this story - first story to actually set them.
 ---
+
+## [2026-08-28] - US-018
+- Added `Deployment` SQLAlchemy model (`app/models/deployment.py`) per PRD §15's minimal field
+  list exactly: `deployment_id` (string PK), `model_id`, `model_version`, `environment`, `status`,
+  `deployed_at`. Deliberately no `ForeignKey` to `models`/`model_versions` (plain `String`/
+  `Integer` columns for `model_id`/`model_version`) - this story's own AC requires "no foreign
+  dependency that would merge it with the model registry's own status field," matching PRD §12's
+  explicit "Model Registry dan Deployment harus tetap menjadi dua konsep berbeda."
+- **Noted, not blocking:** openapi.yaml's `DeploymentStatus`/`DeployResult` schemas describe a
+  single model-level *pointer* (`model_id`, `current_deployed_version`, `deployed_at`, `status` -
+  no `environment` or `deployment_id` in the response) rather than a row-per-deployment history
+  table with `environment`. This is not a doc-vs-doc conflict to stop on: this story's AC only
+  asks for the underlying table's columns (PRD §15's list, which does include `environment`/
+  `deployment_id`), not the API response shape - that mapping is US-019's concern. The table can
+  hold more than any single response schema exposes, same as every prior flat-ORM/derived-schema
+  domain (see Codebase Patterns).
+- Files changed: app/models/deployment.py (new), app/models/__init__.py,
+  alembic/versions/eb8695aecf69_us_018_add_deployments_table.py (new).
+- **Learnings for future iterations:**
+  - US-019 (deploy service/API) will need to decide how `Deployment` rows map to the
+    `DeploymentStatus`/`DeployResult` pointer views - likely "latest deployments row per
+    model_id/environment" rather than a live FK-backed relationship, keeping the no-FK
+    decoupling from this story intact.
+  - When writing a small JSON edit script inline (e.g. flipping `prd.json`'s `passes` field) with
+    Python's `json.dump`, pass `ensure_ascii=False` - the default silently escapes existing
+    non-ASCII characters already in the file (e.g. `§` section signs used throughout this PRD's
+    acceptance criteria) into `\uXXXX` sequences, producing a huge, unrelated-looking diff across
+    the whole file instead of the single intended field change.
+---

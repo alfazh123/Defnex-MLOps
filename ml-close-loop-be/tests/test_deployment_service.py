@@ -85,9 +85,9 @@ def test_deploy_retires_the_previously_deployed_version(db_session):
     assert v1.status == "RETIRED"
     assert v2.status == "DEPLOYED"
     assert deployment.model_version == v2.version
-    # The superseded deployment row is retired too, so the pointer query stays single-valued.
+    # Deployment rows are pointer history; the current pointer is the newest row, not a status flip.
     rows = {d.model_version: d.status for d in db_session.query(Deployment).all()}
-    assert rows == {v1.version: "RETIRED", v2.version: "DEPLOYED"}
+    assert rows == {v1.version: "DEPLOYED", v2.version: "DEPLOYED"}
 
 
 def test_get_deployment_status_is_all_null_before_any_deploy(db_session):

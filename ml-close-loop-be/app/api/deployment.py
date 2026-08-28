@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_model_version_or_404
 from app.api.errors import APIError
-from app.api.models import _get_model_version_or_404
 from app.db.session import get_db
 from app.models.model import Model
 from app.schemas.common import ErrorResponse
@@ -18,7 +18,7 @@ router = APIRouter(tags=["Deployment"])
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
 def deploy_model_version(model_id: str, version: int, db: Session = Depends(get_db)) -> DeployResult:
-    model_version = _get_model_version_or_404(db, model_id, version)
+    model_version = get_model_version_or_404(db, model_id, version)
     if model_version.status != "PROMOTED":
         raise APIError(
             409,

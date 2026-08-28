@@ -36,11 +36,6 @@ def deploy(
     if previous is not None:
         previous.status = "RETIRED"
 
-    for row in db.scalars(
-        select(Deployment).where(Deployment.model_id == model_version.model_id, Deployment.status == "DEPLOYED")
-    ):
-        row.status = "RETIRED"
-
     (backend or MockServingBackend()).deploy(model_version)
 
     model_version.status = "DEPLOYED"
@@ -62,7 +57,7 @@ def get_deployment_status(db: Session, model_id: str) -> DeploymentStatus:
     deployed (openapi.yaml DeploymentStatus.current_deployed_version)."""
 
     deployment = db.scalars(
-        select(Deployment).where(Deployment.model_id == model_id, Deployment.status == "DEPLOYED")
+        select(Deployment).where(Deployment.model_id == model_id).order_by(Deployment.deployed_at.desc())
     ).first()
     if deployment is None:
         return DeploymentStatus(model_id=model_id)

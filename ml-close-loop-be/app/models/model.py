@@ -51,3 +51,6 @@ class ModelVersion(Base):
 
     model: Mapped["Model"] = relationship(back_populates="versions")
     training_run: Mapped["TrainingRun"] = relationship()
+    promotion_decisions: Mapped[list["PromotionDecision"]] = relationship(
+        back_populates="model_version"
+    )

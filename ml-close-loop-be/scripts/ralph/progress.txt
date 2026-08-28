@@ -527,6 +527,46 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     request-scoped sessions see the same data.
 ---
 
+## [2026-08-28] - US-015
+- Added `PromotionDecision` SQLAlchemy model (`app/models/promotion.py`) per
+  model-promotion-approval-workflow.md §8 / openapi.yaml's `DecisionRecord` schema:
+  `decision_id` (string PK), `decision` (PROMOTED/REJECTED/ROLLBACK, no DB-level enum -
+  matches the string-status convention already used for `ModelVersion.status`/
+  `TrainingRun.status`), `decided_by` (nullable - openapi.yaml types it `[string, null]`,
+  "no identity/auth system defined for this prototype"), `decided_at`, `evidence_snapshot`
+  (nullable JSON - null for ROLLBACK per §9), `rationale` (mandatory string), and
+  `rollback_of_version` (nullable plain int, not a FK - it's a version *number* to roll
+  back to, not a row reference, matching `ModelVersion.previous_model_id`'s existing
+  plain-value precedent for "descriptive number, not enforced link" fields).
+- **`model_id`/`version` are NOT stored as separate columns** - same flat-ORM/derived-nested
+  split used by every prior domain (ValidationReport/TrainingRun/ModelVersion): a
+  `model_version_id` FK to `model_versions.id` identifies which (model_id, version) pair
+  the decision is about; a future `to_schema()` (US-016's job) derives the flat
+  `model_id`/`version` fields for the `DecisionRecord` API response via the
+  `model_version` relationship, exactly like `ModelVersion.to_schema()` already derives
+  `dataset_id`/`dataset_version` from its own 2-hop chain. Added the matching inverse
+  `ModelVersion.promotion_decisions` relationship.
+- Files changed: app/models/promotion.py (new), app/models/model.py (added
+  `promotion_decisions` relationship), app/models/__init__.py,
+  alembic/versions/de0f2f594aa9_us_015_add_promotion_decisions_table.py (new).
+- **Learnings for future iterations:**
+  - This story is model+migration only (matches US-001/US-004/US-007/US-011's precedent) -
+    no service/API/test file added; behavioral coverage arrives with US-016.
+  - When an AC's field list (e.g. "decision_id, model_id, version, ...") reads like a
+    literal column list copied from the doc's JSON sample / API schema, check whether any
+    of those fields are actually *derivable* via an FK relationship already established by
+    a sibling domain before adding them as redundant stored columns - the AC is describing
+    the record's *logical* shape (and matches the API response shape 1:1), not necessarily
+    the storage layout. US-011's `dataset_id`/`dataset_version` precedent is the direct
+    analogy here.
+  - `openapi.yaml`'s `DecisionRecord.decision` enum includes `ROLLBACK` even though
+    `DecisionCreateRequest.decision` (the `POST .../decisions` body) only allows
+    `PROMOTED|REJECTED` - `ROLLBACK` is only ever produced by the separate
+    `POST /models/{model_id}/rollback` endpoint (US-017). The model's `decision` column
+    has no DB-level constraint restricting it to a subset, so both endpoints' future
+    services can write any of the three values through the same column.
+---
+
 ## [2026-08-28] - US-014
 - Added the three evaluation signal fields directly on `ModelVersion` (`app/models/model.py`):
   `eval_loss_trend`, `qualitative_comparison`, `general_domain_regression_check` (all nullable

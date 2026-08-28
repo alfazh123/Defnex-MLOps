@@ -620,3 +620,53 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     keep merging/overwriting individual signal values while `EVALUATED`, per the 409 only firing
     once a *human decision* - PROMOTED/REJECTED/etc - has been made).
 ---
+
+## [2026-08-28] - US-016
+- Added `app/services/promotion_service.py`: `create_decision(db, model_version, request)` enforces
+  the only transition this story's AC covers - `EVALUATED -> PROMOTED|REJECTED`
+  (model-promotion-approval-workflow.md §2/§7) - via a `_VALID_TRANSITIONS = {"EVALUATED":
+  {"PROMOTED", "REJECTED"}}` adjacency dict (same `_transition`-style pattern as
+  `training_service.py`'s US-008 precedent, just inlined since there's only one `from` state here).
+  Any other current status (including a version that already has a decision, since a decided
+  version is no longer `EVALUATED`) raises `ValueError` - this single check covers both of
+  openapi.yaml's stated 409 causes ("not EVALUATED, or a decision already exists") without a
+  separate "decision already exists" query. `evidence_snapshot` is populated from
+  `model_service.get_evaluation(model_version).model_dump()` - a frozen copy of the version's
+  current evaluation object at decision time, not a live reference (§8 Decision 4) - and the
+  `ModelVersion.status`/`promotion_decision_ref` are updated in the same call. `to_schema()`
+  derives `model_id`/`version` from the `PromotionDecision.model_version` relationship (same
+  flat-ORM/derived-nested pattern as every prior domain).
+- Added `app/schemas/promotion.py`: `DecisionCreateRequest` (`decision` restricted to
+  `Literal["PROMOTED", "REJECTED"]` - `ROLLBACK` is only ever produced by the separate
+  `POST /models/{model_id}/rollback`, US-017, not this endpoint, per openapi.yaml's own
+  `DecisionCreateRequest` description) and `DecisionRecord` (`decision` allows all three values
+  for the *response* schema, `evidence_snapshot: EvaluationObject | None`).
+- Added `app/api/promotion.py` (new router file, tag `Decisions`): `POST
+  /models/{model_id}/versions/{version}/decisions` - 404 `MODEL_NOT_FOUND` via the existing
+  `_get_model_version_or_404` (imported from `app.api.models`, not duplicated), 409
+  `DECISION_NOT_ALLOWED` (translated from the service's `ValueError`, message reused verbatim -
+  this endpoint's 409 error code isn't a documented openapi.yaml `Error.code` example anywhere, so
+  named directly from the endpoint's own combined 409 description, same precedent as US-014's
+  `EVALUATION_NOT_EDITABLE`), else 201 with the `DecisionRecord`. Wired into `app/main.py`.
+- Files changed: app/services/promotion_service.py (new), app/schemas/promotion.py (new),
+  app/api/promotion.py (new), app/main.py (registered `promotion_router`),
+  tests/test_promotion_service.py (new, 4 tests: promote, reject, 5 parametrized invalid-source-status
+  cases, to_schema), tests/test_promotion_api.py (new, 4 tests: 404, 201 with evidence snapshot +
+  lineage status update, 409 not-EVALUATED, 409 already-decided).
+- **Learnings for future iterations:**
+  - No models changed this story (`PromotionDecision` already existed from US-015), so no Alembic
+    migration was needed - ran `alembic revision --autogenerate` as a sanity check per the quality
+    checklist, confirmed it generated an empty migration (no `op.` calls), deleted that file rather
+    than committing a no-op migration. Same precedent as US-012/US-013.
+  - When an API route module needs a sibling module's private `_get_x_or_404` helper (here:
+    `app/api/models.py`'s `_get_model_version_or_404`, needed by the new `app/api/promotion.py` for
+    the same 404 lookup), importing it directly is fine and avoids duplicating the lookup+404 logic
+    across two router files that share the same resource identity (`model_id`/`version`) - the
+    leading underscore signals "not part of the public API surface," not "do not import across
+    modules within this same codebase."
+  - A service's invalid-transition `ValueError` needs an explicit `try/except ValueError -> APIError`
+    translation at the API layer (`app/main.py`'s global exception handler only catches
+    `HTTPException`, not bare `ValueError`) - same pattern will be needed by any future story whose
+    service raises `ValueError` for a bad transition and expects a 409 (e.g. US-017's rollback
+    endpoint, when it reuses this same `_VALID_TRANSITIONS`-style guard).
+---

@@ -1,0 +1,47 @@
+ml-close-loop-be/Dockerfile
+  s_6fe293320be3ed::t_c9f0feb2e2f940 10
+ml-close-loop-be/app/api/deps.py
+  s_6fe293320be3ed::t_78c1f7991a5aca 1-13
+ml-close-loop-be/app/api/models.py
+  s_6fe293320be3ed::t_8e3ff5df9a65a5 4
+  s_491cfa8fbcfeaa::t_fc84efef4e696e 32,44,65
+ml-close-loop-be/app/api/deployment.py
+  s_6fe293320be3ed::t_134f6dcefceb38 4
+  s_491cfa8fbcfeaa::t_a2a3d9f2aba03f 21
+ml-close-loop-be/app/services/deployment_service.py
+  s_6fe293320be3ed::t_26ff4fddcaf95b 60
+ml-close-loop-be/app/api/promotion.py
+  s_6fe293320be3ed::t_ec8a99360f9b72 4
+  s_491cfa8fbcfeaa::t_0263bee095ed18 23,39
+ml-close-loop-be/tests/test_deployment_service.py
+  s_6fe293320be3ed::t_ca333ed6c2173c 88,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2e8f1b9ce0ef24911a72d0a3b513579ef5b6baef",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_491cfa8fbcfeaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e07be9ae-c51b-485b-9240-18e5891f8ab5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_6fe293320be3ed": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fbdba9f23ffeTtOX6G3SzSxCXo",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

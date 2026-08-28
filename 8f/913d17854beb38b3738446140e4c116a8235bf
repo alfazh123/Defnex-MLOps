@@ -1,0 +1,53 @@
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_1a4daf18e1673d::t_6d05564a61bfaa 529-582
+ml-close-loop-be/scripts/ralph/prd.json
+  s_1a4daf18e1673d::t_633aa8bd4cfc5a 195
+ml-close-loop-be/tests/test_model_api.py
+  s_1a4daf18e1673d::t_2bc8ea8ed659c8 113-199
+ml-close-loop-be/app/models/model.py
+  s_1a4daf18e1673d::t_24747cf7e9b7a9 24-25,42-44
+  s_4ec2f2ed576ce0::t_8f59fcc269ee52 45
+ml-close-loop-be/app/schemas/model.py
+  s_1a4daf18e1673d::t_cbcb44fb49e1a5 39,41-48,55-59
+  s_4ec2f2ed576ce0::t_e6355b15deb921 60-61
+ml-close-loop-be/app/services/model_service.py
+  s_1a4daf18e1673d::t_41becd05d30087 8
+  s_1a4daf18e1673d::t_43bf8cdbd6e101 130
+  s_1a4daf18e1673d::t_8929c67e0a6474 75-110
+ml-close-loop-be/app/api/models.py
+  s_1a4daf18e1673d::t_edd36dfcb5c4bf 7-14,20-26,38,40-72
+ml-close-loop-be/alembic/versions/e8568ffabe01_us_014_add_evaluation_fields_to_model_.py
+  s_1a4daf18e1673d::t_0b9641be292b0e 1-36
+ml-close-loop-be/tests/test_model_service.py
+  s_1a4daf18e1673d::t_89747be5fc610b 85-136
+  s_1a4daf18e1673d::t_e18d10acd40de3 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8f913d17854beb38b3738446140e4c116a8235bf",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1a4daf18e1673d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c889d8df-1871-447e-b8c2-ac00b7a3372d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_4ec2f2ed576ce0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b17a27e1-a953-4877-9587-bc757de5849b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

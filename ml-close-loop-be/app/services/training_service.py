@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.dataset import DatasetVersion as DatasetVersionModel
 from app.models.training import TrainingRun
-from app.schemas.training import TrainingRunCreateRequest
+from app.schemas.training import TrainingRun as TrainingRunSchema, TrainingRunCreateRequest
 
 # PRD §9's lifecycle prose says QUEUED; the frozen TrainingRunStatus enum (openapi.yaml,
 # mlops-api-contract.md §3.4) uses PENDING for the same "not started yet" state (see US-007's note).
@@ -71,3 +71,33 @@ def fail_training_run(db: Session, training_run: TrainingRun, error_message: str
     training_run.error_message = error_message
     db.flush()
     return training_run
+
+
+def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
+    return db.get(TrainingRun, training_run_id)
+
+
+def to_schema(training_run: TrainingRun) -> TrainingRunSchema:
+    """Compose the flat ORM row into the nested TrainingRun response schema.
+
+    `model_version` stays None — it's only populated once a completed run is registered
+    into the model registry (US-011/US-012, not yet implemented; see openapi.yaml's own
+    note that it's set by the backend's internal Register call on COMPLETED).
+    """
+
+    return TrainingRunSchema(
+        training_run_id=training_run.training_run_id,
+        status=training_run.status,
+        dataset_id=training_run.dataset_version.dataset_id,
+        dataset_version=training_run.dataset_version.version,
+        model_id=training_run.model_id,
+        base_model=training_run.base_model,
+        training_config=training_run.training_config,
+        triggered_by=training_run.triggered_by,
+        created_at=training_run.created_at,
+        current_epoch=training_run.current_epoch,
+        current_step=training_run.current_step,
+        train_loss=training_run.train_loss,
+        eval_loss=training_run.eval_loss,
+        model_version=None,
+    )

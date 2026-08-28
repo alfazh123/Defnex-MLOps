@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.datasets import router as datasets_router
 from app.api.health import router as health_router
+from app.api.training import router as training_router
 from app.api.validation import router as validation_router
 
 app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
@@ -11,6 +12,7 @@ app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
 app.include_router(health_router)
 app.include_router(datasets_router)
 app.include_router(validation_router)
+app.include_router(training_router)
 
 
 @app.exception_handler(HTTPException)

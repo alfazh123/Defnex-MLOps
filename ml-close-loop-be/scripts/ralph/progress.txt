@@ -353,3 +353,47 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     than either blocking on the unresolved doc or preemptively building the abstraction that
     belongs to the later story.
 ---
+
+## [2026-08-28] - US-010
+- Added `app/api/training.py` with the 2 endpoints per openapi.yaml: `POST /training-runs` (404
+  `DATASET_NOT_FOUND` if `dataset_id`/`dataset_version` don't resolve to an existing
+  `DatasetVersion`, else 201 with the new run in `PENDING`), `GET /training-runs/{training_run_id}`
+  (404 `TRAINING_RUN_NOT_FOUND` if unknown, else 200 with the current record). Wired into
+  `app/main.py` alongside the existing routers.
+- Added `training_service.get_training_run` and `training_service.to_schema` (same flat-ORM ->
+  nested-schema composition pattern as `dataset_service.to_schema`/`validation_service.to_schema`;
+  `dataset_id`/`dataset_version` are derived from the `TrainingRun.dataset_version` relationship,
+  not stored redundantly). Required renaming the schema import in `training_service.py`
+  (`from app.schemas.training import TrainingRun as TrainingRunSchema, ...`) since the ORM model
+  `TrainingRun` was already imported unaliased in that module.
+- **openapi.yaml's 409 case ("dataset version has not completed `split`, or `model_id` cannot be
+  resolved") is deliberately NOT enforced** - same "not-yet-built pipeline" scope decision as
+  US-008's note: no `split` status exists anywhere in this codebase's `DatasetVersion.status`
+  values, and no Model registry exists yet to resolve `model_id` against (US-011, next story, adds
+  it). `POST /training-runs` therefore only checks that the `(dataset_id, dataset_version)` pair
+  exists (404), matching what's actually buildable today; the endpoint's request/response schemas
+  are unchanged from openapi.yaml so nothing here blocks wiring the 409 checks once US-011 lands.
+- `training_service.create_training_run` only `db.flush()`es (established in US-008, since the
+  worker owns its own `db.commit()`); the new API endpoint calls `db.commit()` itself after the
+  service call, matching how `dataset_service.create_dataset_version` handles its own commit vs.
+  how the worker commits around `process_next_job` - commit ownership sits with whichever caller
+  is the actual transaction boundary (HTTP request vs. worker loop), not inside a service function
+  shared by both.
+- `TrainingRun.model_version` is always `None` in the response for now - the field only gets
+  populated once a `COMPLETED` run is registered into the model registry (per openapi.yaml's own
+  description on `GET /training-runs/{id}`), and that registry doesn't exist yet (US-011/US-012).
+- Files changed: app/api/training.py (new), app/main.py, app/services/training_service.py (added
+  `get_training_run`, `to_schema`, aliased schema import), tests/test_training_api.py (new, 5
+  tests: 404/201/422 for create, 404/200 for get).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run; `alembic upgrade head`
+    still run as a no-op sanity check per the quality checklist.
+  - When an ORM model and its matching Pydantic response schema share the same class name (e.g.
+    both called `TrainingRun`), and a service module needs both, alias the Pydantic import (`as
+    TrainingRunSchema`) rather than the ORM one - the ORM name is used far more often within the
+    service (type hints on nearly every function) so keeping it unaliased reads better.
+  - A 409 case named in openapi.yaml can legitimately stay unenforced across multiple stories in a
+    row when it depends on a *different* not-yet-built story (here: US-011's model registry) -
+    don't invent a stand-in check; just note which future story is expected to add it, same
+    pattern as US-005/US-006/US-008's deferred-pipeline notes.
+---

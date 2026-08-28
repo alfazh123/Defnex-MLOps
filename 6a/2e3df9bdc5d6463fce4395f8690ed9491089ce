@@ -1,0 +1,30 @@
+ml-close-loop-be/app/workers/mock_runner.py
+  s_b3d279323c4819::t_b7af5e857a7826 1-19
+ml-close-loop-be/scripts/ralph/prd.json
+  s_b3d279323c4819::t_97f18e92144184 126
+ml-close-loop-be/tests/test_mock_runner.py
+  s_b3d279323c4819::t_01c12185a39271 1-53
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_b3d279323c4819::t_435d80aface2ac 326-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6a2e3df9bdc5d6463fce4395f8690ed9491089ce",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b3d279323c4819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab4a5097-4bf9-4838-bab5-ea6c761d9b76",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

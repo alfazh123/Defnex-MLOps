@@ -397,3 +397,43 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     don't invent a stand-in check; just note which future story is expected to add it, same
     pattern as US-005/US-006/US-008's deferred-pipeline notes.
 ---
+
+## [2026-08-28] - US-011
+- Added `Model`/`ModelVersion` SQLAlchemy models (`app/models/model.py`) per
+  model-artifact-versioning-lineage.md §6/§8: `Model.model_id` (PK, no other columns - a bare
+  identity row, same shape as `Dataset`), `ModelVersion` with `model_id` FK, integer `version`
+  (unique together), `status` (default `REGISTERED`), `training_run_id` FK to
+  `training_runs.training_run_id` (required, non-nullable per §9 Decision 5), `base_model`
+  (top-level string column, NOT nested inside `training_config` - explicit known-deviation #3),
+  `training_config` (JSON), `artifacts` (JSON list of `{type, uri, size_bytes}` objects - a version
+  can accumulate more than one artifact entry over time per §3), `dataset_validation_report_ref`,
+  `created_at`, `created_by`, `promotion_decision_ref`, `previous_model_id` (all nullable, matching
+  §8's JSON Schema `required` list which only mandates model_id/version/status/training_run_id/
+  dataset_id/dataset_version/created_at/artifacts).
+- **No `evaluation_id` field added** - matches this story's explicit AC; evaluation fields
+  themselves are also NOT added yet (`eval_loss_trend`/`qualitative_comparison`/
+  `general_domain_regression_check`) since US-014 ("Add evaluation persistence...") owns adding
+  those to this same record per its own AC ("Evaluation fields persisted on the model version
+  record"). Adding them now would pre-empt that story's scope.
+- **`dataset_id`/`dataset_version` are NOT stored as columns on `ModelVersion`** - same
+  flat-ORM/derived-nested pattern as `ValidationReport`/`TrainingRun`: they're reachable via
+  `ModelVersion.training_run_id -> TrainingRun.dataset_version_id -> DatasetVersion.dataset_id/
+  version` (a 2-hop relationship chain), so storing them again on `ModelVersion` would be
+  redundant denormalization the doc's own schema doesn't actually require as separate storage -
+  only as *returned* API fields, which a `to_schema()` helper derives (deferred to US-012/US-013,
+  same split used by every prior domain's service layer).
+- **`promotion_decision_ref` is a plain nullable string, not a FK** - `PromotionDecision` doesn't
+  exist as a table yet (US-015), and the doc's own schema (§8) types this field as
+  `["string", "null"]`, not a foreign key - consistent with how it's meant to be set later by
+  US-016's promotion service, not enforced by the DB schema now.
+- Files changed: app/models/model.py (new), app/models/__init__.py,
+  alembic/versions/29f1f96e3ea1_us_011_add_model_and_model_version_.py (new).
+- **Learnings for future iterations:**
+  - No dedicated test file added - pure model+migration story, same precedent as US-001/US-004/
+    US-007 (no branches/logic to unit-test; behavioral coverage comes once a service/API story
+    exercises it, per US-012/US-013).
+  - When an AC's explicit field list omits fields that the source doc's full schema (§6 sample /
+    §8 JSON Schema) does include, check whether a *later* story in the PRD's own list explicitly
+    claims that field as its scope (here: evaluation fields -> US-014) before adding it now -
+    that's a deliberate story boundary, not an oversight to fill in early.
+---

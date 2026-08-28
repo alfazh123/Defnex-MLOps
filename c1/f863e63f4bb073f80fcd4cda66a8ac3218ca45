@@ -1,0 +1,46 @@
+ml-close-loop-be/app/services/serving.py
+  s_9408604288e99a::t_5a3a2401caa439 1-27
+ml-close-loop-be/app/services/deployment_service.py
+  s_9408604288e99a::t_d57098ea618d36 26-35
+  s_9408604288e99a::t_b5c915af46a33f 1-25,36-82
+ml-close-loop-be/app/main.py
+  s_9408604288e99a::t_1f4da3db2a4ea1 6,21
+ml-close-loop-be/app/config.py
+  s_9408604288e99a::t_b5c915af46a33f 8-11
+ml-close-loop-be/app/services/promotion_service.py
+  s_9408604288e99a::t_72b297a877854c 9,58-59,66-71
+ml-close-loop-be/app/api/deployment.py
+  s_9408604288e99a::t_1f4da3db2a4ea1 1-42
+ml-close-loop-be/tests/test_deployment_service.py
+  s_9408604288e99a::t_759ae1cb99798a 9,125-127,135-136
+  s_9408604288e99a::t_a17eb1b308e6c2 1-8,10-124,128-134,137-149
+ml-close-loop-be/tests/test_deployment_api.py
+  s_9408604288e99a::t_c130a21e79daaf 1-177
+ml-close-loop-be/app/schemas/deployment.py
+  s_9408604288e99a::t_5a3a2401caa439 1-23
+ml-close-loop-be/scripts/ralph/prd.json
+  s_9408604288e99a::t_59a48d38512cf1 263
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_9408604288e99a::t_51e24a70ce710d 757-807
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c1f863e63f4bb073f80fcd4cda66a8ac3218ca45",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_9408604288e99a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "866031e3-b84c-48cf-afd9-c4ba1d42a930",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

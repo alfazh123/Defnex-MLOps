@@ -670,3 +670,58 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     service raises `ValueError` for a bad transition and expects a 409 (e.g. US-017's rollback
     endpoint, when it reuses this same `_VALID_TRANSITIONS`-style guard).
 ---
+
+## [2026-08-28] - US-017
+- Added `promotion_service.rollback(db, target, request)`: reuses the `PromotionDecision` record
+  with `decision="ROLLBACK"`, `evidence_snapshot=None`, `rollback_of_version=target.version`
+  (model-promotion-approval-workflow.md §9). Validates `target.status` is `PROMOTED` or `RETIRED`
+  (only currently-checkable subset of openapi.yaml's "must already be PROMOTED or have been
+  previously DEPLOYED" - `DEPLOYED` itself isn't a valid *target* status, and no separate
+  deployment-history log exists to check "previously DEPLOYED" beyond the target's own current
+  status). Sets `target.status = "DEPLOYED"` (the rollback's actual effect - the target becomes
+  the active version again) and, if any *other* version of the same model currently holds
+  `DEPLOYED` status, transitions that one to `RETIRED` and links the `PromotionDecision` to it
+  (matching `DecisionRecord.version`'s documented ROLLBACK semantics: "the version being rolled
+  back from", not the target).
+- **Scope decision - no separate Deployment-table/pointer used, none exists yet:** US-018
+  (`Deployment` model) and US-019 (deploy service/`current_deployed_version` pointer) come after
+  this story in the PRD's own ordering, so nothing in this codebase can ever have
+  `ModelVersion.status == "DEPLOYED"` yet (the `/deploy` endpoint that would set it doesn't exist).
+  Rather than blocking on that ordering gap (not a doc-vs-doc conflict, just a not-yet-built
+  dependency - same category as every prior "not-yet-built pipeline" scope call, e.g.
+  US-006/US-008/US-010's notes), `rollback()` is written to be *forward-compatible*: it already
+  looks for a currently-`DEPLOYED` sibling version and retires it correctly, so it needs zero
+  changes once US-019 starts actually setting that status. Today, since no such version can exist,
+  the decision's `model_version_id` FK falls back to linking to `target` itself (the only
+  discoverable non-null anchor) - meaning `DecisionRecord.version` in the API response currently
+  equals `rollback_of_version` (both point at `target`) until a real "from" version exists to
+  differentiate them. This is a documented, temporary approximation, not an invented business
+  rule - it will self-correct the moment US-019 lands, no code change needed here.
+- Added `RollbackRequest` schema (`app/schemas/promotion.py`) matching openapi.yaml exactly
+  (`rollback_of_version`, `decided_by`, `rationale`).
+- Added `POST /models/{model_id}/rollback` (`app/api/promotion.py`): reuses
+  `_get_model_version_or_404` (imported from `app.api.models`, same cross-module-helper precedent
+  as US-016) to resolve `(model_id, request.rollback_of_version)` -> 404 `MODEL_NOT_FOUND` if
+  either doesn't exist; `ValueError` from the service -> 409 `ROLLBACK_NOT_ALLOWED` (not a
+  documented openapi.yaml `Error.code` example, so named directly from the endpoint's own 409
+  description - same precedent as `EVALUATION_NOT_EDITABLE`/`DECISION_NOT_ALLOWED`).
+- Files changed: app/schemas/promotion.py, app/services/promotion_service.py,
+  app/api/promotion.py, tests/test_promotion_service.py (+3 tests: deploy target + record fields,
+  retires a previously-DEPLOYED sibling version, rejects 4 non-PROMOTED/non-RETIRED source
+  statuses), tests/test_promotion_api.py (+3 tests: 404 missing, 201 deploy+response shape, 409
+  not-PROMOTED).
+- No models changed this story, so no Alembic migration was needed - ran `alembic revision
+  --autogenerate` as a sanity check, confirmed it generated an empty migration, deleted that file.
+  Same precedent as US-012/US-013/US-016.
+- **Learnings for future iterations:**
+  - When a PRD's own story ordering puts an endpoint (rollback) before the infrastructure its
+    source doc's happy-path depends on (a Deployment pointer/table), that's not a blocking doc
+    conflict to stop on - write the logic to be correct *once that infrastructure exists*
+    (queries for the state it needs rather than assuming a shortcut), and use the least-surprising
+    fallback for what can't be determined yet, documenting the approximation clearly. Re-check
+    this story's fallback behavior once US-018/US-019 land - it should need no code changes, only
+    verification that a real "from" version now gets found and used instead of the `target`
+    fallback.
+  - `ModelLifecycleStatus`'s `DEPLOYED`/`RETIRED` values were already defined (US-013) but never
+    reachable by any transition until this story - first story to actually set them.
+---

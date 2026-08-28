@@ -7,7 +7,7 @@ from app.schemas.model import (
     GeneralDomainRegressionCheck,
     QualitativeComparison,
 )
-from app.schemas.promotion import DecisionCreateRequest
+from app.schemas.promotion import DecisionCreateRequest, RollbackRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
 from app.services import dataset_service, model_service, promotion_service, training_service
 
@@ -93,6 +93,59 @@ def test_create_decision_rejects_invalid_source_status(db_session, status):
             db_session,
             model_version,
             DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"),
+        )
+
+
+def _promoted_model_version(db_session):
+    model_version = _evaluated_model_version(db_session)
+    promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="All three signals aligned."),
+    )
+    return model_version
+
+
+def test_rollback_deploys_target_and_records_decision(db_session):
+    target = _promoted_model_version(db_session)
+
+    decision = promotion_service.rollback(
+        db_session,
+        target,
+        RollbackRequest(rollback_of_version=target.version, decided_by="reviewer-1", rationale="Prod regression."),
+    )
+
+    assert decision.decision == "ROLLBACK"
+    assert decision.rollback_of_version == target.version
+    assert decision.evidence_snapshot is None
+    assert decision.rationale == "Prod regression."
+    assert target.status == "DEPLOYED"
+    assert target.promotion_decision_ref == decision.decision_id
+
+
+def test_rollback_retires_previously_deployed_version(db_session):
+    target = _promoted_model_version(db_session)
+    other = _promoted_model_version(db_session)
+    other.status = "DEPLOYED"
+    db_session.flush()
+
+    decision = promotion_service.rollback(
+        db_session, target, RollbackRequest(rollback_of_version=target.version, rationale="Prod regression.")
+    )
+
+    assert other.status == "RETIRED"
+    assert target.status == "DEPLOYED"
+    assert decision.model_version_id == other.id
+
+
+@pytest.mark.parametrize("status", ["REGISTERED", "EVALUATED", "REJECTED", "DEPLOYED"])
+def test_rollback_rejects_non_promoted_non_retired_target(db_session, status):
+    target = _evaluated_model_version(db_session)
+    target.status = status
+
+    with pytest.raises(ValueError):
+        promotion_service.rollback(
+            db_session, target, RollbackRequest(rollback_of_version=target.version, rationale="n/a")
         )
 
 

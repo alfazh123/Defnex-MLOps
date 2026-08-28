@@ -149,3 +149,54 @@ def test_create_decision_returns_409_when_already_decided(client):
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "DECISION_NOT_ALLOWED"
+
+
+def _promoted_model_version(client):
+    model_id, version = _evaluated_model_version(client)
+    client.post(
+        f"/models/{model_id}/versions/{version}/decisions",
+        json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "All three signals aligned."},
+    )
+    return model_id, version
+
+
+def test_rollback_returns_404_when_missing(client):
+    response = client.post(
+        "/models/no-such-model/rollback",
+        json={"rollback_of_version": 1, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
+
+
+def test_rollback_deploys_target_and_returns_decision_record(client):
+    model_id, version = _promoted_model_version(client)
+
+    response = client.post(
+        f"/models/{model_id}/rollback",
+        json={"rollback_of_version": version, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["model_id"] == model_id
+    assert body["decision"] == "ROLLBACK"
+    assert body["rollback_of_version"] == version
+    assert body["evidence_snapshot"] is None
+
+    lineage = client.get(f"/models/{model_id}/versions/{version}").json()
+    assert lineage["status"] == "DEPLOYED"
+    assert lineage["promotion_decision_ref"] == body["decision_id"]
+
+
+def test_rollback_returns_409_when_target_not_promoted(client):
+    model_id, version = _evaluated_model_version(client)
+
+    response = client.post(
+        f"/models/{model_id}/rollback",
+        json={"rollback_of_version": version, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ROLLBACK_NOT_ALLOWED"

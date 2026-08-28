@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.model import ModelVersion
 from app.models.promotion import PromotionDecision
-from app.schemas.promotion import DecisionCreateRequest, DecisionRecord
+from app.schemas.promotion import DecisionCreateRequest, DecisionRecord, RollbackRequest
 from app.services.model_service import get_evaluation
 
 # EVALUATED -> PROMOTED|REJECTED is the only transition this story records
@@ -42,6 +42,53 @@ def create_decision(db: Session, model_version: ModelVersion, request: DecisionC
     db.add(decision)
     model_version.status = request.decision
     model_version.promotion_decision_ref = decision.decision_id
+    db.flush()
+    return decision
+
+
+def rollback(db: Session, target: ModelVersion, request: RollbackRequest) -> PromotionDecision:
+    """Roll back a model's deployed version to an earlier `target` (rollback-of-version)
+    (model-promotion-approval-workflow.md §9), reusing the PromotionDecision record with
+    decision=ROLLBACK and evidence_snapshot=None - a rollback responds to an observed production
+    problem, not new offline evaluation data (the problem must be described in `rationale`
+    instead). Human-triggered only, same reasoning as `create_decision` (§10 Decision 1)."""
+
+    # openapi.yaml RollbackRequest: target "must already be PROMOTED or have been previously
+    # DEPLOYED". DEPLOYED/RETIRED can't be reached yet in this codebase since the Deployment
+    # domain (US-018/US-019) isn't built, so only PROMOTED is currently checkable; RETIRED
+    # (implies the target was previously DEPLOYED before being superseded) is included for
+    # forward-compatibility once US-019 lands - same deferred-check precedent as US-010's
+    # unenforced "split" 409.
+    if target.status not in ("PROMOTED", "RETIRED"):
+        raise ValueError(
+            f'model_id "{target.model_id}" version {target.version} is {target.status}; '
+            "rollback target must be PROMOTED or have been previously DEPLOYED"
+        )
+
+    # "The version being rolled back from" (DecisionRecord.version for ROLLBACK) is whichever of
+    # this model's versions currently holds DEPLOYED status. No such version can exist yet in this
+    # codebase (deploy - US-019 - isn't built either), so this is forward-compatible logic that
+    # will start doing something the moment US-019 lands, without needing to change here. Falls
+    # back to linking the decision to `target` itself when no DEPLOYED version exists yet, since
+    # PromotionDecision.model_version_id is NOT NULL and there is nothing else to anchor it to.
+    from_version = next((v for v in target.model.versions if v.status == "DEPLOYED"), None)
+    if from_version is not None:
+        from_version.status = "RETIRED"
+
+    target.status = "DEPLOYED"
+
+    decision = PromotionDecision(
+        decision_id=f"rollback-{uuid.uuid4().hex[:6]}",
+        model_version_id=(from_version or target).id,
+        decision="ROLLBACK",
+        decided_by=request.decided_by,
+        decided_at=datetime.now(timezone.utc),
+        evidence_snapshot=None,
+        rationale=request.rationale,
+        rollback_of_version=target.version,
+    )
+    db.add(decision)
+    target.promotion_decision_ref = decision.decision_id
     db.flush()
     return decision
 

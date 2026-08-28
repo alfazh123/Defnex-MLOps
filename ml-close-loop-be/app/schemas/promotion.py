@@ -15,6 +15,14 @@ class DecisionCreateRequest(BaseModel):
     rationale: str
 
 
+class RollbackRequest(BaseModel):
+    """Request body for POST /models/{model_id}/rollback (openapi.yaml RollbackRequest)."""
+
+    rollback_of_version: int
+    decided_by: str | None = None
+    rationale: str
+
+
 class DecisionRecord(BaseModel):
     """WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers promotion, rejection, and
     rollback with one schema."""

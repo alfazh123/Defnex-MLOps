@@ -526,3 +526,57 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     already created (`client.engine`), so the service-layer writes and the `TestClient`'s own
     request-scoped sessions see the same data.
 ---
+
+## [2026-08-28] - US-014
+- Added the three evaluation signal fields directly on `ModelVersion` (`app/models/model.py`):
+  `eval_loss_trend`, `qualitative_comparison`, `general_domain_regression_check` (all nullable
+  JSON dict columns) - per this story's own AC, no separate `evaluation_id` FK/table, matching
+  model-artifact-versioning-lineage.md §5/§8's schema nested under one `evaluation` object (kept
+  as 3 flat sibling columns instead of one combined JSON blob, consistent with `ValidationReport`'s
+  existing style of separate JSON columns per signal rather than one nested blob).
+- Added `app/schemas/model.py`: `EvaluationUpdateRequest` (all 3 fields optional - "any subset...
+  may be submitted" per openapi.yaml) and `EvaluationSubmitResponse` (`evaluation` + `status`) for
+  POST's inline (non-`$ref`) response shape.
+- Added `model_service.get_evaluation(model_version) -> EvaluationObject` (builds from the 3
+  columns, `None` for anything not yet submitted) and `model_service.submit_evaluation(db,
+  model_version, update)` (merges only the fields present in the request onto the row via
+  `.model_dump()`, then auto-transitions `REGISTERED -> EVALUATED` once all 3 columns are
+  non-`None` - model-promotion-approval-workflow.md §2's exact condition: "All three signal fields
+  ... present. Partial data does not qualify"). Wired `evaluation=get_evaluation(model_version)`
+  into `to_schema()`'s `ModelRegistryRecord` construction (was previously never set, defaulting to
+  `None` for every response).
+- Added `app/api/models.py`: `POST /models/{model_id}/versions/{version}/evaluation` (404
+  `MODEL_NOT_FOUND` if unknown; 409 `EVALUATION_NOT_EDITABLE` if `status` isn't `REGISTERED` or
+  `EVALUATED`, e.g. already `PROMOTED`; else 200 with the merged evaluation + current status) and
+  `GET .../evaluation` (404 if unknown, else 200 with the current object, fields `null` if never
+  submitted). Extracted `_get_model_version_or_404` shared by all 3 model-domain routes (was
+  inlined only in `get_model_version` before this story).
+- **409 error code (`EVALUATION_NOT_EDITABLE`) is not documented as an openapi.yaml `Error.code`
+  example anywhere** (unlike US-006's `VALIDATION_INCOMPLETE`, which *was* a documented example) -
+  grepped first per that story's own learning, found nothing reusable, so named it directly from
+  the endpoint's own 409 description ("evaluation data is not editable after a decision has been
+  made against it").
+- Files changed: app/models/model.py, app/schemas/model.py, app/services/model_service.py,
+  app/api/models.py, tests/test_model_service.py (+2 tests: partial stays REGISTERED, all-3
+  transitions to EVALUATED), tests/test_model_api.py (+6 tests: 404/200-null for GET, 404/200
+  partial/200 full-transition/409 for POST),
+  alembic/versions/e8568ffabe01_us_014_add_evaluation_fields_to_model_.py (new).
+- **Learnings for future iterations:**
+  - When an AC says "evaluation fields persisted... not a separate evaluation_id foreign key," that
+    only rules out a separate *table* - it doesn't mandate one combined JSON blob column vs. several
+    flat sibling columns for the sub-signals. Check how a sibling domain with the same "multiple
+    named JSON sub-objects on one row" shape (here: `ValidationReport`'s `status_counts`/
+    `warnings_summary`/`dataset_statistics`) already decided that, and match it instead of picking a
+    new shape.
+  - An openapi.yaml response schema declared inline under a `200:`/`201:` block (a bare `type:
+    object` with `properties:`, not a `$ref: '#/components/schemas/X'`) still needs a matching
+    Pydantic model for `response_model=` - give it its own small class (`EvaluationSubmitResponse`
+    here) rather than skipping typing just because openapi.yaml itself didn't name it.
+  - A doc-defined state-transition condition phrased as "all N fields present, partial doesn't
+    qualify" (model-promotion-approval-workflow.md §2) maps directly to "check all N columns are
+    non-None, transition only if currently in the *from* state" - re-verify the *from* state check
+    every call (not just first-time-reaches-N) so a second `submit_evaluation` call once already
+    `EVALUATED` doesn't error or regress status, it's simply a no-op transition (still allowed to
+    keep merging/overwriting individual signal values while `EVALUATED`, per the 409 only firing
+    once a *human decision* - PROMOTED/REJECTED/etc - has been made).
+---

@@ -110,3 +110,90 @@ def test_list_models_filters_by_status(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_get_evaluation_returns_404_when_missing(client):
+    response = client.get("/models/no-such-model/versions/1/evaluation")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
+
+
+def test_get_evaluation_is_all_null_before_any_submission(client):
+    model_id, version = _registered_model_version(client)
+
+    response = client.get(f"/models/{model_id}/versions/{version}/evaluation")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "eval_loss_trend": None,
+        "qualitative_comparison": None,
+        "general_domain_regression_check": None,
+    }
+
+
+def test_submit_evaluation_returns_404_when_missing(client):
+    response = client.post(
+        "/models/no-such-model/versions/1/evaluation",
+        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
+
+
+def test_submit_evaluation_partial_payload_stays_registered(client):
+    model_id, version = _registered_model_version(client)
+
+    response = client.post(
+        f"/models/{model_id}/versions/{version}/evaluation",
+        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "REGISTERED"
+    assert body["evaluation"]["eval_loss_trend"]["this_version_eval_loss"] == 0.84
+    assert body["evaluation"]["qualitative_comparison"] is None
+
+
+def test_submit_evaluation_all_three_signals_transitions_to_evaluated(client):
+    model_id, version = _registered_model_version(client)
+    url = f"/models/{model_id}/versions/{version}/evaluation"
+
+    client.post(url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}})
+    client.post(
+        url,
+        json={"qualitative_comparison": {"question_table_version": 1, "wins": 13, "losses": 5, "ties": 2, "total": 20}},
+    )
+    response = client.post(
+        url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "EVALUATED"
+    assert body["evaluation"]["qualitative_comparison"]["wins"] == 13
+
+    lineage = client.get(f"/models/{model_id}/versions/{version}").json()
+    assert lineage["status"] == "EVALUATED"
+    assert lineage["evaluation"]["general_domain_regression_check"]["checked"] is True
+
+
+def test_submit_evaluation_returns_409_once_promoted(client):
+    model_id, version = _registered_model_version(client)
+
+    with Session(client.engine) as db:
+        from app.services import model_service
+
+        model_version = model_service.get_model_version(db, model_id, version)
+        model_version.status = "PROMOTED"
+        db.commit()
+
+    response = client.post(
+        f"/models/{model_id}/versions/{version}/evaluation",
+        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "EVALUATION_NOT_EDITABLE"

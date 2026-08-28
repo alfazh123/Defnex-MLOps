@@ -21,9 +21,8 @@ class Model(Base):
 class ModelVersion(Base):
     """A registered model artifact version (model-artifact-versioning-lineage.md §6/§8).
 
-    Evaluation fields are added by a later story (US-014) - see that story's own
-    acceptance criteria; this model deliberately has no evaluation_id field, since
-    evaluation is embedded directly on this record rather than a separate table.
+    Evaluation fields (§5) are persisted directly on this record - no separate
+    `evaluation_id` foreign key / table, per US-014's acceptance criteria.
     """
 
     __tablename__ = "model_versions"
@@ -39,6 +38,10 @@ class ModelVersion(Base):
     training_config: Mapped[dict] = mapped_column(JSON)
     dataset_validation_report_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     artifacts: Mapped[list[dict]] = mapped_column(JSON, default=list)
+
+    eval_loss_trend: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    qualitative_comparison: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    general_domain_regression_check: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column()
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -1,6 +1,7 @@
 import pytest
 
 from app.schemas.dataset import DatasetVersionCreateRequest
+from app.schemas.model import EvalLossTrend, EvaluationUpdateRequest, GeneralDomainRegressionCheck, QualitativeComparison
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
 from app.services import dataset_service, model_service, training_service
 
@@ -81,3 +82,55 @@ def test_register_model_version_requires_completed_status(db_session):
 
     with pytest.raises(ValueError):
         model_service.register_model_version(db_session, training_run)
+
+
+def test_submit_evaluation_partial_stays_registered(db_session):
+    training_run = _completed_training_run(db_session)
+    model_version = model_service.register_model_version(db_session, training_run)
+
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)),
+    )
+
+    assert model_version.status == "REGISTERED"
+    evaluation = model_service.get_evaluation(model_version)
+    assert evaluation.eval_loss_trend.this_version_eval_loss == 0.84
+    assert evaluation.qualitative_comparison is None
+    assert evaluation.general_domain_regression_check is None
+
+
+def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
+    training_run = _completed_training_run(db_session)
+    model_version = model_service.register_model_version(db_session, training_run)
+
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)),
+    )
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(
+            qualitative_comparison=QualitativeComparison(
+                question_table_version=1, wins=13, losses=5, ties=2, total=20
+            )
+        ),
+    )
+    assert model_version.status == "REGISTERED"
+
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(
+            general_domain_regression_check=GeneralDomainRegressionCheck(checked=True, regressions_found=[])
+        ),
+    )
+
+    assert model_version.status == "EVALUATED"
+    evaluation = model_service.get_evaluation(model_version)
+    assert evaluation.eval_loss_trend.this_version_eval_loss == 0.84
+    assert evaluation.qualitative_comparison.wins == 13
+    assert evaluation.general_domain_regression_check.checked is True

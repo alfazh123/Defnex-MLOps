@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.model import Model, ModelVersion
 from app.models.training import TrainingRun
-from app.schemas.model import ModelRegistryRecord, ModelSummary
+from app.schemas.model import EvaluationObject, EvaluationUpdateRequest, ModelRegistryRecord, ModelSummary
 
 
 def register_model_version(db: Session, training_run: TrainingRun) -> ModelVersion:
@@ -72,6 +72,42 @@ def get_model_version(db: Session, model_id: str, version: int) -> ModelVersion 
     return db.scalar(select(ModelVersion).where(ModelVersion.model_id == model_id, ModelVersion.version == version))
 
 
+def get_evaluation(model_version: ModelVersion) -> EvaluationObject:
+    """Build the current evaluation object from a ModelVersion's stored signal fields
+    (openapi.yaml GET .../evaluation) - any signal not yet submitted stays null."""
+
+    return EvaluationObject(
+        eval_loss_trend=model_version.eval_loss_trend,
+        qualitative_comparison=model_version.qualitative_comparison,
+        general_domain_regression_check=model_version.general_domain_regression_check,
+    )
+
+
+def submit_evaluation(db: Session, model_version: ModelVersion, update: EvaluationUpdateRequest) -> ModelVersion:
+    """Merge a partial evaluation payload onto a ModelVersion (model-artifact-versioning-lineage.md
+    §5, openapi.yaml POST .../evaluation) and auto-transition REGISTERED -> EVALUATED once all
+    three signal fields are present (model-promotion-approval-workflow.md §2) - partial data does
+    not qualify. Caller (API layer) is responsible for the 409 "not editable" guard."""
+
+    if update.eval_loss_trend is not None:
+        model_version.eval_loss_trend = update.eval_loss_trend.model_dump()
+    if update.qualitative_comparison is not None:
+        model_version.qualitative_comparison = update.qualitative_comparison.model_dump()
+    if update.general_domain_regression_check is not None:
+        model_version.general_domain_regression_check = update.general_domain_regression_check.model_dump()
+
+    all_signals_present = (
+        model_version.eval_loss_trend is not None
+        and model_version.qualitative_comparison is not None
+        and model_version.general_domain_regression_check is not None
+    )
+    if all_signals_present and model_version.status == "REGISTERED":
+        model_version.status = "EVALUATED"
+
+    db.flush()
+    return model_version
+
+
 def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
     """Build the full lineage response (openapi.yaml ModelRegistryRecord) from a ModelVersion row.
 
@@ -91,6 +127,7 @@ def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
         training_config=model_version.training_config,
         created_at=model_version.created_at,
         created_by=model_version.created_by,
+        evaluation=get_evaluation(model_version),
         artifacts=model_version.artifacts,
         promotion_decision_ref=model_version.promotion_decision_ref,
         previous_model_id=model_version.previous_model_id,

@@ -36,14 +36,27 @@ class GeneralDomainRegressionCheck(BaseModel):
 
 
 class EvaluationObject(BaseModel):
-    """The three-signal evaluation payload (openapi.yaml EvaluationObject).
-
-    Added by US-014 - not yet populated by this story.
-    """
+    """The three-signal evaluation payload (openapi.yaml EvaluationObject)."""
 
     eval_loss_trend: EvalLossTrend | None = None
     qualitative_comparison: QualitativeComparison | None = None
     general_domain_regression_check: GeneralDomainRegressionCheck | None = None
+
+
+class EvaluationUpdateRequest(BaseModel):
+    """Partial evaluation payload (openapi.yaml EvaluationUpdateRequest) - any subset of the
+    three signal fields may be submitted; the backend merges onto the existing record."""
+
+    eval_loss_trend: EvalLossTrend | None = None
+    qualitative_comparison: QualitativeComparison | None = None
+    general_domain_regression_check: GeneralDomainRegressionCheck | None = None
+
+
+class EvaluationSubmitResponse(BaseModel):
+    """Inline response shape for POST .../evaluation (openapi.yaml, not a named component)."""
+
+    evaluation: EvaluationObject
+    status: ModelLifecycleStatus
 
 
 class ModelSummary(BaseModel):

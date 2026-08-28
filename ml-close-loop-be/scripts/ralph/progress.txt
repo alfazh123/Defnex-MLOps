@@ -323,3 +323,33 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     the implementation. Keeps the worker's tests using a trivial stub instead of waiting on the real
     implementation to exist.
 ---
+
+## [2026-08-28] - US-009
+- Added `app/workers/mock_runner.py`: `MockTrainingRunner`, a plain class implementing the
+  `TrainingRunner` Protocol from `app/workers/training_worker.py` (`run(training_run) -> str`).
+  Writes a one-line fake artifact file to `{tempfile.gettempdir()}/defnex-mock-artifacts/
+  {training_run_id}.bin` and returns it as a `file://` URI (matching the `file:///tmp/adapter`
+  example format already used in `test_training_worker.py`'s stub runner). No GPU/Unsloth
+  dependency, pure stdlib (`tempfile`, `pathlib`).
+- **Persistent artifact storage location is `[UNKNOWN]` per
+  docs/registry/model-artifact-versioning-lineage.md line 325** ("today artifacts are
+  local-Colab-ephemeral... [UNKNOWN] Persistent artifact storage location/backend"), and US-012
+  (not yet implemented) is explicitly where a real storage abstraction/interface gets built. Using
+  the OS temp dir here is the correct scope for *this* story, a placeholder good enough to prove
+  the QUEUED->RUNNING->COMPLETED lifecycle end-to-end (this story's actual AC), not a persistent
+  storage decision. Swapping to a real backend later only requires changing `MockTrainingRunner`
+  (or replacing it outright): `TrainingRunner.run()`'s `-> str` contract, `training_worker.py`,
+  and the API contract all stay untouched, satisfying the "swappable... without changing the API
+  contract" AC.
+- Files changed: app/workers/mock_runner.py (new), tests/test_mock_runner.py (new, 2 tests: direct
+  `run()` call writes a real file, and a full `process_next_job` pass using
+  `MockTrainingRunner()` as the runner reaches COMPLETED with a `file://` artifact_uri).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run, `alembic upgrade head`
+    still run as a no-op sanity check per the quality checklist.
+  - When a doc explicitly marks a field/decision `[UNKNOWN]` and a *later* story in the PRD's own
+    list is scoped to resolve it (here: US-012's "artifact storage abstraction"), the current
+    story should use the simplest placeholder that satisfies its own AC (stdlib temp dir) rather
+    than either blocking on the unresolved doc or preemptively building the abstraction that
+    belongs to the later story.
+---

@@ -437,3 +437,50 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     claims that field as its scope (here: evaluation fields -> US-014) before adding it now -
     that's a deliberate story boundary, not an oversight to fill in early.
 ---
+
+## [2026-08-28] - US-012
+- Added `app/services/model_service.py`: `register_model_version(db, training_run)` requires
+  `training_run.status == "COMPLETED"` (raises `ValueError` otherwise), get-or-creates the `Model`
+  row for `training_run.model_id`, computes the next integer `version` for that `model_id` (max
+  existing + 1, starting at 1 - same pattern as `dataset_service.create_dataset_version`), and
+  creates a `ModelVersion` row in `REGISTERED` status with `training_run_id`, `base_model`,
+  `training_config` copied from the training run, and `artifacts=[{"type": "adapter", "uri":
+  training_run.artifact_uri}]` (model-artifact-versioning-lineage.md §6/§7 Register operation).
+  `dataset_id`/`dataset_version`/`dataset_validation_report_ref` stay unstored (same flat-ORM/
+  derived-nested pattern as US-011's note - reachable via `training_run.dataset_version`), and no
+  `to_schema()` was added yet - deferred to US-013 (API story), same precedent as
+  `training_service.py` splitting service (US-008) from `to_schema` (US-010).
+- **`model_id` is not an input to `register_model_version`** - it's read from
+  `training_run.model_id`, which already exists on every `TrainingRun` row (set at
+  `POST /training-runs` time via `TrainingRunCreateRequest.model_id`, per US-007/US-010). The
+  registry doc's own §7 interface table doesn't list `model_id` as Register input either (only
+  `training_run_id`, `dataset_id`, `dataset_version`, `training_config`, `artifacts[]`) - not a
+  doc conflict, just confirms `model_id` is decided upstream at training-request time and carried
+  forward, not invented at registration time.
+- Added `app/services/artifact_storage.py`: `ArtifactStorage` (a `Protocol` with `store(key,
+  content) -> uri`) plus `LocalFilesystemArtifactStorage`, wrapping the local-disk write that used
+  to live inline in `app/workers/mock_runner.py` (US-009). This is the AC's "artifact storage
+  abstraction... wraps the local filesystem path used in Phase 0-era prototyping, so it can be
+  swapped later without changing callers" - persistent artifact storage backend is `[UNKNOWN]`
+  per model-artifact-versioning-lineage.md §10.1, so this stays a placeholder (same temp-dir
+  location as before), just behind a swappable interface now.
+- Refactored `MockTrainingRunner` to take an optional `storage: ArtifactStorage | None` (defaults
+  to `LocalFilesystemArtifactStorage()`) and delegate `run()`'s file write to `storage.store(...)`
+  instead of writing directly with `tempfile`/`Path`. Behavior-preserving (`tests/test_mock_runner.py`
+  passed unchanged, still asserts the same `file://` URI and file contents), signature-preserving
+  (`run()` keeps its `(training_run) -> str` shape from `training_worker.TrainingRunner`).
+- Files changed: app/services/model_service.py (new), app/services/artifact_storage.py (new),
+  app/workers/mock_runner.py (refactored to use `ArtifactStorage`), tests/test_model_service.py
+  (new, 3 tests: register from COMPLETED, version increments per model_id, rejects non-COMPLETED),
+  tests/test_artifact_storage.py (new, 1 test).
+- **Learnings for future iterations:**
+  - No models changed this story (`Model`/`ModelVersion` already existed from US-011), so no
+    Alembic migration was needed - ran `alembic revision --autogenerate` as a sanity check anyway
+    (per the quality checklist), confirmed it generated an empty migration, and deleted that file
+    rather than committing a no-op migration.
+  - When a story's AC asks for a "storage abstraction" wrapping an existing inline
+    filesystem-write (written in an earlier story before the abstraction existed), the lazy/correct
+    move is a small `Protocol` + one concrete implementation that the earlier module's existing
+    code delegates to via constructor injection with a default - not a new parallel code path. Same
+    shape as US-008's `TrainingRunner` Protocol precedent.
+---

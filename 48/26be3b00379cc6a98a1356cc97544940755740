@@ -1,0 +1,38 @@
+ml-close-loop-be/app/services/promotion_service.py
+  s_e47e0ea3ea5361::t_b9d5880c6c1e95 1-61
+ml-close-loop-be/app/main.py
+  s_e47e0ea3ea5361::t_a2e2b9cbc87f36 8,19
+ml-close-loop-be/app/api/promotion.py
+  s_e47e0ea3ea5361::t_ef116635e571f5 1-29
+ml-close-loop-be/app/schemas/promotion.py
+  s_e47e0ea3ea5361::t_7f8a4ba75acfa3 1-30
+ml-close-loop-be/scripts/ralph/prd.json
+  s_e47e0ea3ea5361::t_7c2bd748edf50f 222
+ml-close-loop-be/tests/test_promotion_service.py
+  s_e47e0ea3ea5361::t_385a7e00bc40ac 1-111
+ml-close-loop-be/tests/test_promotion_api.py
+  s_e47e0ea3ea5361::t_0fd21d9bbfdbce 1-151
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_e47e0ea3ea5361::t_c99217f2902fcd 623-672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4826be3b00379cc6a98a1356cc97544940755740",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_e47e0ea3ea5361": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ecdd2772-23cc-4135-a111-77c4b8fe9aa7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

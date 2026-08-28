@@ -3,6 +3,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 
 from app.api.datasets import router as datasets_router
+from app.api.deployment import router as deployment_router
 from app.api.health import router as health_router
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
@@ -17,6 +18,7 @@ app.include_router(validation_router)
 app.include_router(training_router)
 app.include_router(models_router)
 app.include_router(promotion_router)
+app.include_router(deployment_router)
 
 
 @app.exception_handler(HTTPException)

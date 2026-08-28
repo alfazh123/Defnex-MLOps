@@ -754,3 +754,54 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
     acceptance criteria) into `\uXXXX` sequences, producing a huge, unrelated-looking diff across
     the whole file instead of the single intended field change.
 ---
+
+## [2026-08-28] - US-019
+- Added `app/services/serving.py`: `ServingBackend` Protocol + `MockServingBackend` (records
+  `(model_id, version)` calls). Same placeholder-behind-a-Protocol shape as US-012's
+  `artifact_storage.py`. Nothing in it names vLLM/llama.cpp, a process, a port, or a config file -
+  PRD §15/§26 keep the serving stack and the VM environment explicitly TBD, so the abstraction is
+  the only thing this story commits to.
+- Added `app/services/deployment_service.py`: `deploy(db, model_version, backend=None)` (retires
+  whichever version currently holds the pointer, retires the superseded `Deployment` row, calls the
+  serving backend, sets `status="DEPLOYED"`, writes a new `Deployment` row; returns
+  `(deployment, previous_model_version)`), `get_deployment_status` (composed view -> returns the
+  `DeploymentStatus` schema directly, per the Codebase Patterns exception), `to_deploy_result`.
+- Added `app/schemas/deployment.py` (`DeployResult`, `DeploymentStatus` - `status` typed
+  `Literal["DEPLOYED"] | None` since openapi.yaml confirms only that one value) and
+  `app/api/deployment.py` (`POST /models/{model_id}/versions/{version}/deploy` -> 404
+  `MODEL_NOT_FOUND` / 409 `DEPLOY_NOT_ALLOWED` when not PROMOTED / 200 `DeployResult`;
+  `GET /models/{model_id}/deployment` -> 404 when the model_id isn't in the registry, else 200 with
+  an all-null pointer when nothing was ever deployed). Wired into `app/main.py`.
+- **`promotion_service.rollback` now delegates its pointer move to `deployment_service.deploy`**
+  instead of duplicating the transition inline. openapi.yaml describes rollback as moving the *same*
+  deployment pointer that `/deploy` moves, so two implementations would drift (the old inline one
+  never wrote a `Deployment` row, which would have left `GET .../deployment` stale after a
+  rollback). This also resolves US-017's documented forward-compat approximation with zero changes
+  to that story's own logic, exactly as its note predicted: a real "rolled back from" version now
+  exists, so `DecisionRecord.version` differs from `rollback_of_version` (covered by a new test).
+- `environment` (PRD §15's required column) comes from a new `settings.deployment_environment`
+  defaulting to `"default"` - no source document names any environment values, and PRD §26 forbids
+  assuming the VM environment, so one neutral overridable value rather than an invented
+  staging/prod ladder.
+- Files changed: app/services/serving.py (new), app/services/deployment_service.py (new),
+  app/schemas/deployment.py (new), app/api/deployment.py (new), app/main.py, app/config.py,
+  app/services/promotion_service.py, tests/test_deployment_service.py (new, 6 tests),
+  tests/test_deployment_api.py (new, 8 tests).
+- No models changed (`Deployment` landed in US-018), so no migration - ran `alembic revision
+  --autogenerate` as a sanity check, confirmed empty, deleted it. Same precedent as
+  US-012/US-013/US-016/US-017.
+- **Learnings for future iterations:**
+  - **Bug caught by a test, worth knowing:** a lazy-loaded relationship collection
+    (`model_version.model.versions`) is loaded *once per Session* and does NOT pick up rows added
+    later in that same Session, so iterating it to find a sibling silently misses anything
+    registered after the first access. The US-017 code inherited this and would have failed to
+    retire a superseded version. Use an explicit `db.scalars(select(...))` whenever the query must
+    see rows created earlier in the same request/Session.
+  - When two endpoints are documented as mutating the *same* resource (here `/deploy` and
+    `/rollback` both move the deployment pointer), put the mutation in one service function and
+    have both call it - even when their preconditions differ. The differing precondition (deploy
+    requires PROMOTED; rollback allows RETIRED) belongs in the API layer's 409 guard, following the
+    `submit_evaluation` precedent in `app/api/models.py`, so the shared mover stays guard-free.
+  - `MockServingBackend` records its calls; US-020's end-to-end test can inject one and assert the
+    lifecycle actually reached the serving boundary.
+---

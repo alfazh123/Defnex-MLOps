@@ -1,0 +1,38 @@
+ml-close-loop-be/app/models/model.py
+  s_26ea766191ceae::t_49a925b2cc54d2 53
+ml-close-loop-be/app/workers/training_worker.py
+  s_26ea766191ceae::t_4ff4c37b4c9999 9,40-42,60-66
+ml-close-loop-be/app/models/training.py
+  s_26ea766191ceae::t_49a925b2cc54d2 32
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_26ea766191ceae::t_141d1026167b57 1-282
+ml-close-loop-be/app/services/training_service.py
+  s_26ea766191ceae::t_4ff4c37b4c9999 83-86,103
+ml-close-loop-be/docker-compose.yml
+  s_26ea766191ceae::t_4516aff57e1d06 12-25
+ml-close-loop-be/scripts/ralph/prd.json
+  s_26ea766191ceae::t_22f31197afcccc 277
+ml-close-loop-be/scripts/ralph/progress.txt
+  s_26ea766191ceae::t_5db8944fa99d81 808-860
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9eab3cf36ca108659a7b9828e62e6c05cf1fbeff",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26ea766191ceae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1ea93141-5eaf-475d-995f-f43efb1505c5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

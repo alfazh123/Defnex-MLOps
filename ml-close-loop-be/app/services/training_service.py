@@ -80,9 +80,10 @@ def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
 def to_schema(training_run: TrainingRun) -> TrainingRunSchema:
     """Compose the flat ORM row into the nested TrainingRun response schema.
 
-    `model_version` stays None — it's only populated once a completed run is registered
-    into the model registry (US-011/US-012, not yet implemented; see openapi.yaml's own
-    note that it's set by the backend's internal Register call on COMPLETED).
+    `model_version` is the forward link to the model version this run produced — populated once
+    the worker's internal Register call has succeeded on COMPLETED (openapi.yaml TrainingRun),
+    None before that. This is the only place the contract links a training_run_id forward to its
+    model version.
     """
 
     return TrainingRunSchema(
@@ -99,5 +100,5 @@ def to_schema(training_run: TrainingRun) -> TrainingRunSchema:
         current_step=training_run.current_step,
         train_loss=training_run.train_loss,
         eval_loss=training_run.eval_loss,
-        model_version=None,
+        model_version=training_run.model_versions[-1].version if training_run.model_versions else None,
     )

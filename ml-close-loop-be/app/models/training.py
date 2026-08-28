@@ -29,3 +29,4 @@ class TrainingRun(Base):
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
 
     dataset_version: Mapped["DatasetVersion"] = relationship(back_populates="training_runs")
+    model_versions: Mapped[list["ModelVersion"]] = relationship(back_populates="training_run")

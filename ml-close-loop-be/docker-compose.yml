@@ -9,3 +9,17 @@ services:
       - ./app:/app/app
       - ./data:/app/data
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Same image as `backend`, different process (PRD §5) — the lightweight job runner must be
+  # able to run independently of the FastAPI process (PRD §10). Uses the mock training runner,
+  # so no GPU/CUDA is assumed (PRD §5/§26).
+  worker:
+    build: .
+    environment:
+      - DATABASE_URL=sqlite:///./data/app.db
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    command: python -m app.workers.training_worker
+    depends_on:
+      - backend

@@ -805,3 +805,56 @@ Started: Thu Aug 27 04:16:05 PM WIB 2026
   - `MockServingBackend` records its calls; US-020's end-to-end test can inject one and assert the
     lifecycle actually reached the serving boundary.
 ---
+
+## [2026-08-28] - US-020
+- Added `tests/test_lifecycle_integration.py` (3 tests, all sharing one `_run_lifecycle()` walk):
+  the full closed loop driven through the HTTP API — Dataset -> Validation -> Training Run ->
+  Model Registry -> Evaluation -> Promotion -> Deployment (PRD §19 Integration Tests / §25 /
+  Phase 8). Asserts each step's status code and response shape inline, then separately asserts
+  (a) the serving boundary was reached (`MockServingBackend.deployed`) and (b) the persisted
+  lineage chain is complete: dataset_id/version <- training_run <- model_version (both
+  directions), the validated dataset version is the one trained on, all three evaluation signals
+  present, `promotion_decision_ref` -> the `PromotionDecision` row, and a `Deployment` row whose
+  `deployment_id`/`model_id`/`model_version` match. No GPU: the mock training runner does the work.
+- **Two integration gaps found and fixed — without them the loop was not actually closed:**
+  1. `training_worker.process_next_job` never registered a model version on COMPLETED, so nothing
+     in a *running* system ever created a `ModelVersion` (every prior test called
+     `model_service.register_model_version` by hand). It now issues that call after
+     `complete_training_run` — this is the "backend's internal WBS 3.2 Register call on
+     COMPLETED" openapi.yaml already documents, not a new business rule.
+  2. `training_service.to_schema` hardcoded `model_version=None` with a stale comment claiming
+     US-011/US-012 were unimplemented. It now derives it from the new
+     `TrainingRun.model_versions` <-> `ModelVersion.training_run` back-reference. openapi.yaml
+     calls this "the only place this contract links a `training_run_id` forward to the model
+     version it produced" — US-020's own AC requires that link be assertable.
+- Added the `worker` service to `docker-compose.yml` (PRD §5's minimal environment listed
+  backend + worker + volume; only `backend` existed) and the missing
+  `if __name__ == "__main__":` block in `training_worker.py` that its own docstring already
+  promised (`python -m app.workers.training_worker`). Same image, different command, mock runner
+  — no GPU/CUDA assumed (PRD §5/§26).
+- **Verified live, not just in pytest:** `docker compose up -d --build` brought up both
+  containers (backend `/health` -> 200, worker running), then a real
+  `POST /datasets/.../versions` + `POST /training-runs` against `localhost:8000` went
+  `PENDING -> COMPLETED` with `model_version: 1` picked up by the *worker container* — the
+  closed loop working across two separate processes, no GPU. Then `docker compose down`.
+- Files changed: tests/test_lifecycle_integration.py (new), app/models/training.py,
+  app/models/model.py, app/services/training_service.py, app/workers/training_worker.py,
+  docker-compose.yml.
+- No schema change (a `relationship()` adds no columns) — ran `alembic upgrade head` +
+  `alembic revision --autogenerate` as the usual sanity check, confirmed 0 `op.` calls, deleted
+  the empty file. Same precedent as US-012/US-013/US-016/US-017/US-019.
+- **Learnings for future iterations:**
+  - An end-to-end story is where "every domain has passing unit + API tests" gets falsified.
+    Both gaps above were invisible to the per-domain suites because each domain's tests set up
+    their own preconditions by calling the *next* domain's service directly (see
+    `_registered_model_version` in `tests/test_deployment_api.py`) — that helper silently stood
+    in for a production code path that did not exist. When writing an integration test, drive
+    every step the way a real client would and treat any step you cannot trigger that way as a
+    finding, not as test-setup boilerplate.
+  - Two steps genuinely have no HTTP trigger and are documented as such at the top of the test:
+    the `DatasetVersion` PROCESSING -> PROCESSED transition (no intake pipeline exists in this
+    PRD's story list) and the worker loop itself (`process_next_job` is called once rather than
+    running `run_forever` in a thread — same code path, no polling sleep).
+  - `docker compose config -q` validates the compose file without building; useful as a cheap
+    check before committing a compose change.
+---

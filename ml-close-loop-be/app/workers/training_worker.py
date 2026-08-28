@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.training import TrainingRun
-from app.services import training_service
+from app.services import model_service, training_service
 
 
 class TrainingRunner(Protocol):
@@ -37,6 +37,9 @@ def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
         training_service.fail_training_run(db, training_run, error_message=str(exc))
     else:
         training_service.complete_training_run(db, training_run, artifact_uri=artifact_uri)
+        # The internal Register call openapi.yaml documents as running on COMPLETED — without it
+        # nothing in a running system ever creates a ModelVersion, so the loop never closes.
+        model_service.register_model_version(db, training_run)
     return training_run
 
 
@@ -54,3 +57,10 @@ def run_forever(runner: TrainingRunner, poll_interval: float = 5.0) -> None:
             db.close()
         if job is None:
             time.sleep(poll_interval)
+
+
+if __name__ == "__main__":
+    from app.workers.mock_runner import MockTrainingRunner
+
+    # Mock runner until the VM/Unsloth environment exists (PRD §20); swap the runner here only.
+    run_forever(MockTrainingRunner())

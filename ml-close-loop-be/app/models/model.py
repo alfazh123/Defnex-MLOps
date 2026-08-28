@@ -50,7 +50,7 @@ class ModelVersion(Base):
     previous_model_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     model: Mapped["Model"] = relationship(back_populates="versions")
-    training_run: Mapped["TrainingRun"] = relationship()
+    training_run: Mapped["TrainingRun"] = relationship(back_populates="model_versions")
     promotion_decisions: Mapped[list["PromotionDecision"]] = relationship(
         back_populates="model_version"
     )

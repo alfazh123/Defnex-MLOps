@@ -1,0 +1,860 @@
+# Ralph Progress Log
+Started: Thu Aug 27 04:16:05 PM WIB 2026
+---
+
+## Codebase Patterns
+
+- SQLite dev DB (`data/app.db`, gitignored) is stale between iterations — after
+  adding models, `alembic upgrade head` must be run *before*
+  `alembic revision --autogenerate` on a fresh checkout, or autogenerate fails
+  with "Target database is not up to date."
+- `list[str]`-typed columns need an explicit `mapped_column(JSON, ...)` —
+  SQLAlchemy 2.0's `Mapped[list[str]]` has no default type-map entry (unlike
+  `dict`, which maps to JSON automatically), so a bare `mapped_column()` fails.
+- Domain models live in one file per entity under `app/models/`, exported
+  from `app/models/__init__.py` (which `alembic/env.py` imports) so Alembic
+  autogenerate picks them up. Follow this per new entity.
+- `tests/conftest.py` provides a `db_session` fixture: in-memory SQLite engine
+  (`create_engine("sqlite://")`), tables created from `Base.metadata`, one
+  fresh DB per test. Use this for all service-layer tests instead of hitting
+  `data/app.db`.
+- ORM models are flat (columns match the manifest fields 1:1); API response
+  schemas (e.g. `DatasetVersion`) nest a sub-object (`manifest`). Services own
+  the flat<->nested mapping via a `to_schema()` helper in the service module —
+  don't try to make Pydantic's `from_attributes` do this automatically across
+  a structural mismatch.
+- Service functions take ORM/domain identifiers (e.g. `dataset_id: str`) and
+  return ORM model instances, not schemas — schema conversion is a separate,
+  explicit step (`to_schema`), kept out of the API layer's concern. Exception:
+  composed/aggregate views with no matching ORM entity (e.g. `list_datasets`
+  for `GET /datasets`) return the response schema directly from the service.
+- Standard error envelope (PRD §18, openapi.yaml `Error` schema) is
+  `{"error": {"code": ..., "message": ...}}` — NOT FastAPI's default
+  `{"detail": ...}`. Pattern: raise `app.api.errors.APIError(status_code,
+  code, message)` from any endpoint; a global `HTTPException` handler in
+  `app/main.py` serializes its `detail` dict as-is instead of wrapping it
+  again. Reuse `APIError` for every future domain's error responses instead
+  of raising bare `HTTPException`.
+- API-level tests (hitting routes via `TestClient`, not calling service
+  functions directly) need a `create_engine("sqlite://", ...,
+  poolclass=StaticPool)` + `app.dependency_overrides[get_db]` fixture —
+  plain `"sqlite://"` without `StaticPool` gives each new connection a
+  *separate* empty in-memory DB, so `Base.metadata.create_all` runs against
+  a table the request handler's own connection can't see ("no such table").
+  The `db_session` fixture in `conftest.py` (single `Session` object, no
+  pooling concern) is fine for service-layer tests but insufficient for
+  this pattern.
+
+## [2026-08-27] - US-001
+- Implemented Dataset and DatasetVersion SQLAlchemy models per PRD §6/§7 and
+  openapi.yaml's DatasetManifest/DatasetVersion schemas: `Dataset.dataset_id`
+  (PK), `DatasetVersion` with `dataset_id` FK, integer `version`, `status`,
+  and manifest fields (source_url_or_hf_id, source_commit_or_snapshot_date,
+  source_format, seed, row_count, cleaning_steps_applied, created_at,
+  created_by), unique on (dataset_id, version).
+- Files changed: app/models/dataset.py (new), app/models/__init__.py,
+  alembic/versions/b6079426a4fc_us_001_add_dataset_and_dataset_version_.py (new)
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (JSON columns, migration ordering).
+  - `dataset_version` is INTEGER per PRD §7 and openapi.yaml's resolved
+    deviation — validation-rules.md still says string, ignore that per
+    US-002's acceptance criteria.
+---
+
+## [2026-08-27] - US-002
+- Added Pydantic schemas (`DatasetManifest`, `DatasetVersionCreateRequest`,
+  `DatasetVersion`, `DatasetSummary`) matching openapi.yaml, and a service
+  layer (`register_dataset`, `create_dataset_version`, `get_dataset_version`,
+  `list_dataset_versions`, `to_schema`) in `app/services/dataset_service.py`.
+- `create_dataset_version` auto-registers the Dataset row, computes the next
+  integer version per dataset_id (max existing + 1), and sets status
+  `PROCESSING` on creation — matching openapi.yaml's documented POST
+  response. There is no intake/normalization pipeline or worker in this
+  PRD's story list for the dataset domain, so nothing ever transitions a
+  version past `PROCESSING` yet; `row_count`/`seed`/`cleaning_steps_applied`
+  stay null/empty until a future story (if any) adds that pipeline. This is
+  a deliberate scope choice, not a gap in this story — the acceptance
+  criteria only ask for register/create/get/list functions.
+- Files changed: app/schemas/dataset.py (new), app/services/dataset_service.py
+  (new), tests/conftest.py (new, `db_session` fixture),
+  tests/test_dataset_service.py (new).
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (db_session fixture, flat-vs-nested mapping).
+  - No models changed this story, so no Alembic migration was needed/run.
+---
+
+## [2026-08-27] - US-003
+- Implemented the 4 dataset API endpoints per openapi.yaml: `GET /datasets`
+  (new `dataset_service.list_datasets` aggregation), `POST
+  /datasets/{dataset_id}/versions`, `GET /datasets/{dataset_id}/versions`,
+  `GET /datasets/{dataset_id}/versions/{version}`. The two `GET .../versions*`
+  routes 404 with the PRD §18 error envelope (`DATASET_NOT_FOUND`) when the
+  dataset doesn't exist.
+- Added `app/schemas/common.py` (`ErrorResponse`/`ErrorDetail`, matches
+  openapi.yaml's `Error` schema) and `app/api/errors.py` (`APIError`, an
+  `HTTPException` subclass that pre-builds the envelope-shaped `detail`), plus
+  a global `HTTPException` handler in `app/main.py` that serializes that
+  `detail` as-is instead of FastAPI's default `{"detail": ...}` wrapper.
+- Files changed: app/api/datasets.py (new), app/api/errors.py (new),
+  app/schemas/common.py (new), app/main.py, app/services/dataset_service.py
+  (added `list_datasets`), tests/test_dataset_api.py (new).
+- **Learnings for future iterations:**
+  - See Codebase Patterns above (error envelope / `APIError` pattern,
+    `StaticPool` for API-level SQLite tests, composed-view service returns).
+  - No models changed this story, so no Alembic migration was needed/run.
+---
+
+## [2026-08-27] - US-004
+- Added `ValidationReport` SQLAlchemy model (`app/models/validation.py`) per
+  validation-rules.md §5/§7 and openapi.yaml's `ValidationReport` schema:
+  `dataset_version_id` FK to `dataset_versions.id` (not denormalized
+  dataset_id/version columns — the service layer will derive those via the
+  `dataset_version` relationship when building the flat API schema, same
+  flat-ORM/nested-or-derived-schema split as the dataset domain),
+  `rule_set_version`, `run_at`, `record_count`, `status_counts` (JSON dict:
+  VALID/INVALID/NEEDS_REVIEW), `warnings_summary` (JSON dict, optional),
+  `dataset_statistics` (JSON dict, deliberately loosely typed per
+  openapi.yaml), `gate_decision` (PASS/FAIL), `gate_reason`. No separate
+  warning status — matches validation-rules.md §2 Decision 1 (warnings are
+  metadata on VALID records, not a 4th status). Added the inverse
+  `validation_reports` relationship on `DatasetVersion`.
+- Files changed: app/models/validation.py (new), app/models/dataset.py,
+  app/models/__init__.py,
+  alembic/versions/4e83458e8145_us_004_add_validation_report_model.py (new).
+- **Learnings for future iterations:**
+  - A report has no unique constraint on (dataset_version_id) — multiple
+    validation runs against the same dataset version are expected and all
+    persist as separate rows (openapi.yaml: "report's identity is
+    `{dataset_id}/{version}` + `run_at`... re-running validation produces
+    additional entries").
+  - `status_counts`/`warnings_summary`/`dataset_statistics` are all JSON
+    dict columns — same `Mapped[dict]` -> JSON auto-mapping used for
+    Dataset's manifest fields, no explicit `mapped_column(JSON, ...)`
+    needed for `dict` (only `list[str]` needs it, see Codebase Patterns).
+---
+
+## [2026-08-27] - US-005
+- Added `app/services/validation_service.py`: `validate_dataset_version(db, dataset_version,
+  records, eval_records=None, rule_set_version="2.2.0")` runs validation-rules.md's hard-error
+  rule set (H1-H9: required fields, valid roles, non-empty content, min length, empty-enumeration
+  artifact, boilerplate markers, exact-duplicate detection, train/eval leakage, control-character
+  encoding) against an in-memory `records: list[dict]` (canonical ChatML schema per
+  dataset-lifecycle-and-schema.md §4) and persists a `ValidationReport` row. Also added
+  `list_validation_reports`, `get_latest_validation_report`, `to_schema` (mirrors the dataset
+  domain's flat-ORM/derived-nested-schema split — `dataset_id`/`dataset_version` are derived from
+  the `dataset_version` relationship, not stored redundantly).
+- **Deliberate scope decisions (not gaps):**
+  - **No filesystem I/O.** Nothing in this PRD's story list ever writes canonical-schema records to
+    `processed/{dataset_id}/{version}/` (Phase 1 explicitly says "Validation belum perlu
+    diimplementasikan penuh pada phase ini" and no intake/normalization story exists — see US-002's
+    prior note). The service therefore takes `records` as an explicit in-memory parameter instead of
+    reading a file path that nothing in this codebase ever creates. Sourcing records for the real
+    `POST .../validate` endpoint (US-006) is deferred to that story.
+  - **Warning rules (W1-W5) and quality-review rules (Q1-Q4) are NOT implemented.** Only H1-H9 (hard
+    errors) plus duplicate/leakage detection are implemented, matching this story's AC list exactly
+    (schema/required-field/role-message/malformed-data/duplicate/leakage). Several W/Q rules (W2
+    "approaches max_seq_length" with no % given, W5 "large proportion" with no threshold, Q2
+    near-duplicate "fuzzy match" with no algorithm, Q4 "largely a restatement" with no algorithm) have
+    no concrete number/algorithm in validation-rules.md — implementing them would mean inventing a
+    threshold, which the project rules and validation-rules.md §9 itself ("recommend the latter
+    [deferring]... rather than guessing thresholds now") both say not to do. `status_counts.NEEDS_REVIEW`
+    and `warnings_summary` therefore stay at `0`/`{}` until a future story adds those rules with
+    real, sourced thresholds.
+  - **Gate decision uses only the one rule the doc actually gives a decision procedure for:**
+    validation-rules.md §6 says leakage (H8) alone forces FAIL "regardless of other rates", and §9.1
+    says the hard-error-rate/NEEDS_REVIEW-size PASS/FAIL thresholds are `[UNKNOWN]`, recommending
+    "start permissive" instead of guessing a number. Implemented as: `gate_decision = "FAIL" if any
+    leakage else "PASS"` — not more punitive than that.
+  - **`max_seq_length` for a future W2 implementation should be 4096, not validation-rules.md's own
+    "2048"** — confirmed by cross-referencing `docs/registry/model-artifact-versioning-lineage.md`
+    line 191 ("`max_seq_length` raised from the 7B/T4 practice's 2048 as a starting point"): 2048 was
+    the old 7B/T4-era value; 4096 is PRD §11's now-confirmed baseline (also used everywhere else:
+    openapi.yaml, mlops-api-contract.md). Not a blocking conflict — just noted here since W2 isn't
+    implemented yet and a future iteration might otherwise copy the stale "2048" verbatim.
+  - **H7 duplicate semantics:** first occurrence of an identical normalized (user, assistant) content
+    pair stays as-is; every later occurrence is marked INVALID with `H7_duplicate`. Not specified
+    verbatim in the doc, but the most natural reading of "no two records share identical... pairs".
+- Files changed: app/services/validation_service.py (new), app/schemas/validation.py (new — was
+  already present untracked from a prior interrupted run, matched openapi.yaml exactly so kept as-is),
+  tests/test_validation_service.py (new, 11 tests covering H1/H2/H3/H4/H6/H7/H8, gate PASS/FAIL,
+  list/get-latest, to_schema).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run.
+  - Before implementing a "runs against a dataset version" service, check whether the underlying data
+    the rules operate on (here: actual JSONL records) is ever actually persisted anywhere in this
+    codebase — it often isn't yet, and the AC only asks for the rule *logic*, not a storage layer that
+    isn't in scope. Design the function to take that data as an explicit parameter rather than
+    guessing a file path or storage convention.
+  - When a source doc gives a rule qualitatively ("approaches", "large proportion", "fuzzy match")
+    with no number/algorithm, that's a strong signal it's out of scope for the current story, not a
+    detail to fill in — cross-check the doc's own "Open questions" section (usually says so
+    explicitly) before spending time on an implementation you'd have to invent thresholds for.
+---
+
+## [2026-08-27] - US-006
+- Added `app/api/validation.py` with the 3 endpoints per openapi.yaml: `POST
+  /datasets/{dataset_id}/versions/{version}/validate` (404 if dataset/version unknown, 409
+  `VALIDATION_INCOMPLETE` if `status != PROCESSED`, else 201 with the report), `GET
+  .../validation-reports` (404 if dataset/version unknown, else array, empty if none run yet), `GET
+  .../validation-reports/latest` (404 `DATASET_NOT_FOUND` if dataset/version unknown, 404
+  `VALIDATION_REPORT_NOT_FOUND` if none run yet). Wired into `app/main.py` alongside the existing
+  routers.
+- **Resolved the "where do `validate`'s records come from" question US-005 deferred to this
+  story:** no story in this PRD's 20-story list ever writes actual JSONL record content anywhere
+  (no intake/normalization pipeline, no `processed/{dataset_id}/{version}/` writer), and
+  openapi.yaml's request body for this endpoint is `additionalProperties: false` with only an
+  optional `rule_set_version` field, so records cannot be supplied by the caller either without
+  changing the frozen request schema (disallowed by project rules). The endpoint therefore calls
+  `validation_service.validate_dataset_version(db, dataset_version, records=[], ...)`, an honest
+  reflection of what data actually exists in this codebase today, not a guessed threshold or
+  business rule. This means real report content (`status_counts`, `dataset_statistics`) is always
+  zero/empty via the API today; the VALID/INVALID/NEEDS_REVIEW rule *logic* itself is already
+  covered by US-005's direct service-level tests. A future story that adds real dataset-content
+  storage (intake pipeline) should replace the `records=[]` call with a real read from that
+  storage - nothing else here needs to change.
+- `dataset_version.status` never actually reaches `PROCESSED` anywhere in this codebase either
+  (`create_dataset_version` always sets `PROCESSING`, per US-002's note, and no story transitions
+  it further), so API tests reach the `201` path by setting `status = "PROCESSED"` directly on the
+  row via a raw `Session` against the test's shared `StaticPool` engine, not through any service
+  call.
+- Error code for the 409 case (`VALIDATION_INCOMPLETE`) was not invented - it's openapi.yaml's own
+  documented example value for the `Error.code` field (paired with the exact message "Dataset
+  version has not completed processing yet."), so reused verbatim rather than picking a new code.
+- Files changed: app/api/validation.py (new), app/main.py, tests/test_validation_api.py (new, 11
+  tests: 404/409/201 for validate, request-validation 422, list empty/populated, latest 404s and
+  most-recent-wins).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run.
+  - When an openapi.yaml endpoint's description implies reading from storage that no story in the
+    PRD actually builds (e.g. "runs against `processed/{dataset_id}/{version}/`" when nothing ever
+    writes that path), check whether the request/response schemas are frozen before assuming you
+    need to invent the storage layer - if the schema can't carry the missing data either, the
+    correct scope decision is usually "operate on what's actually persisted (often empty/None) and
+    document it," not "stop as a blocked conflict." This isn't a doc-vs-doc conflict, just a
+    not-yet-built pipeline; treat it like US-002/US-005's prior scope decisions.
+  - `Error.code` examples given in openapi.yaml's schema definitions (not just per-endpoint
+    `examples:` blocks) are worth grepping for before inventing a new error code string.
+---
+
+## [2026-08-27] - US-007
+- Added `TrainingRun` SQLAlchemy model (`app/models/training.py`) per PRD §9/§11: `training_run_id`
+  (string PK), `dataset_version_id` FK to `dataset_versions.id` (flat-ORM/derived-nested pattern,
+  same as `ValidationReport`), `model_id`, `base_model` (top-level, matching openapi.yaml's known
+  deviation #3 - not nested in `training_config`), `training_config` (JSON), `status` (string,
+  default `PENDING`), `triggered_by`, `created_at`, `current_epoch`/`current_step`/`train_loss`/
+  `eval_loss` (nullable progress fields), `artifact_uri` and `error_message` (nullable, cover PRD
+  §9's "artifact reference ketika selesai" / "error information ketika gagal" - no field names given
+  by any source doc for these two, so named directly from the PRD's own English gloss). Added the
+  inverse `training_runs` relationship on `DatasetVersion`.
+- Added `app/schemas/training.py`: `TrainingConfig` (matches openapi.yaml's loosely-typed
+  `TrainingConfig`, `extra="allow"` for `additionalProperties: true`), `TrainingRunCreateRequest`,
+  `TrainingRun` - field names/types copied verbatim from openapi.yaml's schemas.
+- **Status enum naming resolved as NOT a doc conflict:** PRD §9's lifecycle diagram uses `QUEUED`,
+  but openapi.yaml's `TrainingRunStatus` enum (and `mlops-api-contract.md` §3.4/§9.2, which
+  openapi.yaml formalizes) both use `PENDING -> RUNNING -> COMPLETED | FAILED`. `mlops-api-contract.md`
+  explicitly marks this entity `[NEW]` (no source WBS document schematizes it), so `PENDING` is the
+  contract's own already-established term for the same "not started yet" state PRD's prose calls
+  `QUEUED` - not a second, competing definition. Used `PENDING` (matches the frozen API schema);
+  US-008's AC phrase "QUEUED -> RUNNING -> ..." should be read as the same 4-state lifecycle with
+  `PENDING` as the persisted/serialized value, not a literal string to introduce.
+- **TrainingConfig defaults are baseline-only, not example-run values:** PRD §11's confirmed
+  baseline is exactly 5 items (base_model, PEFT method=DoRA, precision=BF16, 4-bit=false,
+  max_seq_length=4096). `base_model` lives outside `TrainingConfig` (top-level field). "Precision:
+  BF16" has no dedicated field in openapi.yaml or model-artifact-versioning-lineage.md §6's sample
+  record - it's expressed only via `load_in_4bit=false` in this data model, so no separate
+  `precision` field was added. Gave `peft_method="dora"`, `load_in_4bit=False`, `max_seq_length=4096`
+  real defaults; left `lora_r`/`lora_alpha`/`learning_rate`/`epochs` with no default (`None`) since
+  their sample-record values (16/16/unknown/2) are one example run's numbers, not a PRD-confirmed
+  baseline - hardcoding them as defaults would be inventing an unconfirmed business rule.
+- Files changed: app/models/training.py (new), app/models/dataset.py (added `training_runs`
+  relationship), app/models/__init__.py, app/schemas/training.py (new),
+  alembic/versions/249fbe20ec68_us_007_add_training_runs_table.py (new).
+- **Learnings for future iterations:**
+  - No dedicated test file added - this is a pure model+schema story (no branches/logic to check),
+    matching US-001/US-004's precedent of relying on the migration applying cleanly + the existing
+    suite staying green, with real behavioral coverage added once a service/API story exercises it.
+  - When a source doc's status name (PRD prose) differs from the frozen API contract's enum
+    (openapi.yaml / the doc it formalizes), check whether the API doc's own info.description or
+    entity notes mark the entity `[NEW]`/self-originating before treating it as a blocking
+    inter-document conflict - an informally-worded PRD diagram paraphrasing an already-resolved
+    contract term is not the same as two authoritative docs disagreeing.
+---
+
+## [2026-08-27] - US-008
+- Added `app/services/training_service.py`: `create_training_run(db, dataset_version, request)`
+  creates a `TrainingRun` row in `PENDING` status (generated id `run-<hex6>`, config snapshot via
+  `training_config.model_dump()`) without running training, plus explicit state-transition
+  functions `start_training_run` (PENDING->RUNNING), `complete_training_run` (RUNNING->COMPLETED,
+  sets `artifact_uri`), `fail_training_run` (RUNNING->FAILED, sets `error_message`). All three
+  transitions go through a shared `_transition()` helper backed by a `_VALID_TRANSITIONS` adjacency
+  dict; any disallowed transition (e.g. COMPLETED->RUNNING, PENDING->COMPLETED) raises `ValueError`.
+- Added `app/workers/training_worker.py`: a `TrainingRunner` `Protocol` (`run(training_run) ->
+  artifact_uri, or raise`) makes the actual training implementation pluggable - US-008 defines the
+  interface and worker loop only, US-009 will supply the concrete mock implementation, matching
+  US-009's own AC ("swappable... without changing the API contract"). `process_next_job(db, runner)`
+  is the single-iteration unit (PRD §10 steps 1-8): picks the oldest PENDING run by `created_at`,
+  transitions it to RUNNING, calls `runner.run()`, and persists COMPLETED (with the returned
+  artifact_uri) or FAILED (with `str(exception)`) via the service functions above; returns None if
+  the queue is empty. `run_forever(runner, poll_interval)` wraps that in a `SessionLocal()`-per-
+  iteration polling loop (`app.db.session.SessionLocal`, not `Depends(get_db)`) so it can run as
+  `python -m app.workers.training_worker`, independent of any FastAPI request lifecycle - PRD §10's
+  explicit requirement. No `__main__` entrypoint wired yet since there's no concrete `TrainingRunner`
+  to instantiate until US-009 adds the mock runner; wiring that script is left to that story (or
+  US-010 if it turns out to belong there instead).
+- Files changed: app/services/training_service.py (new), app/workers/training_worker.py (new),
+  tests/test_training_service.py (new, 4 lifecycle tests + 4 parametrized invalid-transition cases),
+  tests/test_training_worker.py (new, 4 tests: empty queue, success, runner-exception failure,
+  oldest-first ordering).
+- **Learnings for future iterations:**
+  - No models changed this story (TrainingRun already existed from US-007), so no Alembic migration
+    was needed/run - `alembic upgrade head` was still run as a no-op sanity check per the quality
+    checklist.
+  - `TrainingRunCreateRequest.dataset_version`'s openapi.yaml description says it "must reference a
+    dataset version that has completed `split`" - no `split` story/status exists anywhere in this
+    PRD's 20-story list (dataset_version.status only ever reaches PENDING/PROCESSING in this
+    codebase, per US-002's note), so that constraint isn't enforced here. Same "not-yet-built
+    pipeline, not a doc conflict" scope decision as US-002/US-005/US-006 - don't invent a `split`
+    gate; `create_training_run` takes an already-resolved `DatasetVersion` ORM object (API-layer
+    lookup/validation, e.g. 404-if-missing, is US-010's job, same flat-service/API-validates-split
+    pattern as `validation_service.validate_dataset_version`).
+  - When a story's worker/runner needs a pluggable strategy that a *later* story concretely
+    implements (mock now, real thing later - see US-009's own AC), define the `Protocol`/interface
+    in the *earlier* story that owns the calling code (the worker), not in the story that provides
+    the implementation. Keeps the worker's tests using a trivial stub instead of waiting on the real
+    implementation to exist.
+---
+
+## [2026-08-28] - US-009
+- Added `app/workers/mock_runner.py`: `MockTrainingRunner`, a plain class implementing the
+  `TrainingRunner` Protocol from `app/workers/training_worker.py` (`run(training_run) -> str`).
+  Writes a one-line fake artifact file to `{tempfile.gettempdir()}/defnex-mock-artifacts/
+  {training_run_id}.bin` and returns it as a `file://` URI (matching the `file:///tmp/adapter`
+  example format already used in `test_training_worker.py`'s stub runner). No GPU/Unsloth
+  dependency, pure stdlib (`tempfile`, `pathlib`).
+- **Persistent artifact storage location is `[UNKNOWN]` per
+  docs/registry/model-artifact-versioning-lineage.md line 325** ("today artifacts are
+  local-Colab-ephemeral... [UNKNOWN] Persistent artifact storage location/backend"), and US-012
+  (not yet implemented) is explicitly where a real storage abstraction/interface gets built. Using
+  the OS temp dir here is the correct scope for *this* story, a placeholder good enough to prove
+  the QUEUED->RUNNING->COMPLETED lifecycle end-to-end (this story's actual AC), not a persistent
+  storage decision. Swapping to a real backend later only requires changing `MockTrainingRunner`
+  (or replacing it outright): `TrainingRunner.run()`'s `-> str` contract, `training_worker.py`,
+  and the API contract all stay untouched, satisfying the "swappable... without changing the API
+  contract" AC.
+- Files changed: app/workers/mock_runner.py (new), tests/test_mock_runner.py (new, 2 tests: direct
+  `run()` call writes a real file, and a full `process_next_job` pass using
+  `MockTrainingRunner()` as the runner reaches COMPLETED with a `file://` artifact_uri).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run, `alembic upgrade head`
+    still run as a no-op sanity check per the quality checklist.
+  - When a doc explicitly marks a field/decision `[UNKNOWN]` and a *later* story in the PRD's own
+    list is scoped to resolve it (here: US-012's "artifact storage abstraction"), the current
+    story should use the simplest placeholder that satisfies its own AC (stdlib temp dir) rather
+    than either blocking on the unresolved doc or preemptively building the abstraction that
+    belongs to the later story.
+---
+
+## [2026-08-28] - US-010
+- Added `app/api/training.py` with the 2 endpoints per openapi.yaml: `POST /training-runs` (404
+  `DATASET_NOT_FOUND` if `dataset_id`/`dataset_version` don't resolve to an existing
+  `DatasetVersion`, else 201 with the new run in `PENDING`), `GET /training-runs/{training_run_id}`
+  (404 `TRAINING_RUN_NOT_FOUND` if unknown, else 200 with the current record). Wired into
+  `app/main.py` alongside the existing routers.
+- Added `training_service.get_training_run` and `training_service.to_schema` (same flat-ORM ->
+  nested-schema composition pattern as `dataset_service.to_schema`/`validation_service.to_schema`;
+  `dataset_id`/`dataset_version` are derived from the `TrainingRun.dataset_version` relationship,
+  not stored redundantly). Required renaming the schema import in `training_service.py`
+  (`from app.schemas.training import TrainingRun as TrainingRunSchema, ...`) since the ORM model
+  `TrainingRun` was already imported unaliased in that module.
+- **openapi.yaml's 409 case ("dataset version has not completed `split`, or `model_id` cannot be
+  resolved") is deliberately NOT enforced** - same "not-yet-built pipeline" scope decision as
+  US-008's note: no `split` status exists anywhere in this codebase's `DatasetVersion.status`
+  values, and no Model registry exists yet to resolve `model_id` against (US-011, next story, adds
+  it). `POST /training-runs` therefore only checks that the `(dataset_id, dataset_version)` pair
+  exists (404), matching what's actually buildable today; the endpoint's request/response schemas
+  are unchanged from openapi.yaml so nothing here blocks wiring the 409 checks once US-011 lands.
+- `training_service.create_training_run` only `db.flush()`es (established in US-008, since the
+  worker owns its own `db.commit()`); the new API endpoint calls `db.commit()` itself after the
+  service call, matching how `dataset_service.create_dataset_version` handles its own commit vs.
+  how the worker commits around `process_next_job` - commit ownership sits with whichever caller
+  is the actual transaction boundary (HTTP request vs. worker loop), not inside a service function
+  shared by both.
+- `TrainingRun.model_version` is always `None` in the response for now - the field only gets
+  populated once a `COMPLETED` run is registered into the model registry (per openapi.yaml's own
+  description on `GET /training-runs/{id}`), and that registry doesn't exist yet (US-011/US-012).
+- Files changed: app/api/training.py (new), app/main.py, app/services/training_service.py (added
+  `get_training_run`, `to_schema`, aliased schema import), tests/test_training_api.py (new, 5
+  tests: 404/201/422 for create, 404/200 for get).
+- **Learnings for future iterations:**
+  - No models changed this story, so no Alembic migration was needed/run; `alembic upgrade head`
+    still run as a no-op sanity check per the quality checklist.
+  - When an ORM model and its matching Pydantic response schema share the same class name (e.g.
+    both called `TrainingRun`), and a service module needs both, alias the Pydantic import (`as
+    TrainingRunSchema`) rather than the ORM one - the ORM name is used far more often within the
+    service (type hints on nearly every function) so keeping it unaliased reads better.
+  - A 409 case named in openapi.yaml can legitimately stay unenforced across multiple stories in a
+    row when it depends on a *different* not-yet-built story (here: US-011's model registry) -
+    don't invent a stand-in check; just note which future story is expected to add it, same
+    pattern as US-005/US-006/US-008's deferred-pipeline notes.
+---
+
+## [2026-08-28] - US-011
+- Added `Model`/`ModelVersion` SQLAlchemy models (`app/models/model.py`) per
+  model-artifact-versioning-lineage.md §6/§8: `Model.model_id` (PK, no other columns - a bare
+  identity row, same shape as `Dataset`), `ModelVersion` with `model_id` FK, integer `version`
+  (unique together), `status` (default `REGISTERED`), `training_run_id` FK to
+  `training_runs.training_run_id` (required, non-nullable per §9 Decision 5), `base_model`
+  (top-level string column, NOT nested inside `training_config` - explicit known-deviation #3),
+  `training_config` (JSON), `artifacts` (JSON list of `{type, uri, size_bytes}` objects - a version
+  can accumulate more than one artifact entry over time per §3), `dataset_validation_report_ref`,
+  `created_at`, `created_by`, `promotion_decision_ref`, `previous_model_id` (all nullable, matching
+  §8's JSON Schema `required` list which only mandates model_id/version/status/training_run_id/
+  dataset_id/dataset_version/created_at/artifacts).
+- **No `evaluation_id` field added** - matches this story's explicit AC; evaluation fields
+  themselves are also NOT added yet (`eval_loss_trend`/`qualitative_comparison`/
+  `general_domain_regression_check`) since US-014 ("Add evaluation persistence...") owns adding
+  those to this same record per its own AC ("Evaluation fields persisted on the model version
+  record"). Adding them now would pre-empt that story's scope.
+- **`dataset_id`/`dataset_version` are NOT stored as columns on `ModelVersion`** - same
+  flat-ORM/derived-nested pattern as `ValidationReport`/`TrainingRun`: they're reachable via
+  `ModelVersion.training_run_id -> TrainingRun.dataset_version_id -> DatasetVersion.dataset_id/
+  version` (a 2-hop relationship chain), so storing them again on `ModelVersion` would be
+  redundant denormalization the doc's own schema doesn't actually require as separate storage -
+  only as *returned* API fields, which a `to_schema()` helper derives (deferred to US-012/US-013,
+  same split used by every prior domain's service layer).
+- **`promotion_decision_ref` is a plain nullable string, not a FK** - `PromotionDecision` doesn't
+  exist as a table yet (US-015), and the doc's own schema (§8) types this field as
+  `["string", "null"]`, not a foreign key - consistent with how it's meant to be set later by
+  US-016's promotion service, not enforced by the DB schema now.
+- Files changed: app/models/model.py (new), app/models/__init__.py,
+  alembic/versions/29f1f96e3ea1_us_011_add_model_and_model_version_.py (new).
+- **Learnings for future iterations:**
+  - No dedicated test file added - pure model+migration story, same precedent as US-001/US-004/
+    US-007 (no branches/logic to unit-test; behavioral coverage comes once a service/API story
+    exercises it, per US-012/US-013).
+  - When an AC's explicit field list omits fields that the source doc's full schema (§6 sample /
+    §8 JSON Schema) does include, check whether a *later* story in the PRD's own list explicitly
+    claims that field as its scope (here: evaluation fields -> US-014) before adding it now -
+    that's a deliberate story boundary, not an oversight to fill in early.
+---
+
+## [2026-08-28] - US-012
+- Added `app/services/model_service.py`: `register_model_version(db, training_run)` requires
+  `training_run.status == "COMPLETED"` (raises `ValueError` otherwise), get-or-creates the `Model`
+  row for `training_run.model_id`, computes the next integer `version` for that `model_id` (max
+  existing + 1, starting at 1 - same pattern as `dataset_service.create_dataset_version`), and
+  creates a `ModelVersion` row in `REGISTERED` status with `training_run_id`, `base_model`,
+  `training_config` copied from the training run, and `artifacts=[{"type": "adapter", "uri":
+  training_run.artifact_uri}]` (model-artifact-versioning-lineage.md §6/§7 Register operation).
+  `dataset_id`/`dataset_version`/`dataset_validation_report_ref` stay unstored (same flat-ORM/
+  derived-nested pattern as US-011's note - reachable via `training_run.dataset_version`), and no
+  `to_schema()` was added yet - deferred to US-013 (API story), same precedent as
+  `training_service.py` splitting service (US-008) from `to_schema` (US-010).
+- **`model_id` is not an input to `register_model_version`** - it's read from
+  `training_run.model_id`, which already exists on every `TrainingRun` row (set at
+  `POST /training-runs` time via `TrainingRunCreateRequest.model_id`, per US-007/US-010). The
+  registry doc's own §7 interface table doesn't list `model_id` as Register input either (only
+  `training_run_id`, `dataset_id`, `dataset_version`, `training_config`, `artifacts[]`) - not a
+  doc conflict, just confirms `model_id` is decided upstream at training-request time and carried
+  forward, not invented at registration time.
+- Added `app/services/artifact_storage.py`: `ArtifactStorage` (a `Protocol` with `store(key,
+  content) -> uri`) plus `LocalFilesystemArtifactStorage`, wrapping the local-disk write that used
+  to live inline in `app/workers/mock_runner.py` (US-009). This is the AC's "artifact storage
+  abstraction... wraps the local filesystem path used in Phase 0-era prototyping, so it can be
+  swapped later without changing callers" - persistent artifact storage backend is `[UNKNOWN]`
+  per model-artifact-versioning-lineage.md §10.1, so this stays a placeholder (same temp-dir
+  location as before), just behind a swappable interface now.
+- Refactored `MockTrainingRunner` to take an optional `storage: ArtifactStorage | None` (defaults
+  to `LocalFilesystemArtifactStorage()`) and delegate `run()`'s file write to `storage.store(...)`
+  instead of writing directly with `tempfile`/`Path`. Behavior-preserving (`tests/test_mock_runner.py`
+  passed unchanged, still asserts the same `file://` URI and file contents), signature-preserving
+  (`run()` keeps its `(training_run) -> str` shape from `training_worker.TrainingRunner`).
+- Files changed: app/services/model_service.py (new), app/services/artifact_storage.py (new),
+  app/workers/mock_runner.py (refactored to use `ArtifactStorage`), tests/test_model_service.py
+  (new, 3 tests: register from COMPLETED, version increments per model_id, rejects non-COMPLETED),
+  tests/test_artifact_storage.py (new, 1 test).
+- **Learnings for future iterations:**
+  - No models changed this story (`Model`/`ModelVersion` already existed from US-011), so no
+    Alembic migration was needed - ran `alembic revision --autogenerate` as a sanity check anyway
+    (per the quality checklist), confirmed it generated an empty migration, and deleted that file
+    rather than committing a no-op migration.
+  - When a story's AC asks for a "storage abstraction" wrapping an existing inline
+    filesystem-write (written in an earlier story before the abstraction existed), the lazy/correct
+    move is a small `Protocol` + one concrete implementation that the earlier module's existing
+    code delegates to via constructor injection with a default - not a new parallel code path. Same
+    shape as US-008's `TrainingRunner` Protocol precedent.
+---
+
+## [2026-08-28] - US-013
+- Added `app/schemas/model.py` (`ModelLifecycleStatus`, `ArtifactType`, `Artifact`,
+  `EvalLossTrend`, `QualitativeComparison`, `GeneralDomainRegressionCheck`, `EvaluationObject`,
+  `ModelSummary`, `ModelRegistryRecord`) matching openapi.yaml's schemas of the same names -
+  `ModelRegistryRecord.training_config` reuses `app.schemas.training.TrainingConfig` rather than
+  redefining it. `evaluation` fields are defined (since `EvaluationObject` is referenced by
+  `ModelRegistryRecord`) but `to_schema()` always sets `evaluation=None` this story - the
+  underlying `ModelVersion` row has no evaluation columns yet (deferred to US-014 per US-011's own
+  note), so there's nothing to populate.
+- Added `list_models` and `get_model_version` + `to_schema` to `app/services/model_service.py`
+  (alongside US-012's existing `register_model_version`, unchanged). `list_models` iterates
+  `Model` rows and takes `model.versions[-1]` as "latest" (the `versions` relationship is already
+  `order_by="ModelVersion.version"` per US-011's model definition, so last-in-list = highest
+  version - no extra query needed), optionally filtered by the `status` query param matching that
+  latest version's status (openapi.yaml GET /models semantics: "Filter to model versions
+  currently in this lifecycle status"). `to_schema()` derives `dataset_id`/`dataset_version` via
+  the `model_version.training_run.dataset_version` 2-hop relationship chain flagged as
+  reachable-but-unstored in US-011/US-012's notes - this is the first story to actually exercise
+  that chain.
+- Added `app/api/models.py`: `GET /models` (optional `status` query param, typed as
+  `ModelLifecycleStatus | None` for automatic 422 on invalid values) and `GET
+  /models/{model_id}/versions/{version}`, 404s with `MODEL_NOT_FOUND` per the established
+  `APIError`/error-envelope pattern. Registered in `app/main.py` alongside the other routers.
+- Files changed: app/schemas/model.py (new), app/api/models.py (new),
+  app/services/model_service.py (added `list_models`/`get_model_version`/`to_schema`),
+  app/main.py (registered `models_router`), tests/test_model_api.py (new, 4 tests: 404 on
+  missing, full lineage response on GET .../versions/{version}, list includes latest
+  version+status, list filters by status).
+- **Learnings for future iterations:**
+  - No models changed this story (`Model`/`ModelVersion` already existed from US-011), so no
+    Alembic migration was needed - ran `alembic revision --autogenerate` as a sanity check, got an
+    empty migration, deleted it. Same precedent as US-012.
+  - API test fixture for a domain that needs a full COMPLETED training run + registered model
+    version (not just one POST) drives the pipeline directly through the service layer
+    (`training_service.start_training_run`/`complete_training_run`,
+    `MockTrainingRunner().run(...)`, `model_service.register_model_version`) inside a `with
+    Session(client.engine) as db:` block, rather than adding HTTP endpoints whose only purpose
+    would be to advance test fixtures. Reuses the same `StaticPool` engine the `client` fixture
+    already created (`client.engine`), so the service-layer writes and the `TestClient`'s own
+    request-scoped sessions see the same data.
+---
+
+## [2026-08-28] - US-015
+- Added `PromotionDecision` SQLAlchemy model (`app/models/promotion.py`) per
+  model-promotion-approval-workflow.md §8 / openapi.yaml's `DecisionRecord` schema:
+  `decision_id` (string PK), `decision` (PROMOTED/REJECTED/ROLLBACK, no DB-level enum -
+  matches the string-status convention already used for `ModelVersion.status`/
+  `TrainingRun.status`), `decided_by` (nullable - openapi.yaml types it `[string, null]`,
+  "no identity/auth system defined for this prototype"), `decided_at`, `evidence_snapshot`
+  (nullable JSON - null for ROLLBACK per §9), `rationale` (mandatory string), and
+  `rollback_of_version` (nullable plain int, not a FK - it's a version *number* to roll
+  back to, not a row reference, matching `ModelVersion.previous_model_id`'s existing
+  plain-value precedent for "descriptive number, not enforced link" fields).
+- **`model_id`/`version` are NOT stored as separate columns** - same flat-ORM/derived-nested
+  split used by every prior domain (ValidationReport/TrainingRun/ModelVersion): a
+  `model_version_id` FK to `model_versions.id` identifies which (model_id, version) pair
+  the decision is about; a future `to_schema()` (US-016's job) derives the flat
+  `model_id`/`version` fields for the `DecisionRecord` API response via the
+  `model_version` relationship, exactly like `ModelVersion.to_schema()` already derives
+  `dataset_id`/`dataset_version` from its own 2-hop chain. Added the matching inverse
+  `ModelVersion.promotion_decisions` relationship.
+- Files changed: app/models/promotion.py (new), app/models/model.py (added
+  `promotion_decisions` relationship), app/models/__init__.py,
+  alembic/versions/de0f2f594aa9_us_015_add_promotion_decisions_table.py (new).
+- **Learnings for future iterations:**
+  - This story is model+migration only (matches US-001/US-004/US-007/US-011's precedent) -
+    no service/API/test file added; behavioral coverage arrives with US-016.
+  - When an AC's field list (e.g. "decision_id, model_id, version, ...") reads like a
+    literal column list copied from the doc's JSON sample / API schema, check whether any
+    of those fields are actually *derivable* via an FK relationship already established by
+    a sibling domain before adding them as redundant stored columns - the AC is describing
+    the record's *logical* shape (and matches the API response shape 1:1), not necessarily
+    the storage layout. US-011's `dataset_id`/`dataset_version` precedent is the direct
+    analogy here.
+  - `openapi.yaml`'s `DecisionRecord.decision` enum includes `ROLLBACK` even though
+    `DecisionCreateRequest.decision` (the `POST .../decisions` body) only allows
+    `PROMOTED|REJECTED` - `ROLLBACK` is only ever produced by the separate
+    `POST /models/{model_id}/rollback` endpoint (US-017). The model's `decision` column
+    has no DB-level constraint restricting it to a subset, so both endpoints' future
+    services can write any of the three values through the same column.
+---
+
+## [2026-08-28] - US-014
+- Added the three evaluation signal fields directly on `ModelVersion` (`app/models/model.py`):
+  `eval_loss_trend`, `qualitative_comparison`, `general_domain_regression_check` (all nullable
+  JSON dict columns) - per this story's own AC, no separate `evaluation_id` FK/table, matching
+  model-artifact-versioning-lineage.md §5/§8's schema nested under one `evaluation` object (kept
+  as 3 flat sibling columns instead of one combined JSON blob, consistent with `ValidationReport`'s
+  existing style of separate JSON columns per signal rather than one nested blob).
+- Added `app/schemas/model.py`: `EvaluationUpdateRequest` (all 3 fields optional - "any subset...
+  may be submitted" per openapi.yaml) and `EvaluationSubmitResponse` (`evaluation` + `status`) for
+  POST's inline (non-`$ref`) response shape.
+- Added `model_service.get_evaluation(model_version) -> EvaluationObject` (builds from the 3
+  columns, `None` for anything not yet submitted) and `model_service.submit_evaluation(db,
+  model_version, update)` (merges only the fields present in the request onto the row via
+  `.model_dump()`, then auto-transitions `REGISTERED -> EVALUATED` once all 3 columns are
+  non-`None` - model-promotion-approval-workflow.md §2's exact condition: "All three signal fields
+  ... present. Partial data does not qualify"). Wired `evaluation=get_evaluation(model_version)`
+  into `to_schema()`'s `ModelRegistryRecord` construction (was previously never set, defaulting to
+  `None` for every response).
+- Added `app/api/models.py`: `POST /models/{model_id}/versions/{version}/evaluation` (404
+  `MODEL_NOT_FOUND` if unknown; 409 `EVALUATION_NOT_EDITABLE` if `status` isn't `REGISTERED` or
+  `EVALUATED`, e.g. already `PROMOTED`; else 200 with the merged evaluation + current status) and
+  `GET .../evaluation` (404 if unknown, else 200 with the current object, fields `null` if never
+  submitted). Extracted `_get_model_version_or_404` shared by all 3 model-domain routes (was
+  inlined only in `get_model_version` before this story).
+- **409 error code (`EVALUATION_NOT_EDITABLE`) is not documented as an openapi.yaml `Error.code`
+  example anywhere** (unlike US-006's `VALIDATION_INCOMPLETE`, which *was* a documented example) -
+  grepped first per that story's own learning, found nothing reusable, so named it directly from
+  the endpoint's own 409 description ("evaluation data is not editable after a decision has been
+  made against it").
+- Files changed: app/models/model.py, app/schemas/model.py, app/services/model_service.py,
+  app/api/models.py, tests/test_model_service.py (+2 tests: partial stays REGISTERED, all-3
+  transitions to EVALUATED), tests/test_model_api.py (+6 tests: 404/200-null for GET, 404/200
+  partial/200 full-transition/409 for POST),
+  alembic/versions/e8568ffabe01_us_014_add_evaluation_fields_to_model_.py (new).
+- **Learnings for future iterations:**
+  - When an AC says "evaluation fields persisted... not a separate evaluation_id foreign key," that
+    only rules out a separate *table* - it doesn't mandate one combined JSON blob column vs. several
+    flat sibling columns for the sub-signals. Check how a sibling domain with the same "multiple
+    named JSON sub-objects on one row" shape (here: `ValidationReport`'s `status_counts`/
+    `warnings_summary`/`dataset_statistics`) already decided that, and match it instead of picking a
+    new shape.
+  - An openapi.yaml response schema declared inline under a `200:`/`201:` block (a bare `type:
+    object` with `properties:`, not a `$ref: '#/components/schemas/X'`) still needs a matching
+    Pydantic model for `response_model=` - give it its own small class (`EvaluationSubmitResponse`
+    here) rather than skipping typing just because openapi.yaml itself didn't name it.
+  - A doc-defined state-transition condition phrased as "all N fields present, partial doesn't
+    qualify" (model-promotion-approval-workflow.md §2) maps directly to "check all N columns are
+    non-None, transition only if currently in the *from* state" - re-verify the *from* state check
+    every call (not just first-time-reaches-N) so a second `submit_evaluation` call once already
+    `EVALUATED` doesn't error or regress status, it's simply a no-op transition (still allowed to
+    keep merging/overwriting individual signal values while `EVALUATED`, per the 409 only firing
+    once a *human decision* - PROMOTED/REJECTED/etc - has been made).
+---
+
+## [2026-08-28] - US-016
+- Added `app/services/promotion_service.py`: `create_decision(db, model_version, request)` enforces
+  the only transition this story's AC covers - `EVALUATED -> PROMOTED|REJECTED`
+  (model-promotion-approval-workflow.md §2/§7) - via a `_VALID_TRANSITIONS = {"EVALUATED":
+  {"PROMOTED", "REJECTED"}}` adjacency dict (same `_transition`-style pattern as
+  `training_service.py`'s US-008 precedent, just inlined since there's only one `from` state here).
+  Any other current status (including a version that already has a decision, since a decided
+  version is no longer `EVALUATED`) raises `ValueError` - this single check covers both of
+  openapi.yaml's stated 409 causes ("not EVALUATED, or a decision already exists") without a
+  separate "decision already exists" query. `evidence_snapshot` is populated from
+  `model_service.get_evaluation(model_version).model_dump()` - a frozen copy of the version's
+  current evaluation object at decision time, not a live reference (§8 Decision 4) - and the
+  `ModelVersion.status`/`promotion_decision_ref` are updated in the same call. `to_schema()`
+  derives `model_id`/`version` from the `PromotionDecision.model_version` relationship (same
+  flat-ORM/derived-nested pattern as every prior domain).
+- Added `app/schemas/promotion.py`: `DecisionCreateRequest` (`decision` restricted to
+  `Literal["PROMOTED", "REJECTED"]` - `ROLLBACK` is only ever produced by the separate
+  `POST /models/{model_id}/rollback`, US-017, not this endpoint, per openapi.yaml's own
+  `DecisionCreateRequest` description) and `DecisionRecord` (`decision` allows all three values
+  for the *response* schema, `evidence_snapshot: EvaluationObject | None`).
+- Added `app/api/promotion.py` (new router file, tag `Decisions`): `POST
+  /models/{model_id}/versions/{version}/decisions` - 404 `MODEL_NOT_FOUND` via the existing
+  `_get_model_version_or_404` (imported from `app.api.models`, not duplicated), 409
+  `DECISION_NOT_ALLOWED` (translated from the service's `ValueError`, message reused verbatim -
+  this endpoint's 409 error code isn't a documented openapi.yaml `Error.code` example anywhere, so
+  named directly from the endpoint's own combined 409 description, same precedent as US-014's
+  `EVALUATION_NOT_EDITABLE`), else 201 with the `DecisionRecord`. Wired into `app/main.py`.
+- Files changed: app/services/promotion_service.py (new), app/schemas/promotion.py (new),
+  app/api/promotion.py (new), app/main.py (registered `promotion_router`),
+  tests/test_promotion_service.py (new, 4 tests: promote, reject, 5 parametrized invalid-source-status
+  cases, to_schema), tests/test_promotion_api.py (new, 4 tests: 404, 201 with evidence snapshot +
+  lineage status update, 409 not-EVALUATED, 409 already-decided).
+- **Learnings for future iterations:**
+  - No models changed this story (`PromotionDecision` already existed from US-015), so no Alembic
+    migration was needed - ran `alembic revision --autogenerate` as a sanity check per the quality
+    checklist, confirmed it generated an empty migration (no `op.` calls), deleted that file rather
+    than committing a no-op migration. Same precedent as US-012/US-013.
+  - When an API route module needs a sibling module's private `_get_x_or_404` helper (here:
+    `app/api/models.py`'s `_get_model_version_or_404`, needed by the new `app/api/promotion.py` for
+    the same 404 lookup), importing it directly is fine and avoids duplicating the lookup+404 logic
+    across two router files that share the same resource identity (`model_id`/`version`) - the
+    leading underscore signals "not part of the public API surface," not "do not import across
+    modules within this same codebase."
+  - A service's invalid-transition `ValueError` needs an explicit `try/except ValueError -> APIError`
+    translation at the API layer (`app/main.py`'s global exception handler only catches
+    `HTTPException`, not bare `ValueError`) - same pattern will be needed by any future story whose
+    service raises `ValueError` for a bad transition and expects a 409 (e.g. US-017's rollback
+    endpoint, when it reuses this same `_VALID_TRANSITIONS`-style guard).
+---
+
+## [2026-08-28] - US-017
+- Added `promotion_service.rollback(db, target, request)`: reuses the `PromotionDecision` record
+  with `decision="ROLLBACK"`, `evidence_snapshot=None`, `rollback_of_version=target.version`
+  (model-promotion-approval-workflow.md §9). Validates `target.status` is `PROMOTED` or `RETIRED`
+  (only currently-checkable subset of openapi.yaml's "must already be PROMOTED or have been
+  previously DEPLOYED" - `DEPLOYED` itself isn't a valid *target* status, and no separate
+  deployment-history log exists to check "previously DEPLOYED" beyond the target's own current
+  status). Sets `target.status = "DEPLOYED"` (the rollback's actual effect - the target becomes
+  the active version again) and, if any *other* version of the same model currently holds
+  `DEPLOYED` status, transitions that one to `RETIRED` and links the `PromotionDecision` to it
+  (matching `DecisionRecord.version`'s documented ROLLBACK semantics: "the version being rolled
+  back from", not the target).
+- **Scope decision - no separate Deployment-table/pointer used, none exists yet:** US-018
+  (`Deployment` model) and US-019 (deploy service/`current_deployed_version` pointer) come after
+  this story in the PRD's own ordering, so nothing in this codebase can ever have
+  `ModelVersion.status == "DEPLOYED"` yet (the `/deploy` endpoint that would set it doesn't exist).
+  Rather than blocking on that ordering gap (not a doc-vs-doc conflict, just a not-yet-built
+  dependency - same category as every prior "not-yet-built pipeline" scope call, e.g.
+  US-006/US-008/US-010's notes), `rollback()` is written to be *forward-compatible*: it already
+  looks for a currently-`DEPLOYED` sibling version and retires it correctly, so it needs zero
+  changes once US-019 starts actually setting that status. Today, since no such version can exist,
+  the decision's `model_version_id` FK falls back to linking to `target` itself (the only
+  discoverable non-null anchor) - meaning `DecisionRecord.version` in the API response currently
+  equals `rollback_of_version` (both point at `target`) until a real "from" version exists to
+  differentiate them. This is a documented, temporary approximation, not an invented business
+  rule - it will self-correct the moment US-019 lands, no code change needed here.
+- Added `RollbackRequest` schema (`app/schemas/promotion.py`) matching openapi.yaml exactly
+  (`rollback_of_version`, `decided_by`, `rationale`).
+- Added `POST /models/{model_id}/rollback` (`app/api/promotion.py`): reuses
+  `_get_model_version_or_404` (imported from `app.api.models`, same cross-module-helper precedent
+  as US-016) to resolve `(model_id, request.rollback_of_version)` -> 404 `MODEL_NOT_FOUND` if
+  either doesn't exist; `ValueError` from the service -> 409 `ROLLBACK_NOT_ALLOWED` (not a
+  documented openapi.yaml `Error.code` example, so named directly from the endpoint's own 409
+  description - same precedent as `EVALUATION_NOT_EDITABLE`/`DECISION_NOT_ALLOWED`).
+- Files changed: app/schemas/promotion.py, app/services/promotion_service.py,
+  app/api/promotion.py, tests/test_promotion_service.py (+3 tests: deploy target + record fields,
+  retires a previously-DEPLOYED sibling version, rejects 4 non-PROMOTED/non-RETIRED source
+  statuses), tests/test_promotion_api.py (+3 tests: 404 missing, 201 deploy+response shape, 409
+  not-PROMOTED).
+- No models changed this story, so no Alembic migration was needed - ran `alembic revision
+  --autogenerate` as a sanity check, confirmed it generated an empty migration, deleted that file.
+  Same precedent as US-012/US-013/US-016.
+- **Learnings for future iterations:**
+  - When a PRD's own story ordering puts an endpoint (rollback) before the infrastructure its
+    source doc's happy-path depends on (a Deployment pointer/table), that's not a blocking doc
+    conflict to stop on - write the logic to be correct *once that infrastructure exists*
+    (queries for the state it needs rather than assuming a shortcut), and use the least-surprising
+    fallback for what can't be determined yet, documenting the approximation clearly. Re-check
+    this story's fallback behavior once US-018/US-019 land - it should need no code changes, only
+    verification that a real "from" version now gets found and used instead of the `target`
+    fallback.
+  - `ModelLifecycleStatus`'s `DEPLOYED`/`RETIRED` values were already defined (US-013) but never
+    reachable by any transition until this story - first story to actually set them.
+---
+
+## [2026-08-28] - US-018
+- Added `Deployment` SQLAlchemy model (`app/models/deployment.py`) per PRD §15's minimal field
+  list exactly: `deployment_id` (string PK), `model_id`, `model_version`, `environment`, `status`,
+  `deployed_at`. Deliberately no `ForeignKey` to `models`/`model_versions` (plain `String`/
+  `Integer` columns for `model_id`/`model_version`) - this story's own AC requires "no foreign
+  dependency that would merge it with the model registry's own status field," matching PRD §12's
+  explicit "Model Registry dan Deployment harus tetap menjadi dua konsep berbeda."
+- **Noted, not blocking:** openapi.yaml's `DeploymentStatus`/`DeployResult` schemas describe a
+  single model-level *pointer* (`model_id`, `current_deployed_version`, `deployed_at`, `status` -
+  no `environment` or `deployment_id` in the response) rather than a row-per-deployment history
+  table with `environment`. This is not a doc-vs-doc conflict to stop on: this story's AC only
+  asks for the underlying table's columns (PRD §15's list, which does include `environment`/
+  `deployment_id`), not the API response shape - that mapping is US-019's concern. The table can
+  hold more than any single response schema exposes, same as every prior flat-ORM/derived-schema
+  domain (see Codebase Patterns).
+- Files changed: app/models/deployment.py (new), app/models/__init__.py,
+  alembic/versions/eb8695aecf69_us_018_add_deployments_table.py (new).
+- **Learnings for future iterations:**
+  - US-019 (deploy service/API) will need to decide how `Deployment` rows map to the
+    `DeploymentStatus`/`DeployResult` pointer views - likely "latest deployments row per
+    model_id/environment" rather than a live FK-backed relationship, keeping the no-FK
+    decoupling from this story intact.
+  - When writing a small JSON edit script inline (e.g. flipping `prd.json`'s `passes` field) with
+    Python's `json.dump`, pass `ensure_ascii=False` - the default silently escapes existing
+    non-ASCII characters already in the file (e.g. `§` section signs used throughout this PRD's
+    acceptance criteria) into `\uXXXX` sequences, producing a huge, unrelated-looking diff across
+    the whole file instead of the single intended field change.
+---
+
+## [2026-08-28] - US-019
+- Added `app/services/serving.py`: `ServingBackend` Protocol + `MockServingBackend` (records
+  `(model_id, version)` calls). Same placeholder-behind-a-Protocol shape as US-012's
+  `artifact_storage.py`. Nothing in it names vLLM/llama.cpp, a process, a port, or a config file -
+  PRD §15/§26 keep the serving stack and the VM environment explicitly TBD, so the abstraction is
+  the only thing this story commits to.
+- Added `app/services/deployment_service.py`: `deploy(db, model_version, backend=None)` (retires
+  whichever version currently holds the pointer, retires the superseded `Deployment` row, calls the
+  serving backend, sets `status="DEPLOYED"`, writes a new `Deployment` row; returns
+  `(deployment, previous_model_version)`), `get_deployment_status` (composed view -> returns the
+  `DeploymentStatus` schema directly, per the Codebase Patterns exception), `to_deploy_result`.
+- Added `app/schemas/deployment.py` (`DeployResult`, `DeploymentStatus` - `status` typed
+  `Literal["DEPLOYED"] | None` since openapi.yaml confirms only that one value) and
+  `app/api/deployment.py` (`POST /models/{model_id}/versions/{version}/deploy` -> 404
+  `MODEL_NOT_FOUND` / 409 `DEPLOY_NOT_ALLOWED` when not PROMOTED / 200 `DeployResult`;
+  `GET /models/{model_id}/deployment` -> 404 when the model_id isn't in the registry, else 200 with
+  an all-null pointer when nothing was ever deployed). Wired into `app/main.py`.
+- **`promotion_service.rollback` now delegates its pointer move to `deployment_service.deploy`**
+  instead of duplicating the transition inline. openapi.yaml describes rollback as moving the *same*
+  deployment pointer that `/deploy` moves, so two implementations would drift (the old inline one
+  never wrote a `Deployment` row, which would have left `GET .../deployment` stale after a
+  rollback). This also resolves US-017's documented forward-compat approximation with zero changes
+  to that story's own logic, exactly as its note predicted: a real "rolled back from" version now
+  exists, so `DecisionRecord.version` differs from `rollback_of_version` (covered by a new test).
+- `environment` (PRD §15's required column) comes from a new `settings.deployment_environment`
+  defaulting to `"default"` - no source document names any environment values, and PRD §26 forbids
+  assuming the VM environment, so one neutral overridable value rather than an invented
+  staging/prod ladder.
+- Files changed: app/services/serving.py (new), app/services/deployment_service.py (new),
+  app/schemas/deployment.py (new), app/api/deployment.py (new), app/main.py, app/config.py,
+  app/services/promotion_service.py, tests/test_deployment_service.py (new, 6 tests),
+  tests/test_deployment_api.py (new, 8 tests).
+- No models changed (`Deployment` landed in US-018), so no migration - ran `alembic revision
+  --autogenerate` as a sanity check, confirmed empty, deleted it. Same precedent as
+  US-012/US-013/US-016/US-017.
+- **Learnings for future iterations:**
+  - **Bug caught by a test, worth knowing:** a lazy-loaded relationship collection
+    (`model_version.model.versions`) is loaded *once per Session* and does NOT pick up rows added
+    later in that same Session, so iterating it to find a sibling silently misses anything
+    registered after the first access. The US-017 code inherited this and would have failed to
+    retire a superseded version. Use an explicit `db.scalars(select(...))` whenever the query must
+    see rows created earlier in the same request/Session.
+  - When two endpoints are documented as mutating the *same* resource (here `/deploy` and
+    `/rollback` both move the deployment pointer), put the mutation in one service function and
+    have both call it - even when their preconditions differ. The differing precondition (deploy
+    requires PROMOTED; rollback allows RETIRED) belongs in the API layer's 409 guard, following the
+    `submit_evaluation` precedent in `app/api/models.py`, so the shared mover stays guard-free.
+  - `MockServingBackend` records its calls; US-020's end-to-end test can inject one and assert the
+    lifecycle actually reached the serving boundary.
+---
+
+## [2026-08-28] - US-020
+- Added `tests/test_lifecycle_integration.py` (3 tests, all sharing one `_run_lifecycle()` walk):
+  the full closed loop driven through the HTTP API — Dataset -> Validation -> Training Run ->
+  Model Registry -> Evaluation -> Promotion -> Deployment (PRD §19 Integration Tests / §25 /
+  Phase 8). Asserts each step's status code and response shape inline, then separately asserts
+  (a) the serving boundary was reached (`MockServingBackend.deployed`) and (b) the persisted
+  lineage chain is complete: dataset_id/version <- training_run <- model_version (both
+  directions), the validated dataset version is the one trained on, all three evaluation signals
+  present, `promotion_decision_ref` -> the `PromotionDecision` row, and a `Deployment` row whose
+  `deployment_id`/`model_id`/`model_version` match. No GPU: the mock training runner does the work.
+- **Two integration gaps found and fixed — without them the loop was not actually closed:**
+  1. `training_worker.process_next_job` never registered a model version on COMPLETED, so nothing
+     in a *running* system ever created a `ModelVersion` (every prior test called
+     `model_service.register_model_version` by hand). It now issues that call after
+     `complete_training_run` — this is the "backend's internal WBS 3.2 Register call on
+     COMPLETED" openapi.yaml already documents, not a new business rule.
+  2. `training_service.to_schema` hardcoded `model_version=None` with a stale comment claiming
+     US-011/US-012 were unimplemented. It now derives it from the new
+     `TrainingRun.model_versions` <-> `ModelVersion.training_run` back-reference. openapi.yaml
+     calls this "the only place this contract links a `training_run_id` forward to the model
+     version it produced" — US-020's own AC requires that link be assertable.
+- Added the `worker` service to `docker-compose.yml` (PRD §5's minimal environment listed
+  backend + worker + volume; only `backend` existed) and the missing
+  `if __name__ == "__main__":` block in `training_worker.py` that its own docstring already
+  promised (`python -m app.workers.training_worker`). Same image, different command, mock runner
+  — no GPU/CUDA assumed (PRD §5/§26).
+- **Verified live, not just in pytest:** `docker compose up -d --build` brought up both
+  containers (backend `/health` -> 200, worker running), then a real
+  `POST /datasets/.../versions` + `POST /training-runs` against `localhost:8000` went
+  `PENDING -> COMPLETED` with `model_version: 1` picked up by the *worker container* — the
+  closed loop working across two separate processes, no GPU. Then `docker compose down`.
+- Files changed: tests/test_lifecycle_integration.py (new), app/models/training.py,
+  app/models/model.py, app/services/training_service.py, app/workers/training_worker.py,
+  docker-compose.yml.
+- No schema change (a `relationship()` adds no columns) — ran `alembic upgrade head` +
+  `alembic revision --autogenerate` as the usual sanity check, confirmed 0 `op.` calls, deleted
+  the empty file. Same precedent as US-012/US-013/US-016/US-017/US-019.
+- **Learnings for future iterations:**
+  - An end-to-end story is where "every domain has passing unit + API tests" gets falsified.
+    Both gaps above were invisible to the per-domain suites because each domain's tests set up
+    their own preconditions by calling the *next* domain's service directly (see
+    `_registered_model_version` in `tests/test_deployment_api.py`) — that helper silently stood
+    in for a production code path that did not exist. When writing an integration test, drive
+    every step the way a real client would and treat any step you cannot trigger that way as a
+    finding, not as test-setup boilerplate.
+  - Two steps genuinely have no HTTP trigger and are documented as such at the top of the test:
+    the `DatasetVersion` PROCESSING -> PROCESSED transition (no intake pipeline exists in this
+    PRD's story list) and the worker loop itself (`process_next_job` is called once rather than
+    running `run_forever` in a thread — same code path, no polling sleep).
+  - `docker compose config -q` validates the compose file without building; useful as a cheap
+    check before committing a compose change.
+---

@@ -1,0 +1,58 @@
+ml-close-loop-be/app/api/training.py
+  s_2ebc43f69e7a5a::t_d555c4dbfcac9b 33-38
+ml-close-loop-be/app/api/promotion.py
+  s_bd9a725189650a::t_bc2b6d47fc7fc3 14-26
+ml-close-loop-be/app/main.py
+  s_aeba9dc4d73047::t_ea5685189e6b8d 16-17,19-23
+  s_aeba9dc4d73047::t_a584cfe128c992 3
+  s_0ea268f751ae32::t_b659435fcd50d0 18
+ml-close-loop-be/app/services/promotion_service.py
+  s_bd9a725189650a::t_8fa5142211fa72 89-103
+ml-close-loop-be/app/services/training_service.py
+  s_2ebc43f69e7a5a::t_200911330d3f8a 80-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "31f8f41c82fc105f08cea5b37d4200676b743ce3",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_0ea268f751ae32": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad545e51ffeYgimMulczyet1P",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_2ebc43f69e7a5a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad2678a0ffeVm6M45eOSCkNQg",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_aeba9dc4d73047": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad3398efffeBKDgXRoLPoIsp5",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_bd9a725189650a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad22b1d1ffeiPjFfYkHKXSZjG",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

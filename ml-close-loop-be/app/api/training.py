@@ -30,6 +30,12 @@ def create_training_run(request: TrainingRunCreateRequest, db: Session = Depends
     return training_service.to_schema(training_run)
 
 
+@router.get("/training-runs", response_model=list[TrainingRun])
+def list_training_runs(db: Session = Depends(get_db)) -> list[TrainingRun]:
+    runs = training_service.list_training_runs(db)
+    return [training_service.to_schema(r) for r in runs]
+
+
 @router.get(
     "/training-runs/{training_run_id}",
     response_model=TrainingRun,

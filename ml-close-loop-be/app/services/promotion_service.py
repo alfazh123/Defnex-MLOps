@@ -86,6 +86,21 @@ def rollback(db: Session, target: ModelVersion, request: RollbackRequest) -> Pro
     return decision
 
 
+def list_decisions_for_model(db: Session, model_id: str) -> list[PromotionDecision]:
+    """Return all promotion decisions for a given model_id, newest first."""
+    from sqlalchemy import select
+    from app.models.model import ModelVersion
+
+    return list(
+        db.scalars(
+            select(PromotionDecision)
+            .join(ModelVersion, PromotionDecision.model_version_id == ModelVersion.id)
+            .where(ModelVersion.model_id == model_id)
+            .order_by(PromotionDecision.decided_at.desc())
+        )
+    )
+
+
 def to_schema(decision: PromotionDecision) -> DecisionRecord:
     model_version = decision.model_version
     return DecisionRecord(

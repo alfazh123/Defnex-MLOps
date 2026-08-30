@@ -77,6 +77,16 @@ def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
     return db.get(TrainingRun, training_run_id)
 
 
+def list_training_runs(db: Session) -> list[TrainingRun]:
+    """Return all training runs, newest first (for GET /training-runs)."""
+    from sqlalchemy import select
+    return list(
+        db.scalars(
+            select(TrainingRun).order_by(TrainingRun.created_at.desc())
+        )
+    )
+
+
 def to_schema(training_run: TrainingRun) -> TrainingRunSchema:
     """Compose the flat ORM row into the nested TrainingRun response schema.
 

@@ -43,7 +43,7 @@ def test_register_model_version_from_completed_run(db_session):
     assert model_version.status == "REGISTERED"
     assert model_version.training_run_id == training_run.training_run_id
     assert model_version.base_model == "Qwen/Qwen3.8-27B"
-    assert model_version.training_config["peft_method"] == "dora"
+    assert model_version.training_config["peft_method"] == "lora"
     assert model_version.artifacts == [{"type": "adapter", "uri": "file:///tmp/adapter"}]
 
 

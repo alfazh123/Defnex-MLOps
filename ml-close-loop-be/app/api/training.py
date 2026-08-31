@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.errors import APIError
@@ -6,6 +9,9 @@ from app.db.session import get_db
 from app.schemas.common import ErrorResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
 from app.services import dataset_service, training_service
+from app.services import unsloth_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Training"])
 
@@ -16,7 +22,7 @@ router = APIRouter(tags=["Training"])
     status_code=201,
     responses={404: {"model": ErrorResponse}},
 )
-def create_training_run(request: TrainingRunCreateRequest, db: Session = Depends(get_db)) -> TrainingRun:
+async def create_training_run(request: TrainingRunCreateRequest, db: Session = Depends(get_db)) -> TrainingRun:
     dataset_version = dataset_service.get_dataset_version(db, request.dataset_id, request.dataset_version)
     if dataset_version is None:
         raise APIError(
@@ -27,7 +33,29 @@ def create_training_run(request: TrainingRunCreateRequest, db: Session = Depends
 
     training_run = training_service.create_training_run(db, dataset_version, request)
     db.commit()
+
+    try:
+        result = await unsloth_client.start_training(
+            training_run.training_run_id,
+            training_run.base_model,
+            training_run.training_config,
+        )
+        training_run.artifact_uri = result.get("job_id", "")
+        training_service.start_training_run(db, training_run)
+        db.commit()
+    except Exception:
+        logger.exception("Failed to start training on Unsloth Studio")
+
     return training_service.to_schema(training_run)
+
+
+@router.get(
+    "/training-runs",
+    response_model=list[TrainingRun],
+)
+def list_training_runs(db: Session = Depends(get_db)) -> list[TrainingRun]:
+    runs = training_service.list_training_runs(db)
+    return [training_service.to_schema(r) for r in runs]
 
 
 @router.get(
@@ -40,3 +68,19 @@ def get_training_run(training_run_id: str, db: Session = Depends(get_db)) -> Tra
     if training_run is None:
         raise APIError(404, "TRAINING_RUN_NOT_FOUND", f'training_run_id "{training_run_id}" not found')
     return training_service.to_schema(training_run)
+
+
+@router.get(
+    "/training-runs/{training_run_id}/progress",
+    responses={404: {"model": ErrorResponse}},
+)
+async def get_training_run_progress(training_run_id: str, db: Session = Depends(get_db)):
+    training_run = training_service.get_training_run(db, training_run_id)
+    if training_run is None:
+        raise APIError(404, "TRAINING_RUN_NOT_FOUND", f'training_run_id "{training_run_id}" not found')
+
+    async def event_generator():
+        async for event in unsloth_client.stream_progress(training_run_id):
+            yield f"data: {event}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

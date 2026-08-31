@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.dataset import DatasetVersion as DatasetVersionModel
 from app.models.training import TrainingRun
 from app.schemas.training import TrainingRun as TrainingRunSchema, TrainingRunCreateRequest
+from app.services import unsloth_client
 
 # PRD §9's lifecycle prose says QUEUED; the frozen TrainingRunStatus enum (openapi.yaml,
 # mlops-api-contract.md §3.4) uses PENDING for the same "not started yet" state (see US-007's note).
@@ -75,6 +76,40 @@ def fail_training_run(db: Session, training_run: TrainingRun, error_message: str
 
 def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
     return db.get(TrainingRun, training_run_id)
+
+
+def list_training_runs(db: Session) -> list[TrainingRun]:
+    return db.query(TrainingRun).order_by(TrainingRun.created_at.desc()).all()
+
+
+async def sync_status_from_unsloth(db: Session, training_run: TrainingRun) -> TrainingRun:
+    """Fetch status from Unsloth Studio and update the DB record accordingly."""
+
+    status_data = await unsloth_client.get_training_status(training_run.training_run_id)
+    unsloth_status = status_data.get("status", "")
+
+    if unsloth_status == "running":
+        if training_run.status == "PENDING":
+            _transition(training_run, "RUNNING")
+        training_run.current_epoch = status_data.get("current_epoch", training_run.current_epoch)
+        training_run.current_step = status_data.get("current_step", training_run.current_step)
+        training_run.train_loss = status_data.get("train_loss", training_run.train_loss)
+        training_run.eval_loss = status_data.get("eval_loss", training_run.eval_loss)
+    elif unsloth_status == "completed":
+        if training_run.status == "PENDING":
+            _transition(training_run, "RUNNING")
+        if training_run.status == "RUNNING":
+            _transition(training_run, "COMPLETED")
+        training_run.artifact_uri = status_data.get("artifact_uri", training_run.artifact_uri)
+    elif unsloth_status == "failed":
+        if training_run.status == "PENDING":
+            _transition(training_run, "RUNNING")
+        if training_run.status == "RUNNING":
+            _transition(training_run, "FAILED")
+        training_run.error_message = status_data.get("error_message", "Unknown error from Unsloth Studio")
+
+    db.flush()
+    return training_run
 
 
 def to_schema(training_run: TrainingRun) -> TrainingRunSchema:

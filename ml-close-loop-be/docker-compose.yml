@@ -3,23 +3,25 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=sqlite:///./data/app.db
+    env_file: .env
     volumes:
       - ./app:/app/app
       - ./data:/app/data
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Same image as `backend`, different process (PRD §5) — the lightweight job runner must be
-  # able to run independently of the FastAPI process (PRD §10). Uses the mock training runner,
-  # so no GPU/CUDA is assumed (PRD §5/§26).
-  worker:
-    build: .
-    environment:
-      - DATABASE_URL=sqlite:///./data/app.db
-    volumes:
-      - ./app:/app/app
-      - ./data:/app/data
-    command: python -m app.workers.training_worker
     depends_on:
-      - backend
+      - unsloth-studio
+
+  unsloth-studio:
+    image: unsloth/unsloth
+    ports:
+      - "8888:8888"
+    env_file: .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - ./data:/data

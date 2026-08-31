@@ -10,5 +10,11 @@ class Settings(BaseSettings):
     # neutral, overridable default rather than an invented staging/prod ladder.
     deployment_environment: str = "default"
 
+    # Unsloth Studio
+    unsloth_studio_url: str = "http://localhost:8888"
+    unsloth_api_key: str = ""
+    unsloth_default_model: str = "unsloth/Qwen3-0.6B"
+    unsloth_models: str = "unsloth/Qwen3-0.6B,unsloth/Qwen3.8-27B,unsloth/Qwen2.5-7B-Instruct"
+
 
 settings = Settings()

@@ -1,0 +1,56 @@
+ml-close-loop-be/app/api/models.py
+  s_a37468ffc26f8d::t_cd01fe0f237698 23-30
+  s_a37468ffc26f8d::t_3ba7437a60aeee 1-2
+ml-close-loop-be/app/main.py
+  s_313962e7121dfc::t_a2a5ad5ff5b2b6 3,16-25
+  s_313962e7121dfc::t_02370107970e0f 26
+ml-close-loop-be/app/services/unsloth_client.py
+  s_313962e7121dfc::t_5ffee1f8dc98ad 1-113
+ml-close-loop-be/docker-compose.yml
+  s_313962e7121dfc::t_f3feb3c4347965 6,11-12,14-25,27
+ml-close-loop-be/app/api/training.py
+  s_3db0491425410b::t_e341ba86f8d68a 1-2,4,12-14,25,36-48,52-60,71-86
+ml-close-loop-be/app/services/training_service.py
+  s_3db0491425410b::t_06fe7382dda322 99-101,105-107
+  s_3db0491425410b::t_ca4f308f650f14 9,81-98,102-104,108-112
+  s_3db0491425410b::t_9c1fa43b4e2ec3 113-114
+ml-close-loop-be/.env.example
+  s_313962e7121dfc::t_c5e77661bd13b4 2-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "07b47fbf6d4008219792c996834a2a0e66ccfebe",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_313962e7121dfc": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa9d9a0b8ffezukgixb2Tpn3dP",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_3db0491425410b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa9d86403ffekJuPnX2ibQOgY2",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_a37468ffc26f8d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa9d9884effeA4UbfuBZJ0kqBT",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

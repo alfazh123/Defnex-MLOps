@@ -1,0 +1,29 @@
+ml-close-loop-be/app/config.py
+  s_0ea268f751ae32::t_36bee7dfab893a 13-18
+ml-close-loop-be/app/services/unsloth_client.py
+  s_0ea268f751ae32::t_7d87fac82c53c1 31
+  s_0ea268f751ae32::t_9b77c2ddc26bb0 7-11
+ml-close-loop-be/app/api/models.py
+  s_0ea268f751ae32::t_1696868e429f59 6,24,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "da2d4d21eb6c12c4223e84303c26309e064b8876",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_0ea268f751ae32": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad545e51ffeYgimMulczyet1P",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

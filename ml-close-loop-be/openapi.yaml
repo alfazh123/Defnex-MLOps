@@ -1,0 +1,1648 @@
+openapi: 3.1.0
+info:
+  title: DEFNEX MLOps Backend
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Health Get
+  /datasets:
+    get:
+      tags:
+      - Datasets
+      summary: List Datasets
+      operationId: list_datasets_datasets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DatasetSummary'
+                type: array
+                title: Response List Datasets Datasets Get
+  /datasets/{dataset_id}/versions:
+    post:
+      tags:
+      - Datasets
+      summary: Create Dataset Version
+      operationId: create_dataset_version_datasets__dataset_id__versions_post
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetVersionCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetVersion'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Datasets
+      summary: List Dataset Versions
+      operationId: list_dataset_versions_datasets__dataset_id__versions_get
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetVersion'
+                title: Response List Dataset Versions Datasets  Dataset Id  Versions
+                  Get
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /datasets/{dataset_id}/versions/{version}:
+    get:
+      tags:
+      - Datasets
+      summary: Get Dataset Version
+      operationId: get_dataset_version_datasets__dataset_id__versions__version__get
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetVersion'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /datasets/{dataset_id}/versions/{version}/validate:
+    post:
+      tags:
+      - Validation
+      summary: Validate Dataset Version
+      operationId: validate_dataset_version_datasets__dataset_id__versions__version__validate_post
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/ValidateDatasetVersionRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /datasets/{dataset_id}/versions/{version}/validation-reports:
+    get:
+      tags:
+      - Validation
+      summary: List Validation Reports
+      operationId: list_validation_reports_datasets__dataset_id__versions__version__validation_reports_get
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationReport'
+                title: Response List Validation Reports Datasets  Dataset Id  Versions  Version  Validation
+                  Reports Get
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /datasets/{dataset_id}/versions/{version}/validation-reports/latest:
+    get:
+      tags:
+      - Validation
+      summary: Get Latest Validation Report
+      operationId: get_latest_validation_report_datasets__dataset_id__versions__version__validation_reports_latest_get
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /training-runs:
+    get:
+      tags:
+      - Training
+      summary: List Training Runs
+      operationId: list_training_runs_training_runs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TrainingRun'
+                type: array
+                title: Response List Training Runs Training Runs Get
+    post:
+      tags:
+      - Training
+      summary: Create Training Run
+      operationId: create_training_run_training_runs_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingRunCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingRun'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /training-runs/{training_run_id}:
+    get:
+      tags:
+      - Training
+      summary: Get Training Run
+      operationId: get_training_run_training_runs__training_run_id__get
+      parameters:
+      - name: training_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Training Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingRun'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /training-runs/{training_run_id}/progress:
+    get:
+      tags:
+      - Training
+      summary: Get Training Run Progress
+      operationId: get_training_run_progress_training_runs__training_run_id__progress_get
+      parameters:
+      - name: training_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Training Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/available:
+    get:
+      tags:
+      - Models
+      summary: List Available Models
+      operationId: list_available_models_models_available_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response List Available Models Models Available Get
+  /models:
+    get:
+      tags:
+      - Models
+      summary: List Models
+      operationId: list_models_models_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - REGISTERED
+            - EVALUATED
+            - PROMOTED
+            - REJECTED
+            - DEPLOYED
+            - RETIRED
+            type: string
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelSummary'
+                title: Response List Models Models Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/versions/{version}:
+    get:
+      tags:
+      - Models
+      summary: Get Model Version
+      operationId: get_model_version_models__model_id__versions__version__get
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelRegistryRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/versions/{version}/evaluation:
+    post:
+      tags:
+      - Models
+      summary: Submit Evaluation
+      operationId: submit_evaluation_models__model_id__versions__version__evaluation_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationSubmitResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Models
+      summary: Get Evaluation
+      operationId: get_evaluation_models__model_id__versions__version__evaluation_get
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationObject'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/versions/{version}/decisions:
+    post:
+      tags:
+      - Decisions
+      summary: Create Decision
+      operationId: create_decision_models__model_id__versions__version__decisions_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/rollback:
+    post:
+      tags:
+      - Decisions
+      summary: Rollback Model
+      operationId: rollback_model_models__model_id__rollback_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/versions/{version}/deploy:
+    post:
+      tags:
+      - Deployment
+      summary: Deploy Model Version
+      operationId: deploy_model_version_models__model_id__versions__version__deploy_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResult'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/{model_id}/deployment:
+    get:
+      tags:
+      - Deployment
+      summary: Get Deployment Status
+      operationId: get_deployment_status_models__model_id__deployment_get
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentStatus'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Artifact:
+      properties:
+        type:
+          type: string
+          enum:
+          - adapter
+          - merged
+          - gguf
+          title: Type
+        uri:
+          type: string
+          title: Uri
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+      type: object
+      required:
+      - type
+      - uri
+      title: Artifact
+      description: A stored model artifact (openapi.yaml Artifact).
+    DatasetManifest:
+      properties:
+        source_url_or_hf_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Url Or Hf Id
+        source_commit_or_snapshot_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Commit Or Snapshot Date
+        source_format:
+          type: string
+          enum:
+          - alpaca
+          - sharegpt
+          - chatml
+          - other
+          title: Source Format
+        seed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Seed
+        row_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Row Count
+        cleaning_steps_applied:
+          items:
+            type: string
+          type: array
+          title: Cleaning Steps Applied
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        created_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By
+      type: object
+      required:
+      - source_format
+      - created_at
+      title: DatasetManifest
+      description: Per-version manifest fields (dataset-lifecycle-and-schema.md §2).
+    DatasetSummary:
+      properties:
+        dataset_id:
+          type: string
+          title: Dataset Id
+        latest_version:
+          type: integer
+          title: Latest Version
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PROCESSING
+          - PROCESSED
+          - FAILED
+          title: Status
+      type: object
+      required:
+      - dataset_id
+      - latest_version
+      - status
+      title: DatasetSummary
+      description: Lightweight list-view entry for GET /datasets.
+    DatasetVersion:
+      properties:
+        dataset_id:
+          type: string
+          title: Dataset Id
+        version:
+          type: integer
+          title: Version
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PROCESSING
+          - PROCESSED
+          - FAILED
+          title: Status
+        manifest:
+          $ref: '#/components/schemas/DatasetManifest'
+      type: object
+      required:
+      - dataset_id
+      - version
+      - status
+      - manifest
+      title: DatasetVersion
+      description: A dataset version's manifest and current processing status (openapi.yaml
+        DatasetVersion).
+    DatasetVersionCreateRequest:
+      properties:
+        source_type:
+          type: string
+          enum:
+          - huggingface
+          - file_upload
+          title: Source Type
+        source_dataset:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Dataset
+        source_commit_or_snapshot_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Commit Or Snapshot Date
+        source_format:
+          type: string
+          enum:
+          - alpaca
+          - sharegpt
+          - chatml
+          - other
+          title: Source Format
+      type: object
+      required:
+      - source_type
+      - source_format
+      title: DatasetVersionCreateRequest
+      description: Request to intake a new dataset version (openapi.yaml DatasetVersionCreateRequest).
+    DecisionCreateRequest:
+      properties:
+        decision:
+          type: string
+          enum:
+          - PROMOTED
+          - REJECTED
+          title: Decision
+        decided_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decided By
+        rationale:
+          type: string
+          title: Rationale
+      type: object
+      required:
+      - decision
+      - rationale
+      title: DecisionCreateRequest
+      description: 'Request body for POST .../decisions (openapi.yaml DecisionCreateRequest).
+        Restricted to
+
+        PROMOTED|REJECTED - ROLLBACK is only ever produced via POST /models/{model_id}/rollback
+        (US-017).'
+    DecisionRecord:
+      properties:
+        decision_id:
+          type: string
+          title: Decision Id
+        model_id:
+          type: string
+          title: Model Id
+        version:
+          type: integer
+          title: Version
+        decision:
+          type: string
+          enum:
+          - PROMOTED
+          - REJECTED
+          - ROLLBACK
+          title: Decision
+        decided_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decided By
+        decided_at:
+          type: string
+          format: date-time
+          title: Decided At
+        evidence_snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationObject'
+          - type: 'null'
+        rationale:
+          type: string
+          title: Rationale
+        rollback_of_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Rollback Of Version
+      type: object
+      required:
+      - decision_id
+      - model_id
+      - version
+      - decision
+      - decided_at
+      - rationale
+      title: DecisionRecord
+      description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
+        promotion, rejection, and
+
+        rollback with one schema.'
+    DeployResult:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        current_deployed_version:
+          type: integer
+          title: Current Deployed Version
+        previous_deployed_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Previous Deployed Version
+      type: object
+      required:
+      - model_id
+      - current_deployed_version
+      title: DeployResult
+      description: Response for POST .../deploy (openapi.yaml DeployResult).
+    DeploymentStatus:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        current_deployed_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Current Deployed Version
+        deployed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Deployed At
+        status:
+          anyOf:
+          - type: string
+            const: DEPLOYED
+          - type: 'null'
+          title: Status
+      type: object
+      required:
+      - model_id
+      title: DeploymentStatus
+      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus),
+        a separate resource
+
+        from any single version''s registry record. `status` has no full enum yet
+        - only "DEPLOYED"
+
+        is confirmed by any source document - and is null when nothing has ever been
+        deployed.'
+    ErrorDetail:
+      properties:
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - code
+      - message
+      title: ErrorDetail
+      description: openapi.yaml Error.error (PRD §18 standard error envelope).
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+      description: 'openapi.yaml Error — `{"error": {"code": ..., "message": ...}}`.'
+    EvalLossTrend:
+      properties:
+        previous_version_eval_loss:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Previous Version Eval Loss
+        this_version_eval_loss:
+          type: number
+          title: This Version Eval Loss
+      type: object
+      required:
+      - this_version_eval_loss
+      title: EvalLossTrend
+    EvaluationObject:
+      properties:
+        eval_loss_trend:
+          anyOf:
+          - $ref: '#/components/schemas/EvalLossTrend'
+          - type: 'null'
+        qualitative_comparison:
+          anyOf:
+          - $ref: '#/components/schemas/QualitativeComparison'
+          - type: 'null'
+        general_domain_regression_check:
+          anyOf:
+          - $ref: '#/components/schemas/GeneralDomainRegressionCheck'
+          - type: 'null'
+      type: object
+      title: EvaluationObject
+      description: The three-signal evaluation payload (openapi.yaml EvaluationObject).
+    EvaluationSubmitResponse:
+      properties:
+        evaluation:
+          $ref: '#/components/schemas/EvaluationObject'
+        status:
+          type: string
+          enum:
+          - REGISTERED
+          - EVALUATED
+          - PROMOTED
+          - REJECTED
+          - DEPLOYED
+          - RETIRED
+          title: Status
+      type: object
+      required:
+      - evaluation
+      - status
+      title: EvaluationSubmitResponse
+      description: Inline response shape for POST .../evaluation (openapi.yaml, not
+        a named component).
+    EvaluationUpdateRequest:
+      properties:
+        eval_loss_trend:
+          anyOf:
+          - $ref: '#/components/schemas/EvalLossTrend'
+          - type: 'null'
+        qualitative_comparison:
+          anyOf:
+          - $ref: '#/components/schemas/QualitativeComparison'
+          - type: 'null'
+        general_domain_regression_check:
+          anyOf:
+          - $ref: '#/components/schemas/GeneralDomainRegressionCheck'
+          - type: 'null'
+      type: object
+      title: EvaluationUpdateRequest
+      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest)
+        - any subset of the
+
+        three signal fields may be submitted; the backend merges onto the existing
+        record.'
+    GeneralDomainRegressionCheck:
+      properties:
+        checked:
+          type: boolean
+          title: Checked
+        regressions_found:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Regressions Found
+          default: []
+      type: object
+      required:
+      - checked
+      title: GeneralDomainRegressionCheck
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ModelRegistryRecord:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        version:
+          type: integer
+          title: Version
+        status:
+          type: string
+          enum:
+          - REGISTERED
+          - EVALUATED
+          - PROMOTED
+          - REJECTED
+          - DEPLOYED
+          - RETIRED
+          title: Status
+        training_run_id:
+          type: string
+          title: Training Run Id
+        base_model:
+          type: string
+          title: Base Model
+        dataset_id:
+          type: string
+          title: Dataset Id
+        dataset_version:
+          type: integer
+          title: Dataset Version
+        dataset_validation_report_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dataset Validation Report Ref
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        created_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By
+        evaluation:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationObject'
+          - type: 'null'
+        artifacts:
+          items:
+            $ref: '#/components/schemas/Artifact'
+          type: array
+          title: Artifacts
+        promotion_decision_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promotion Decision Ref
+        previous_model_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Model Id
+      type: object
+      required:
+      - model_id
+      - version
+      - status
+      - training_run_id
+      - base_model
+      - dataset_id
+      - dataset_version
+      - training_config
+      - created_at
+      - artifacts
+      title: ModelRegistryRecord
+      description: 'Full model registry record (openapi.yaml ModelRegistryRecord,
+
+        model-artifact-versioning-lineage.md §8).'
+    ModelSummary:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        latest_version:
+          type: integer
+          title: Latest Version
+        status:
+          type: string
+          enum:
+          - REGISTERED
+          - EVALUATED
+          - PROMOTED
+          - REJECTED
+          - DEPLOYED
+          - RETIRED
+          title: Status
+      type: object
+      required:
+      - model_id
+      - latest_version
+      - status
+      title: ModelSummary
+      description: Lightweight list-view entry for GET /models (openapi.yaml ModelSummary).
+    QualitativeComparison:
+      properties:
+        question_table_version:
+          type: integer
+          title: Question Table Version
+        wins:
+          type: integer
+          title: Wins
+        losses:
+          type: integer
+          title: Losses
+        ties:
+          type: integer
+          title: Ties
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - question_table_version
+      - wins
+      - losses
+      - ties
+      - total
+      title: QualitativeComparison
+    RollbackRequest:
+      properties:
+        rollback_of_version:
+          type: integer
+          title: Rollback Of Version
+        decided_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decided By
+        rationale:
+          type: string
+          title: Rationale
+      type: object
+      required:
+      - rollback_of_version
+      - rationale
+      title: RollbackRequest
+      description: Request body for POST /models/{model_id}/rollback (openapi.yaml
+        RollbackRequest).
+    TrainingConfig:
+      properties:
+        peft_method:
+          type: string
+          enum:
+          - lora
+          - qlora
+          - dora
+          - qdora
+          - rslora
+          title: Peft Method
+          default: lora
+        load_in_4bit:
+          type: boolean
+          title: Load In 4Bit
+          default: false
+        lora_r:
+          type: integer
+          title: Lora R
+          default: 16
+        lora_alpha:
+          type: integer
+          title: Lora Alpha
+          default: 16
+        lora_dropout:
+          type: number
+          title: Lora Dropout
+          default: 0.0
+        target_modules:
+          items:
+            type: string
+          type: array
+          title: Target Modules
+          default: []
+        use_loftq:
+          type: boolean
+          title: Use Loftq
+          default: false
+        hf_dataset:
+          type: string
+          title: Hf Dataset
+          default: ''
+        format_type:
+          type: string
+          title: Format Type
+          default: chatml
+        train_split:
+          type: string
+          title: Train Split
+          default: train
+        eval_split:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Split
+        eval_steps:
+          type: number
+          title: Eval Steps
+          default: 0.0
+        learning_rate:
+          anyOf:
+          - type: number
+          - type: string
+          - type: 'null'
+          title: Learning Rate
+        epochs:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Epochs
+        batch_size:
+          type: integer
+          title: Batch Size
+          default: 1
+        gradient_accumulation_steps:
+          type: integer
+          title: Gradient Accumulation Steps
+          default: 1
+        warmup_steps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Warmup Steps
+        warmup_ratio:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Warmup Ratio
+        max_steps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Steps
+        save_steps:
+          type: integer
+          title: Save Steps
+          default: 100
+        weight_decay:
+          type: number
+          title: Weight Decay
+          default: 0.001
+        max_grad_norm:
+          type: number
+          title: Max Grad Norm
+          default: 0.0
+        random_seed:
+          type: integer
+          title: Random Seed
+          default: 42
+        packing:
+          type: boolean
+          title: Packing
+          default: false
+        optim:
+          type: string
+          title: Optim
+          default: adamw_8bit
+        lr_scheduler_type:
+          type: string
+          title: Lr Scheduler Type
+          default: linear
+        max_seq_length:
+          type: integer
+          title: Max Seq Length
+          default: 4096
+        gradient_checkpointing:
+          type: string
+          title: Gradient Checkpointing
+          default: unsloth
+        trust_remote_code:
+          type: boolean
+          title: Trust Remote Code
+          default: false
+      additionalProperties: true
+      type: object
+      title: TrainingConfig
+      description: 'Training configuration knobs mapped to Unsloth Studio TrainingStartRequest.
+
+
+        Loosely typed (`extra="allow"`) per openapi.yaml''s own
+
+        `additionalProperties: true` — known properties are documented from
+
+        model-artifact-versioning-lineage.md §6''s sample record. Defaults match
+
+        Unsloth Studio defaults where confirmed, otherwise use sensible fallbacks.
+
+
+        See: https://github.com/unslothai/unsloth/blob/main/studio/backend/models/training.py'
+    TrainingRun:
+      properties:
+        training_run_id:
+          type: string
+          title: Training Run Id
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          title: Status
+        dataset_id:
+          type: string
+          title: Dataset Id
+        dataset_version:
+          type: integer
+          title: Dataset Version
+        model_id:
+          type: string
+          title: Model Id
+        base_model:
+          type: string
+          title: Base Model
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        triggered_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Triggered By
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        current_epoch:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Current Epoch
+        current_step:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Current Step
+        train_loss:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Train Loss
+        eval_loss:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Eval Loss
+        model_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Model Version
+      type: object
+      required:
+      - training_run_id
+      - status
+      - dataset_id
+      - dataset_version
+      - model_id
+      - base_model
+      - training_config
+      - created_at
+      title: TrainingRun
+      description: A training run's stored record plus live status/progress (openapi.yaml
+        TrainingRun).
+    TrainingRunCreateRequest:
+      properties:
+        dataset_id:
+          type: string
+          title: Dataset Id
+        dataset_version:
+          type: integer
+          title: Dataset Version
+        model_id:
+          type: string
+          title: Model Id
+        base_model:
+          type: string
+          title: Base Model
+        training_config:
+          $ref: '#/components/schemas/TrainingConfig'
+        triggered_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Triggered By
+      type: object
+      required:
+      - dataset_id
+      - dataset_version
+      - model_id
+      - base_model
+      - training_config
+      title: TrainingRunCreateRequest
+      description: Request to create a training run (openapi.yaml TrainingRunCreateRequest).
+    ValidateDatasetVersionRequest:
+      properties:
+        rule_set_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rule Set Version
+      type: object
+      title: ValidateDatasetVersionRequest
+      description: Optional body for POST .../validate (openapi.yaml).
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    ValidationReport:
+      properties:
+        dataset_id:
+          type: string
+          title: Dataset Id
+        dataset_version:
+          type: integer
+          title: Dataset Version
+        rule_set_version:
+          type: string
+          title: Rule Set Version
+        run_at:
+          type: string
+          format: date-time
+          title: Run At
+        record_count:
+          type: integer
+          title: Record Count
+        status_counts:
+          $ref: '#/components/schemas/ValidationStatusCounts'
+        warnings_summary:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Warnings Summary
+          default: {}
+        dataset_statistics:
+          additionalProperties: true
+          type: object
+          title: Dataset Statistics
+          default: {}
+        gate_decision:
+          type: string
+          enum:
+          - PASS
+          - FAIL
+          title: Gate Decision
+        gate_reason:
+          type: string
+          title: Gate Reason
+      type: object
+      required:
+      - dataset_id
+      - dataset_version
+      - rule_set_version
+      - run_at
+      - record_count
+      - status_counts
+      - gate_decision
+      - gate_reason
+      title: ValidationReport
+      description: Dataset-level validation report (validation-rules.md §5/§7, openapi.yaml
+        ValidationReport).
+    ValidationStatusCounts:
+      properties:
+        VALID:
+          type: integer
+          title: Valid
+          default: 0
+        INVALID:
+          type: integer
+          title: Invalid
+          default: 0
+        NEEDS_REVIEW:
+          type: integer
+          title: Needs Review
+          default: 0
+      type: object
+      title: ValidationStatusCounts
+      description: Per-record status tally (validation-rules.md §2).

@@ -40,7 +40,7 @@ def test_create_training_run_starts_pending(db_session):
     assert training_run.dataset_version_id == dataset_version.id
     assert training_run.model_id == "qwen-sft-domain-x"
     assert training_run.base_model == "Qwen/Qwen3.8-27B"
-    assert training_run.training_config["peft_method"] == "dora"
+    assert training_run.training_config["peft_method"] == "lora"
 
 
 def test_completed_lifecycle(db_session):

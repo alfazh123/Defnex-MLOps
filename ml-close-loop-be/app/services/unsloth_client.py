@@ -51,6 +51,8 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "lora_alpha": config.get("lora_alpha", 32),
         "lora_dropout": config.get("lora_dropout", 0.05),
         "output_dir": config.get("output_dir", "./outputs"),
+        "peft_method": config.get("peft_method", "lora"),
+        "load_in_4bit": config.get("load_in_4bit", False),
     }
 
 

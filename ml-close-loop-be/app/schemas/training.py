@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+PeftMethod = Literal["lora", "qlora", "dora", "qdora", "rslora"]
 
 
 class TrainingConfig(BaseModel):
@@ -19,7 +20,7 @@ class TrainingConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    peft_method: str = "dora"
+    peft_method: PeftMethod = "lora"
     load_in_4bit: bool = False
     lora_r: int | None = None
     lora_alpha: int | None = None

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
 
-_UNSLOTH_URL = os.getenv("UNSLOTH_STUDIO_URL", "http://unsloth-studio:8888")
-_UNSLOTH_KEY = os.getenv("UNSLOTH_API_KEY", "")
-_DEFAULT_MODEL = os.getenv("UNSLOTH_DEFAULT_MODEL", "unsloth/Qwen3-0.6B")
+from app.config import settings
+
+_UNSLOTH_URL = settings.unsloth_studio_url
+_UNSLOTH_KEY = settings.unsloth_api_key
+_DEFAULT_MODEL = settings.unsloth_default_model
 
 _client: httpx.AsyncClient | None = None
 
@@ -27,7 +28,7 @@ async def _get_client() -> httpx.AsyncClient:
 
 
 def get_available_models() -> list[str]:
-    raw = os.getenv("UNSLOTH_MODELS", "")
+    raw = settings.unsloth_models
     if raw.strip():
         return [m.strip() for m in raw.split(",") if m.strip()]
     return [_DEFAULT_MODEL]

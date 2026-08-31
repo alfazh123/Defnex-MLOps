@@ -1,10 +1,9 @@
-import os
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_model_version_or_404
 from app.api.errors import APIError
+from app.config import settings
 from app.db.session import get_db
 from app.schemas.common import ErrorResponse
 from app.schemas.model import (
@@ -22,9 +21,9 @@ router = APIRouter(tags=["Models"])
 
 @router.get("/models/available")
 def list_available_models() -> dict:
-    raw = os.environ.get("UNSLOTH_MODELS", "")
+    raw = settings.unsloth_models
     models = [m.strip() for m in raw.split(",") if m.strip()]
-    default = os.environ.get("UNSLOTH_DEFAULT_MODEL", "")
+    default = settings.unsloth_default_model
     return {"models": models, "default": default}
 
 

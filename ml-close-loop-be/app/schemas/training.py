@@ -8,25 +8,58 @@ PeftMethod = Literal["lora", "qlora", "dora", "qdora", "rslora"]
 
 
 class TrainingConfig(BaseModel):
-    """Training configuration knobs (openapi.yaml TrainingConfig).
+    """Training configuration knobs mapped to Unsloth Studio TrainingStartRequest.
 
     Loosely typed (`extra="allow"`) per openapi.yaml's own
     `additionalProperties: true` — known properties are documented from
-    model-artifact-versioning-lineage.md §6's sample record. Defaults below
-    are only the PRD §11 confirmed baseline (peft_method, load_in_4bit,
-    max_seq_length); the rest have no confirmed default and stay
-    configurable/unset rather than hardcoding an example run's values.
+    model-artifact-versioning-lineage.md §6's sample record. Defaults match
+    Unsloth Studio defaults where confirmed, otherwise use sensible fallbacks.
+
+    See: https://github.com/unslothai/unsloth/blob/main/studio/backend/models/training.py
     """
 
     model_config = ConfigDict(extra="allow")
 
+    # PEFT method
     peft_method: PeftMethod = "lora"
     load_in_4bit: bool = False
-    lora_r: int | None = None
-    lora_alpha: int | None = None
+
+    # LoRA parameters
+    lora_r: int = 16
+    lora_alpha: int = 16
+    lora_dropout: float = 0.0
+    target_modules: list[str] = []
+    use_loftq: bool = False
+
+    # Dataset
+    hf_dataset: str = ""
+    format_type: str = "chatml"
+    train_split: str = "train"
+    eval_split: str | None = None
+    eval_steps: float = 0.0
+
+    # Training hyperparameters
     learning_rate: float | str | None = None
     epochs: int | None = None
+    batch_size: int = 1
+    gradient_accumulation_steps: int = 1
+    warmup_steps: int | None = None
+    warmup_ratio: float | None = None
+    max_steps: int | None = None
+    save_steps: int = 100
+    weight_decay: float = 0.001
+    max_grad_norm: float = 0.0
+    random_seed: int = 42
+    packing: bool = False
+    optim: str = "adamw_8bit"
+    lr_scheduler_type: str = "linear"
     max_seq_length: int = 4096
+
+    # Gradient checkpointing
+    gradient_checkpointing: str = "unsloth"
+
+    # Model options
+    trust_remote_code: bool = False
 
 
 class TrainingRunCreateRequest(BaseModel):

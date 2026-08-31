@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,14 @@ from app.schemas.model import (
 from app.services import model_service
 
 router = APIRouter(tags=["Models"])
+
+
+@router.get("/models/available")
+def list_available_models() -> dict:
+    raw = os.environ.get("UNSLOTH_MODELS", "")
+    models = [m.strip() for m in raw.split(",") if m.strip()]
+    default = os.environ.get("UNSLOTH_DEFAULT_MODEL", "")
+    return {"models": models, "default": default}
 
 
 @router.get("/models", response_model=list[ModelSummary])

@@ -30,3 +30,6 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/models/*.py" = ["F821"]

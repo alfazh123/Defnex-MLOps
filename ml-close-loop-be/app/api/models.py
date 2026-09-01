@@ -43,7 +43,10 @@ def list_models(
     responses={404: {"model": ErrorResponse}},
 )
 def get_model_version(
-    model_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> ModelRegistryRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     return model_service.to_schema(model_version)
@@ -72,7 +75,8 @@ def submit_evaluation(
     model_service.submit_evaluation(db, model_version, request)
     db.commit()
     return EvaluationSubmitResponse(
-        evaluation=model_service.get_evaluation(model_version), status=model_version.status
+        evaluation=model_service.get_evaluation(model_version),
+        status=model_version.status,
     )
 
 
@@ -82,7 +86,10 @@ def submit_evaluation(
     responses={404: {"model": ErrorResponse}},
 )
 def get_evaluation(
-    model_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> EvaluationObject:
     model_version = get_model_version_or_404(db, model_id, version)
     return model_service.get_evaluation(model_version)

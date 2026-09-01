@@ -8,7 +8,13 @@ from app.schemas.model import (
 )
 from app.schemas.promotion import DecisionCreateRequest, RollbackRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
-from app.services import dataset_service, deployment_service, model_service, promotion_service, training_service
+from app.services import (
+    dataset_service,
+    deployment_service,
+    model_service,
+    promotion_service,
+    training_service,
+)
 from app.services.serving import MockServingBackend
 
 
@@ -37,7 +43,9 @@ def _promoted_model_version(db_session, dataset_version=None):
         ),
     )
     training_service.start_training_run(db_session, training_run)
-    training_service.complete_training_run(db_session, training_run, artifact_uri="file:///tmp/adapter")
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/adapter"
+    )
     model_version = model_service.register_model_version(db_session, training_run)
     model_service.submit_evaluation(
         db_session,
@@ -47,13 +55,17 @@ def _promoted_model_version(db_session, dataset_version=None):
             qualitative_comparison=QualitativeComparison(
                 question_table_version=1, wins=13, losses=5, ties=2, total=20
             ),
-            general_domain_regression_check=GeneralDomainRegressionCheck(checked=True, regressions_found=[]),
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            ),
         ),
     )
     promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="Signals aligned."),
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="Signals aligned."
+        ),
     )
     assert model_version.status == "PROMOTED"
     return model_version, dataset_version
@@ -63,7 +75,9 @@ def test_deploy_moves_pointer_and_calls_serving_backend(db_session):
     model_version, _ = _promoted_model_version(db_session)
     backend = MockServingBackend()
 
-    deployment, previous = deployment_service.deploy(db_session, model_version, backend=backend)
+    deployment, previous = deployment_service.deploy(
+        db_session, model_version, backend=backend
+    )
 
     assert previous is None
     assert model_version.status == "DEPLOYED"
@@ -93,7 +107,9 @@ def test_deploy_retires_the_previously_deployed_version(db_session):
 def test_get_deployment_status_is_all_null_before_any_deploy(db_session):
     model_version, _ = _promoted_model_version(db_session)
 
-    status = deployment_service.get_deployment_status(db_session, model_version.model_id)
+    status = deployment_service.get_deployment_status(
+        db_session, model_version.model_id
+    )
 
     assert status.model_id == "qwen-sft-domain-x"
     assert status.current_deployed_version is None
@@ -124,7 +140,11 @@ def test_rollback_moves_the_deployment_pointer_back(db_session):
     decision = promotion_service.rollback(
         db_session,
         v1,
-        RollbackRequest(rollback_of_version=v1.version, decided_by="reviewer-1", rationale="Regression."),
+        RollbackRequest(
+            rollback_of_version=v1.version,
+            decided_by="reviewer-1",
+            rationale="Regression.",
+        ),
     )
 
     assert v1.status == "DEPLOYED"

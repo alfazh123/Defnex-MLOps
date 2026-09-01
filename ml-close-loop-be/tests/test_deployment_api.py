@@ -1,4 +1,3 @@
-import pytest
 from sqlalchemy.orm import Session
 
 from tests.conftest import auth_header
@@ -34,12 +33,16 @@ def _registered_model_version(client, admin_token):
 
     h = auth_header(admin_token)
     client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
+    created = client.post(
+        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, training_run)
         artifact_uri = MockTrainingRunner().run(training_run)
-        training_service.complete_training_run(db, training_run, artifact_uri=artifact_uri)
+        training_service.complete_training_run(
+            db, training_run, artifact_uri=artifact_uri
+        )
         model_version = model_service.register_model_version(db, training_run)
         db.commit()
         return model_version.model_id, model_version.version
@@ -49,23 +52,48 @@ def _promoted_model_version(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
     h = auth_header(admin_token)
     url = f"/models/{model_id}/versions/{version}/evaluation"
-    client.post(url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h)
+    client.post(
+        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
+    )
     client.post(
         url,
-        json={"qualitative_comparison": {"question_table_version": 1, "wins": 13, "losses": 5, "ties": 2, "total": 20}},
+        json={
+            "qualitative_comparison": {
+                "question_table_version": 1,
+                "wins": 13,
+                "losses": 5,
+                "ties": 2,
+                "total": 20,
+            }
+        },
         headers=h,
     )
-    client.post(url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}, headers=h)
+    client.post(
+        url,
+        json={
+            "general_domain_regression_check": {
+                "checked": True,
+                "regressions_found": [],
+            }
+        },
+        headers=h,
+    )
     client.post(
         f"/models/{model_id}/versions/{version}/decisions",
-        json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "Signals aligned."},
+        json={
+            "decision": "PROMOTED",
+            "decided_by": "reviewer-1",
+            "rationale": "Signals aligned.",
+        },
         headers=h,
     )
     return model_id, version
 
 
 def test_deploy_returns_404_when_version_missing(client, admin_token):
-    response = client.post("/models/no-such-model/versions/1/deploy", headers=auth_header(admin_token))
+    response = client.post(
+        "/models/no-such-model/versions/1/deploy", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
@@ -74,7 +102,10 @@ def test_deploy_returns_404_when_version_missing(client, admin_token):
 def test_deploy_returns_409_when_not_promoted(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
 
-    response = client.post(f"/models/{model_id}/versions/{version}/deploy", headers=auth_header(admin_token))
+    response = client.post(
+        f"/models/{model_id}/versions/{version}/deploy",
+        headers=auth_header(admin_token),
+    )
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "DEPLOY_NOT_ALLOWED"
@@ -92,7 +123,10 @@ def test_deploy_promoted_version_updates_pointer_and_registry(client, admin_toke
         "current_deployed_version": version,
         "previous_deployed_version": None,
     }
-    assert client.get(f"/models/{model_id}/versions/{version}", headers=h).json()["status"] == "DEPLOYED"
+    assert (
+        client.get(f"/models/{model_id}/versions/{version}", headers=h).json()["status"]
+        == "DEPLOYED"
+    )
 
 
 def test_deploy_reports_and_retires_the_superseded_version(client, admin_token):
@@ -106,11 +140,16 @@ def test_deploy_reports_and_retires_the_superseded_version(client, admin_token):
     assert response.status_code == 200
     assert response.json()["current_deployed_version"] == v2
     assert response.json()["previous_deployed_version"] == v1
-    assert client.get(f"/models/{model_id}/versions/{v1}", headers=h).json()["status"] == "RETIRED"
+    assert (
+        client.get(f"/models/{model_id}/versions/{v1}", headers=h).json()["status"]
+        == "RETIRED"
+    )
 
 
 def test_get_deployment_returns_404_when_model_missing(client, admin_token):
-    response = client.get("/models/no-such-model/deployment", headers=auth_header(admin_token))
+    response = client.get(
+        "/models/no-such-model/deployment", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
@@ -119,7 +158,9 @@ def test_get_deployment_returns_404_when_model_missing(client, admin_token):
 def test_get_deployment_returns_null_pointer_before_any_deploy(client, admin_token):
     model_id, _ = _registered_model_version(client, admin_token)
 
-    response = client.get(f"/models/{model_id}/deployment", headers=auth_header(admin_token))
+    response = client.get(
+        f"/models/{model_id}/deployment", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -154,11 +195,20 @@ def test_rollback_moves_the_deployment_pointer_back(client, admin_token):
 
     response = client.post(
         f"/models/{model_id}/rollback",
-        json={"rollback_of_version": v1, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+        json={
+            "rollback_of_version": v1,
+            "decided_by": "reviewer-1",
+            "rationale": "Prod regression.",
+        },
         headers=h,
     )
 
     assert response.status_code == 201
     # DecisionRecord.version is "the version being rolled back from".
     assert response.json()["version"] == v2
-    assert client.get(f"/models/{model_id}/deployment", headers=h).json()["current_deployed_version"] == v1
+    assert (
+        client.get(f"/models/{model_id}/deployment", headers=h).json()[
+            "current_deployed_version"
+        ]
+        == v1
+    )

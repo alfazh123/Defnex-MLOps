@@ -12,14 +12,20 @@ def get_model_version_or_404(db: Session, model_id: str, version: int) -> ModelV
     """Resolve a model version or raise the standard 404 error envelope (openapi.yaml)."""
     model_version = model_service.get_model_version(db, model_id, version)
     if model_version is None:
-        raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" version {version} not found')
+        raise APIError(
+            404, "MODEL_NOT_FOUND", f'model_id "{model_id}" version {version} not found'
+        )
     return model_version
 
 
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    authorization: str = Header(None), db: Session = Depends(get_db)
+) -> User:
     """Extract and validate JWT token from Authorization header."""
     if authorization is None or not authorization.startswith("Bearer "):
-        raise APIError(401, "MISSING_TOKEN", "Authorization header must be: Bearer <token>")
+        raise APIError(
+            401, "MISSING_TOKEN", "Authorization header must be: Bearer <token>"
+        )
 
     token = authorization.removeprefix("Bearer ").strip()
     payload = auth_service.decode_token(token)

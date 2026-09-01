@@ -1,18 +1,16 @@
 """initial (no domain models yet)
 
 Revision ID: 895882637307
-Revises: 
+Revises:
 Create Date: 2026-08-27 15:50:45.488789
 
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from typing import Sequence, Union
 
 
 # revision identifiers, used by Alembic.
-revision: str = '895882637307'
+revision: str = "895882637307"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

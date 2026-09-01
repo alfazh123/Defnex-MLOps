@@ -1,5 +1,8 @@
 from app.models.training import TrainingRun
-from app.services.artifact_storage import ArtifactStorage, LocalFilesystemArtifactStorage
+from app.services.artifact_storage import (
+    ArtifactStorage,
+    LocalFilesystemArtifactStorage,
+)
 
 
 class MockTrainingRunner:

@@ -25,7 +25,9 @@ def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
     """
 
     training_run = db.scalar(
-        select(TrainingRun).where(TrainingRun.status == "PENDING").order_by(TrainingRun.created_at)
+        select(TrainingRun)
+        .where(TrainingRun.status == "PENDING")
+        .order_by(TrainingRun.created_at)
     )
     if training_run is None:
         return None
@@ -36,7 +38,9 @@ def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
     except Exception as exc:
         training_service.fail_training_run(db, training_run, error_message=str(exc))
     else:
-        training_service.complete_training_run(db, training_run, artifact_uri=artifact_uri)
+        training_service.complete_training_run(
+            db, training_run, artifact_uri=artifact_uri
+        )
         # The internal Register call openapi.yaml documents as running on COMPLETED — without it
         # nothing in a running system ever creates a ModelVersion, so the loop never closes.
         model_service.register_model_version(db, training_run)

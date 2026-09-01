@@ -19,7 +19,10 @@ router = APIRouter(tags=["Deployment"])
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
 def deploy_model_version(
-    model_id: str, version: int, db: Session = Depends(get_db), _admin: User = Depends(require_admin)
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)
     if model_version.status != "PROMOTED":
@@ -40,7 +43,9 @@ def deploy_model_version(
     responses={404: {"model": ErrorResponse}},
 )
 def get_deployment_status(
-    model_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    model_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> DeploymentStatus:
     if db.get(Model, model_id) is None:
         raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" not found')

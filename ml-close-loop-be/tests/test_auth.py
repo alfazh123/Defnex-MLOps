@@ -50,6 +50,7 @@ def test_login_success(client):
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["user"]["username"] == "admin"
     assert data["user"]["role"] == "admin"
 
@@ -142,3 +143,83 @@ def test_register_strong_password_accepted(client):
         "/auth/register", json={"username": "bob", "password": "Strong1Pass"}
     )
     assert resp.status_code == 201
+
+
+def test_refresh_token_flow(client):
+    client.post("/auth/register", json={"username": "admin", "password": "Pass1234"})
+    login_resp = client.post(
+        "/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    refresh_token = login_resp.json()["refresh_token"]
+
+    resp = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["user"]["username"] == "admin"
+
+
+def test_refresh_with_invalid_token_returns_401(client):
+    resp = client.post("/auth/refresh", json={"refresh_token": "invalid.token.here"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_refresh_with_access_token_returns_401(client):
+    client.post("/auth/register", json={"username": "admin", "password": "Pass1234"})
+    login_resp = client.post(
+        "/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    access_token = login_resp.json()["access_token"]
+
+    resp = client.post("/auth/refresh", json={"refresh_token": access_token})
+    assert resp.status_code == 401
+
+
+def test_refresh_with_expired_token_returns_401(client):
+    from datetime import timedelta, timezone
+    from datetime import datetime
+    from jose import jwt
+    from app.config import settings
+
+    client.post("/auth/register", json={"username": "admin", "password": "Pass1234"})
+    login_resp = client.post(
+        "/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    user_id = login_resp.json()["user"]["id"]
+
+    expired = jwt.encode(
+        {
+            "sub": str(user_id),
+            "role": "admin",
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
+            "type": "refresh",
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    resp = client.post("/auth/refresh", json={"refresh_token": expired})
+    assert resp.status_code == 401
+
+
+def test_refresh_with_nonexistent_user_returns_401(client):
+    from datetime import timedelta, timezone
+    from datetime import datetime
+    from jose import jwt
+    from app.config import settings
+
+    token = jwt.encode(
+        {
+            "sub": "99999",
+            "role": "user",
+            "exp": datetime.now(timezone.utc) + timedelta(days=1),
+            "type": "refresh",
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    resp = client.post("/auth/refresh", json={"refresh_token": token})
+    assert resp.status_code == 401

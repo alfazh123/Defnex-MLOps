@@ -1,5 +1,3 @@
-import pytest
-
 from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
@@ -27,8 +25,14 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
-def test_create_training_run_returns_404_when_dataset_version_missing(client, admin_token):
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=auth_header(admin_token))
+def test_create_training_run_returns_404_when_dataset_version_missing(
+    client, admin_token
+):
+    response = client.post(
+        "/training-runs",
+        json=TRAINING_RUN_CREATE_REQUEST,
+        headers=auth_header(admin_token),
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "DATASET_NOT_FOUND"
@@ -38,7 +42,9 @@ def test_create_training_run_returns_201_queued(client, admin_token):
     h = auth_header(admin_token)
     client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
 
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h)
+    response = client.post(
+        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -53,13 +59,19 @@ def test_create_training_run_returns_201_queued(client, admin_token):
 
 
 def test_create_training_run_rejects_invalid_body(client, admin_token):
-    response = client.post("/training-runs", json={"dataset_id": "no_robots"}, headers=auth_header(admin_token))
+    response = client.post(
+        "/training-runs",
+        json={"dataset_id": "no_robots"},
+        headers=auth_header(admin_token),
+    )
 
     assert response.status_code == 422
 
 
 def test_get_training_run_returns_404_when_missing(client, admin_token):
-    response = client.get("/training-runs/run-doesnotexist", headers=auth_header(admin_token))
+    response = client.get(
+        "/training-runs/run-doesnotexist", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "TRAINING_RUN_NOT_FOUND"
@@ -68,7 +80,9 @@ def test_get_training_run_returns_404_when_missing(client, admin_token):
 def test_get_training_run_returns_created_run(client, admin_token):
     h = auth_header(admin_token)
     client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
+    created = client.post(
+        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
 
     response = client.get(f"/training-runs/{created['training_run_id']}", headers=h)
 

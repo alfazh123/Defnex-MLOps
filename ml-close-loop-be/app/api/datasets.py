@@ -6,18 +6,26 @@ from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.common import ErrorResponse
-from app.schemas.dataset import DatasetSummary, DatasetVersion, DatasetVersionCreateRequest
+from app.schemas.dataset import (
+    DatasetSummary,
+    DatasetVersion,
+    DatasetVersionCreateRequest,
+)
 from app.services import dataset_service
 
 router = APIRouter(tags=["Datasets"])
 
 
 @router.get("/datasets", response_model=list[DatasetSummary])
-def list_datasets(db: Session = Depends(get_db), _user: User = Depends(get_current_user)) -> list[DatasetSummary]:
+def list_datasets(
+    db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+) -> list[DatasetSummary]:
     return dataset_service.list_datasets(db)
 
 
-@router.post("/datasets/{dataset_id}/versions", response_model=DatasetVersion, status_code=201)
+@router.post(
+    "/datasets/{dataset_id}/versions", response_model=DatasetVersion, status_code=201
+)
 def create_dataset_version(
     dataset_id: str,
     request: DatasetVersionCreateRequest,
@@ -34,7 +42,9 @@ def create_dataset_version(
     responses={404: {"model": ErrorResponse}},
 )
 def list_dataset_versions(
-    dataset_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> list[DatasetVersion]:
     versions = dataset_service.list_dataset_versions(db, dataset_id)
     if not versions:
@@ -48,9 +58,16 @@ def list_dataset_versions(
     responses={404: {"model": ErrorResponse}},
 )
 def get_dataset_version(
-    dataset_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    dataset_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> DatasetVersion:
     result = dataset_service.get_dataset_version(db, dataset_id, version)
     if result is None:
-        raise APIError(404, "DATASET_NOT_FOUND", f'dataset_id "{dataset_id}" version {version} not found')
+        raise APIError(
+            404,
+            "DATASET_NOT_FOUND",
+            f'dataset_id "{dataset_id}" version {version} not found',
+        )
     return dataset_service.to_schema(result)

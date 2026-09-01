@@ -61,7 +61,9 @@ def create_dataset_version(
     return version
 
 
-def get_dataset_version(db: Session, dataset_id: str, version: int) -> DatasetVersionModel | None:
+def get_dataset_version(
+    db: Session, dataset_id: str, version: int
+) -> DatasetVersionModel | None:
     return db.scalar(
         select(DatasetVersionModel).where(
             DatasetVersionModel.dataset_id == dataset_id,

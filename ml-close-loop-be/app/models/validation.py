@@ -26,4 +26,6 @@ class ValidationReport(Base):
     gate_decision: Mapped[str] = mapped_column(String)
     gate_reason: Mapped[str] = mapped_column(String)
 
-    dataset_version: Mapped["DatasetVersion"] = relationship(back_populates="validation_reports")
+    dataset_version: Mapped["DatasetVersion"] = relationship(
+        back_populates="validation_reports"
+    )

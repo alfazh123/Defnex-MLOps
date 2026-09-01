@@ -1,5 +1,3 @@
-import pytest
-
 from tests.conftest import auth_header
 
 CREATE_REQUEST = {
@@ -17,7 +15,11 @@ def test_list_datasets_empty(client, admin_token):
 
 
 def test_create_dataset_version_returns_201_with_body(client, admin_token):
-    response = client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=auth_header(admin_token))
+    response = client.post(
+        "/datasets/no_robots/versions",
+        json=CREATE_REQUEST,
+        headers=auth_header(admin_token),
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -28,7 +30,11 @@ def test_create_dataset_version_returns_201_with_body(client, admin_token):
 
 
 def test_create_dataset_version_rejects_invalid_body(client, admin_token):
-    response = client.post("/datasets/no_robots/versions", json={"source_type": "bogus"}, headers=auth_header(admin_token))
+    response = client.post(
+        "/datasets/no_robots/versions",
+        json={"source_type": "bogus"},
+        headers=auth_header(admin_token),
+    )
     assert response.status_code == 422
 
 
@@ -40,14 +46,25 @@ def test_list_datasets_reflects_latest_version_and_status(client, admin_token):
     response = client.get("/datasets", headers=h)
 
     assert response.status_code == 200
-    assert response.json() == [{"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSING"}]
+    assert response.json() == [
+        {"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSING"}
+    ]
 
 
-def test_list_dataset_versions_returns_404_error_envelope_when_missing(client, admin_token):
-    response = client.get("/datasets/missing/versions", headers=auth_header(admin_token))
+def test_list_dataset_versions_returns_404_error_envelope_when_missing(
+    client, admin_token
+):
+    response = client.get(
+        "/datasets/missing/versions", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
-    assert response.json() == {"error": {"code": "DATASET_NOT_FOUND", "message": 'dataset_id "missing" not found'}}
+    assert response.json() == {
+        "error": {
+            "code": "DATASET_NOT_FOUND",
+            "message": 'dataset_id "missing" not found',
+        }
+    }
 
 
 def test_list_dataset_versions_returns_all_versions(client, admin_token):
@@ -61,8 +78,12 @@ def test_list_dataset_versions_returns_all_versions(client, admin_token):
     assert [v["version"] for v in response.json()] == [2, 1]
 
 
-def test_get_dataset_version_returns_404_error_envelope_when_missing(client, admin_token):
-    response = client.get("/datasets/no_robots/versions/1", headers=auth_header(admin_token))
+def test_get_dataset_version_returns_404_error_envelope_when_missing(
+    client, admin_token
+):
+    response = client.get(
+        "/datasets/no_robots/versions/1", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "DATASET_NOT_FOUND"

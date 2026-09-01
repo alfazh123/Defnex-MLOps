@@ -25,4 +25,6 @@ class PromotionDecision(Base):
     rationale: Mapped[str] = mapped_column(String)
     rollback_of_version: Mapped[int | None] = mapped_column(nullable=True)
 
-    model_version: Mapped["ModelVersion"] = relationship(back_populates="promotion_decisions")
+    model_version: Mapped["ModelVersion"] = relationship(
+        back_populates="promotion_decisions"
+    )

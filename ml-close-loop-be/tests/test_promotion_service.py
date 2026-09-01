@@ -9,7 +9,12 @@ from app.schemas.model import (
 )
 from app.schemas.promotion import DecisionCreateRequest, RollbackRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
-from app.services import dataset_service, model_service, promotion_service, training_service
+from app.services import (
+    dataset_service,
+    model_service,
+    promotion_service,
+    training_service,
+)
 
 
 def _evaluated_model_version(db_session):
@@ -35,7 +40,9 @@ def _evaluated_model_version(db_session):
         ),
     )
     training_service.start_training_run(db_session, training_run)
-    training_service.complete_training_run(db_session, training_run, artifact_uri="file:///tmp/adapter")
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/adapter"
+    )
     model_version = model_service.register_model_version(db_session, training_run)
 
     model_service.submit_evaluation(
@@ -46,7 +53,9 @@ def _evaluated_model_version(db_session):
             qualitative_comparison=QualitativeComparison(
                 question_table_version=1, wins=13, losses=5, ties=2, total=20
             ),
-            general_domain_regression_check=GeneralDomainRegressionCheck(checked=True, regressions_found=[]),
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            ),
         ),
     )
     assert model_version.status == "EVALUATED"
@@ -59,7 +68,11 @@ def test_create_decision_promotes_evaluated_version(db_session):
     decision = promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="All three signals aligned."),
+        DecisionCreateRequest(
+            decision="PROMOTED",
+            decided_by="reviewer-1",
+            rationale="All three signals aligned.",
+        ),
     )
 
     assert decision.decision == "PROMOTED"
@@ -76,14 +89,20 @@ def test_create_decision_rejects_evaluated_version(db_session):
     decision = promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="REJECTED", decided_by="reviewer-1", rationale="General-domain regression."),
+        DecisionCreateRequest(
+            decision="REJECTED",
+            decided_by="reviewer-1",
+            rationale="General-domain regression.",
+        ),
     )
 
     assert decision.decision == "REJECTED"
     assert model_version.status == "REJECTED"
 
 
-@pytest.mark.parametrize("status", ["REGISTERED", "PROMOTED", "REJECTED", "DEPLOYED", "RETIRED"])
+@pytest.mark.parametrize(
+    "status", ["REGISTERED", "PROMOTED", "REJECTED", "DEPLOYED", "RETIRED"]
+)
 def test_create_decision_rejects_invalid_source_status(db_session, status):
     model_version = _evaluated_model_version(db_session)
     model_version.status = status
@@ -92,7 +111,9 @@ def test_create_decision_rejects_invalid_source_status(db_session, status):
         promotion_service.create_decision(
             db_session,
             model_version,
-            DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"),
+            DecisionCreateRequest(
+                decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"
+            ),
         )
 
 
@@ -101,7 +122,11 @@ def _promoted_model_version(db_session):
     promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="All three signals aligned."),
+        DecisionCreateRequest(
+            decision="PROMOTED",
+            decided_by="reviewer-1",
+            rationale="All three signals aligned.",
+        ),
     )
     return model_version
 
@@ -112,7 +137,11 @@ def test_rollback_deploys_target_and_records_decision(db_session):
     decision = promotion_service.rollback(
         db_session,
         target,
-        RollbackRequest(rollback_of_version=target.version, decided_by="reviewer-1", rationale="Prod regression."),
+        RollbackRequest(
+            rollback_of_version=target.version,
+            decided_by="reviewer-1",
+            rationale="Prod regression.",
+        ),
     )
 
     assert decision.decision == "ROLLBACK"
@@ -130,7 +159,11 @@ def test_rollback_retires_previously_deployed_version(db_session):
     db_session.flush()
 
     decision = promotion_service.rollback(
-        db_session, target, RollbackRequest(rollback_of_version=target.version, rationale="Prod regression.")
+        db_session,
+        target,
+        RollbackRequest(
+            rollback_of_version=target.version, rationale="Prod regression."
+        ),
     )
 
     assert other.status == "RETIRED"
@@ -145,7 +178,9 @@ def test_rollback_rejects_non_promoted_non_retired_target(db_session, status):
 
     with pytest.raises(ValueError):
         promotion_service.rollback(
-            db_session, target, RollbackRequest(rollback_of_version=target.version, rationale="n/a")
+            db_session,
+            target,
+            RollbackRequest(rollback_of_version=target.version, rationale="n/a"),
         )
 
 
@@ -154,7 +189,9 @@ def test_to_schema_derives_model_id_and_version(db_session):
     decision = promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="ok"),
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
     )
 
     schema = promotion_service.to_schema(decision)

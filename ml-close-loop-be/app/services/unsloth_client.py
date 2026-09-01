@@ -74,17 +74,14 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "load_in_4bit": config.get("load_in_4bit", False),
         "max_seq_length": config.get("max_seq_length", 2048),
         "trust_remote_code": config.get("trust_remote_code", False),
-
         # Dataset
         "hf_dataset": hf_dataset,
         "format_type": config.get("format_type", "chatml"),
         "train_split": config.get("train_split", "train"),
         "eval_split": config.get("eval_split"),
         "eval_steps": config.get("eval_steps", 0.0),
-
         # Training type
         "training_type": training_type,
-
         # Hyperparameters
         "num_epochs": config.get("epochs", 1),
         "learning_rate": lr_str,
@@ -100,7 +97,6 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "packing": config.get("packing", False),
         "optim": config.get("optim", "adamw_8bit"),
         "lr_scheduler_type": config.get("lr_scheduler_type", "linear"),
-
         # LoRA
         "use_lora": use_lora,
         "lora_r": config.get("lora_r", 16),
@@ -109,7 +105,6 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "target_modules": config.get("target_modules", []),
         "use_rslora": peft_method == "rslora",
         "use_loftq": config.get("use_loftq", False),
-
         # Gradient checkpointing
         "gradient_checkpointing": config.get("gradient_checkpointing", "unsloth"),
     }

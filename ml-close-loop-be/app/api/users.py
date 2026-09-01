@@ -12,13 +12,20 @@ router = APIRouter(tags=["Users"])
 
 
 @router.get("/users", response_model=list[UserResponse])
-def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_admin)) -> list[UserResponse]:
+def list_users(
+    db: Session = Depends(get_db), _admin: User = Depends(require_admin)
+) -> list[UserResponse]:
     users = auth_service.list_users(db)
-    return [UserResponse(id=u.id, username=u.username, role=u.role, created_at=u.created_at) for u in users]
+    return [
+        UserResponse(id=u.id, username=u.username, role=u.role, created_at=u.created_at)
+        for u in users
+    ]
 
 
 @router.delete("/users/{user_id}", status_code=204)
-def delete_user(user_id: int, db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
+def delete_user(
+    user_id: int, db: Session = Depends(get_db), _admin: User = Depends(require_admin)
+):
     if not auth_service.delete_user(db, user_id):
-        raise APIError(404, "USER_NOT_FOUND", f'user_id {user_id} not found')
+        raise APIError(404, "USER_NOT_FOUND", f"user_id {user_id} not found")
     db.commit()

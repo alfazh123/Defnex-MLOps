@@ -11,7 +11,6 @@ Two steps have no HTTP trigger in this codebase and are driven directly instead:
   thread — same code path the `worker` compose service runs, without the polling sleep.
 """
 
-import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -58,7 +57,8 @@ def _mark_processed(client, dataset_id, version):
     with Session(client.engine) as db:
         row = db.scalar(
             select(DatasetVersion).where(
-                DatasetVersion.dataset_id == dataset_id, DatasetVersion.version == version
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == version,
             )
         )
         row.status = "PROCESSED"
@@ -70,7 +70,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     h = auth_header(admin_token)
 
     # --- Dataset ---------------------------------------------------------------------------
-    response = client.post(f"/datasets/{DATASET_ID}/versions", json=DATASET_CREATE_REQUEST, headers=h)
+    response = client.post(
+        f"/datasets/{DATASET_ID}/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
     assert response.status_code == 201
     dataset_version = response.json()
     assert dataset_version["dataset_id"] == DATASET_ID
@@ -86,12 +88,16 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert report["dataset_version"] == 1
     assert report["gate_decision"] == "PASS"
 
-    latest = client.get(f"/datasets/{DATASET_ID}/versions/1/validation-reports/latest", headers=h)
+    latest = client.get(
+        f"/datasets/{DATASET_ID}/versions/1/validation-reports/latest", headers=h
+    )
     assert latest.status_code == 200
     assert latest.json() == report
 
     # --- Training run ----------------------------------------------------------------------
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h)
+    response = client.post(
+        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
     assert response.status_code == 201
     training_run = response.json()
     training_run_id = training_run["training_run_id"]
@@ -131,8 +137,14 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
 
     # --- Evaluation ------------------------------------------------------------------------
     evaluation_url = f"/models/{MODEL_ID}/versions/{model_version}/evaluation"
-    partial = client.post(evaluation_url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h)
-    assert partial.json()["status"] == "REGISTERED"  # partial evaluation does not qualify
+    partial = client.post(
+        evaluation_url,
+        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        headers=h,
+    )
+    assert (
+        partial.json()["status"] == "REGISTERED"
+    )  # partial evaluation does not qualify
     client.post(
         evaluation_url,
         json={
@@ -147,7 +159,14 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
         headers=h,
     )
     response = client.post(
-        evaluation_url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}, headers=h
+        evaluation_url,
+        json={
+            "general_domain_regression_check": {
+                "checked": True,
+                "regressions_found": [],
+            }
+        },
+        headers=h,
     )
     assert response.status_code == 200
     assert response.json()["status"] == "EVALUATED"
@@ -155,7 +174,11 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     # --- Promotion -------------------------------------------------------------------------
     response = client.post(
         f"/models/{MODEL_ID}/versions/{model_version}/decisions",
-        json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "All three signals aligned."},
+        json={
+            "decision": "PROMOTED",
+            "decided_by": "reviewer-1",
+            "rationale": "All three signals aligned.",
+        },
         headers=h,
     )
     assert response.status_code == 201
@@ -164,15 +187,22 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert decision["model_id"] == MODEL_ID
     assert decision["version"] == model_version
     # The evidence snapshot is frozen from the evaluation submitted above.
-    assert decision["evidence_snapshot"]["eval_loss_trend"]["this_version_eval_loss"] == 0.84
+    assert (
+        decision["evidence_snapshot"]["eval_loss_trend"]["this_version_eval_loss"]
+        == 0.84
+    )
 
-    record = client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()
+    record = client.get(
+        f"/models/{MODEL_ID}/versions/{model_version}", headers=h
+    ).json()
     assert record["status"] == "PROMOTED"
     assert record["promotion_decision_ref"] == decision_id
 
     # --- Deployment ------------------------------------------------------------------------
     if serving_backend is None:
-        response = client.post(f"/models/{MODEL_ID}/versions/{model_version}/deploy", headers=h)
+        response = client.post(
+            f"/models/{MODEL_ID}/versions/{model_version}/deploy", headers=h
+        )
         assert response.status_code == 200
         assert response.json() == {
             "model_id": MODEL_ID,
@@ -184,7 +214,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
         # lifecycle actually reached the serving boundary.
         with Session(client.engine) as db:
             deployment_service.deploy(
-                db, model_service.get_model_version(db, MODEL_ID, model_version), serving_backend
+                db,
+                model_service.get_model_version(db, MODEL_ID, model_version),
+                serving_backend,
             )
             db.commit()
 
@@ -196,7 +228,12 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert status["status"] == "DEPLOYED"
     assert status["deployed_at"] is not None
 
-    assert client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()["status"] == "DEPLOYED"
+    assert (
+        client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()[
+            "status"
+        ]
+        == "DEPLOYED"
+    )
 
     return {
         "dataset_id": DATASET_ID,
@@ -229,7 +266,8 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
     with Session(client.engine) as db:
         model_version = db.scalar(
             select(ModelVersion).where(
-                ModelVersion.model_id == ids["model_id"], ModelVersion.version == ids["model_version"]
+                ModelVersion.model_id == ids["model_id"],
+                ModelVersion.version == ids["model_version"],
             )
         )
 
@@ -239,11 +277,14 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
         assert training_run.dataset_version.dataset_id == ids["dataset_id"]
         assert training_run.dataset_version.version == ids["dataset_version"]
         # ...and the same link read forwards, which is what GET /training-runs reports.
-        assert [v.version for v in training_run.model_versions] == [ids["model_version"]]
-        # The dataset version that was validated is the one that was trained on.
-        assert [r.dataset_version_id for r in training_run.dataset_version.validation_reports] == [
-            training_run.dataset_version_id
+        assert [v.version for v in training_run.model_versions] == [
+            ids["model_version"]
         ]
+        # The dataset version that was validated is the one that was trained on.
+        assert [
+            r.dataset_version_id
+            for r in training_run.dataset_version.validation_reports
+        ] == [training_run.dataset_version_id]
 
         # evaluation -> promotion_decision_ref
         assert model_version.eval_loss_trend is not None
@@ -252,12 +293,16 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
         assert model_version.promotion_decision_ref == ids["decision_id"]
 
         decision = db.scalar(
-            select(PromotionDecision).where(PromotionDecision.decision_id == ids["decision_id"])
+            select(PromotionDecision).where(
+                PromotionDecision.decision_id == ids["decision_id"]
+            )
         )
         assert decision.model_version_id == model_version.id
 
         # -> deployment_id
-        deployment = db.scalar(select(Deployment).where(Deployment.status == "DEPLOYED"))
+        deployment = db.scalar(
+            select(Deployment).where(Deployment.status == "DEPLOYED")
+        )
         assert deployment.deployment_id.startswith("deployment-")
         assert deployment.model_id == ids["model_id"]
         assert deployment.model_version == ids["model_version"]

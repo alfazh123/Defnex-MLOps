@@ -20,7 +20,9 @@ def test_register_dataset_is_idempotent(db_session):
 
 
 def test_create_dataset_version_registers_dataset_and_starts_at_1(db_session):
-    version = dataset_service.create_dataset_version(db_session, "no_robots", _create_request())
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
 
     assert version.dataset_id == "no_robots"
     assert version.version == 1
@@ -32,7 +34,9 @@ def test_create_dataset_version_registers_dataset_and_starts_at_1(db_session):
 
 def test_create_dataset_version_increments_per_dataset(db_session):
     dataset_service.create_dataset_version(db_session, "no_robots", _create_request())
-    second = dataset_service.create_dataset_version(db_session, "no_robots", _create_request())
+    second = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
 
     assert second.version == 2
 
@@ -42,9 +46,13 @@ def test_get_dataset_version_returns_none_when_missing(db_session):
 
 
 def test_get_dataset_version_returns_created_version(db_session):
-    created = dataset_service.create_dataset_version(db_session, "no_robots", _create_request())
+    created = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
 
-    fetched = dataset_service.get_dataset_version(db_session, "no_robots", created.version)
+    fetched = dataset_service.get_dataset_version(
+        db_session, "no_robots", created.version
+    )
 
     assert fetched is not None
     assert fetched.version == created.version
@@ -60,7 +68,9 @@ def test_list_dataset_versions_orders_most_recent_first(db_session):
 
 
 def test_to_schema_composes_nested_manifest(db_session):
-    version = dataset_service.create_dataset_version(db_session, "no_robots", _create_request())
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
 
     schema = dataset_service.to_schema(version)
 

@@ -1,4 +1,3 @@
-import pytest
 from sqlalchemy.orm import Session
 
 from tests.conftest import auth_header
@@ -35,20 +34,26 @@ def _registered_model_version(client, admin_token):
 
     h = auth_header(admin_token)
     client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
+    created = client.post(
+        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
 
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, training_run)
         artifact_uri = MockTrainingRunner().run(training_run)
-        training_service.complete_training_run(db, training_run, artifact_uri=artifact_uri)
+        training_service.complete_training_run(
+            db, training_run, artifact_uri=artifact_uri
+        )
         model_version = model_service.register_model_version(db, training_run)
         db.commit()
         return model_version.model_id, model_version.version
 
 
 def test_get_model_version_returns_404_when_missing(client, admin_token):
-    response = client.get("/models/no-such-model/versions/1", headers=auth_header(admin_token))
+    response = client.get(
+        "/models/no-such-model/versions/1", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
@@ -57,7 +62,9 @@ def test_get_model_version_returns_404_when_missing(client, admin_token):
 def test_get_model_version_returns_full_lineage(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
 
-    response = client.get(f"/models/{model_id}/versions/{version}", headers=auth_header(admin_token))
+    response = client.get(
+        f"/models/{model_id}/versions/{version}", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -79,20 +86,28 @@ def test_list_models_returns_latest_version_and_status(client, admin_token):
 
     assert response.status_code == 200
     body = response.json()
-    assert {"model_id": model_id, "latest_version": version, "status": "REGISTERED"} in body
+    assert {
+        "model_id": model_id,
+        "latest_version": version,
+        "status": "REGISTERED",
+    } in body
 
 
 def test_list_models_filters_by_status(client, admin_token):
     _registered_model_version(client, admin_token)
 
-    response = client.get("/models", params={"status": "PROMOTED"}, headers=auth_header(admin_token))
+    response = client.get(
+        "/models", params={"status": "PROMOTED"}, headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 200
     assert response.json() == []
 
 
 def test_get_evaluation_returns_404_when_missing(client, admin_token):
-    response = client.get("/models/no-such-model/versions/1/evaluation", headers=auth_header(admin_token))
+    response = client.get(
+        "/models/no-such-model/versions/1/evaluation", headers=auth_header(admin_token)
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
@@ -101,7 +116,10 @@ def test_get_evaluation_returns_404_when_missing(client, admin_token):
 def test_get_evaluation_is_all_null_before_any_submission(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
 
-    response = client.get(f"/models/{model_id}/versions/{version}/evaluation", headers=auth_header(admin_token))
+    response = client.get(
+        f"/models/{model_id}/versions/{version}/evaluation",
+        headers=auth_header(admin_token),
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -138,19 +156,38 @@ def test_submit_evaluation_partial_payload_stays_registered(client, admin_token)
     assert body["evaluation"]["qualitative_comparison"] is None
 
 
-def test_submit_evaluation_all_three_signals_transitions_to_evaluated(client, admin_token):
+def test_submit_evaluation_all_three_signals_transitions_to_evaluated(
+    client, admin_token
+):
     model_id, version = _registered_model_version(client, admin_token)
     url = f"/models/{model_id}/versions/{version}/evaluation"
     h = auth_header(admin_token)
 
-    client.post(url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h)
+    client.post(
+        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
+    )
     client.post(
         url,
-        json={"qualitative_comparison": {"question_table_version": 1, "wins": 13, "losses": 5, "ties": 2, "total": 20}},
+        json={
+            "qualitative_comparison": {
+                "question_table_version": 1,
+                "wins": 13,
+                "losses": 5,
+                "ties": 2,
+                "total": 20,
+            }
+        },
         headers=h,
     )
     response = client.post(
-        url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}, headers=h
+        url,
+        json={
+            "general_domain_regression_check": {
+                "checked": True,
+                "regressions_found": [],
+            }
+        },
+        headers=h,
     )
 
     assert response.status_code == 200

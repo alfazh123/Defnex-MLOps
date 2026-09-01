@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.models.model import Model, ModelVersion
 from app.models.training import TrainingRun
-from app.schemas.model import EvaluationObject, EvaluationUpdateRequest, ModelRegistryRecord, ModelSummary
+from app.schemas.model import (
+    EvaluationObject,
+    EvaluationUpdateRequest,
+    ModelRegistryRecord,
+    ModelSummary,
+)
 
 
 def register_model_version(db: Session, training_run: TrainingRun) -> ModelVersion:
@@ -64,12 +69,22 @@ def list_models(db: Session, status: str | None = None) -> list[ModelSummary]:
         latest = model.versions[-1]
         if status is not None and latest.status != status:
             continue
-        summaries.append(ModelSummary(model_id=model.model_id, latest_version=latest.version, status=latest.status))
+        summaries.append(
+            ModelSummary(
+                model_id=model.model_id,
+                latest_version=latest.version,
+                status=latest.status,
+            )
+        )
     return summaries
 
 
 def get_model_version(db: Session, model_id: str, version: int) -> ModelVersion | None:
-    return db.scalar(select(ModelVersion).where(ModelVersion.model_id == model_id, ModelVersion.version == version))
+    return db.scalar(
+        select(ModelVersion).where(
+            ModelVersion.model_id == model_id, ModelVersion.version == version
+        )
+    )
 
 
 def get_evaluation(model_version: ModelVersion) -> EvaluationObject:
@@ -83,7 +98,9 @@ def get_evaluation(model_version: ModelVersion) -> EvaluationObject:
     )
 
 
-def submit_evaluation(db: Session, model_version: ModelVersion, update: EvaluationUpdateRequest) -> ModelVersion:
+def submit_evaluation(
+    db: Session, model_version: ModelVersion, update: EvaluationUpdateRequest
+) -> ModelVersion:
     """Merge a partial evaluation payload onto a ModelVersion (model-artifact-versioning-lineage.md
     §5, openapi.yaml POST .../evaluation) and auto-transition REGISTERED -> EVALUATED once all
     three signal fields are present (model-promotion-approval-workflow.md §2) - partial data does
@@ -92,9 +109,13 @@ def submit_evaluation(db: Session, model_version: ModelVersion, update: Evaluati
     if update.eval_loss_trend is not None:
         model_version.eval_loss_trend = update.eval_loss_trend.model_dump()
     if update.qualitative_comparison is not None:
-        model_version.qualitative_comparison = update.qualitative_comparison.model_dump()
+        model_version.qualitative_comparison = (
+            update.qualitative_comparison.model_dump()
+        )
     if update.general_domain_regression_check is not None:
-        model_version.general_domain_regression_check = update.general_domain_regression_check.model_dump()
+        model_version.general_domain_regression_check = (
+            update.general_domain_regression_check.model_dump()
+        )
 
     all_signals_present = (
         model_version.eval_loss_trend is not None

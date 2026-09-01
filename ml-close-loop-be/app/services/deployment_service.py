@@ -57,7 +57,9 @@ def get_deployment_status(db: Session, model_id: str) -> DeploymentStatus:
     deployed (openapi.yaml DeploymentStatus.current_deployed_version)."""
 
     deployment = db.scalars(
-        select(Deployment).where(Deployment.model_id == model_id).order_by(Deployment.deployed_at.desc())
+        select(Deployment)
+        .where(Deployment.model_id == model_id)
+        .order_by(Deployment.deployed_at.desc())
     ).first()
     if deployment is None:
         return DeploymentStatus(model_id=model_id)
@@ -69,7 +71,9 @@ def get_deployment_status(db: Session, model_id: str) -> DeploymentStatus:
     )
 
 
-def to_deploy_result(deployment: Deployment, previous: ModelVersion | None) -> DeployResult:
+def to_deploy_result(
+    deployment: Deployment, previous: ModelVersion | None
+) -> DeployResult:
     return DeployResult(
         model_id=deployment.model_id,
         current_deployed_version=deployment.model_version,

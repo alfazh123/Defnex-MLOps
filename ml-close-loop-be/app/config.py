@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     # Auth (Phase 9)
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440
+    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_refresh_expire_minutes: int = 10080  # 7 days
+    jwt_refresh_expire_minutes: int = 10080  # 7 days
 
     # Request size limit
     max_request_body_size: int = 1_048_576  # 1MB

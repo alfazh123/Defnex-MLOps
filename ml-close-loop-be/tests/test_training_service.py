@@ -33,7 +33,9 @@ def _create_request(**overrides):
 def test_create_training_run_starts_pending(db_session):
     dataset_version = _dataset_version(db_session)
 
-    training_run = training_service.create_training_run(db_session, dataset_version, _create_request())
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
 
     assert training_run.training_run_id.startswith("run-")
     assert training_run.status == "PENDING"
@@ -45,19 +47,25 @@ def test_create_training_run_starts_pending(db_session):
 
 def test_completed_lifecycle(db_session):
     dataset_version = _dataset_version(db_session)
-    training_run = training_service.create_training_run(db_session, dataset_version, _create_request())
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
 
     training_service.start_training_run(db_session, training_run)
     assert training_run.status == "RUNNING"
 
-    training_service.complete_training_run(db_session, training_run, artifact_uri="file:///tmp/adapter")
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/adapter"
+    )
     assert training_run.status == "COMPLETED"
     assert training_run.artifact_uri == "file:///tmp/adapter"
 
 
 def test_failed_lifecycle(db_session):
     dataset_version = _dataset_version(db_session)
-    training_run = training_service.create_training_run(db_session, dataset_version, _create_request())
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
 
     training_service.start_training_run(db_session, training_run)
     training_service.fail_training_run(db_session, training_run, error_message="OOM")
@@ -76,13 +84,19 @@ def test_failed_lifecycle(db_session):
 )
 def test_invalid_transitions_are_rejected(db_session, from_status, transition):
     dataset_version = _dataset_version(db_session)
-    training_run = training_service.create_training_run(db_session, dataset_version, _create_request())
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
     training_run.status = from_status
 
     action = {
         "start": lambda: training_service.start_training_run(db_session, training_run),
-        "complete": lambda: training_service.complete_training_run(db_session, training_run, "uri"),
-        "fail": lambda: training_service.fail_training_run(db_session, training_run, "err"),
+        "complete": lambda: training_service.complete_training_run(
+            db_session, training_run, "uri"
+        ),
+        "fail": lambda: training_service.fail_training_run(
+            db_session, training_run, "err"
+        ),
     }[transition]
 
     with pytest.raises(ValueError):

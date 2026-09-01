@@ -29,7 +29,9 @@ async def create_training_run(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> TrainingRun:
-    dataset_version = dataset_service.get_dataset_version(db, request.dataset_id, request.dataset_version)
+    dataset_version = dataset_service.get_dataset_version(
+        db, request.dataset_id, request.dataset_version
+    )
     if dataset_version is None:
         raise APIError(
             404,
@@ -72,11 +74,17 @@ def list_training_runs(
     responses={404: {"model": ErrorResponse}},
 )
 def get_training_run(
-    training_run_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    training_run_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> TrainingRun:
     training_run = training_service.get_training_run(db, training_run_id)
     if training_run is None:
-        raise APIError(404, "TRAINING_RUN_NOT_FOUND", f'training_run_id "{training_run_id}" not found')
+        raise APIError(
+            404,
+            "TRAINING_RUN_NOT_FOUND",
+            f'training_run_id "{training_run_id}" not found',
+        )
     return training_service.to_schema(training_run)
 
 
@@ -85,11 +93,17 @@ def get_training_run(
     responses={404: {"model": ErrorResponse}},
 )
 async def get_training_run_progress(
-    training_run_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    training_run_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     training_run = training_service.get_training_run(db, training_run_id)
     if training_run is None:
-        raise APIError(404, "TRAINING_RUN_NOT_FOUND", f'training_run_id "{training_run_id}" not found')
+        raise APIError(
+            404,
+            "TRAINING_RUN_NOT_FOUND",
+            f'training_run_id "{training_run_id}" not found',
+        )
 
     async def event_generator():
         async for event in unsloth_client.stream_progress(training_run_id):

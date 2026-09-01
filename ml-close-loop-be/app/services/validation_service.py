@@ -14,7 +14,9 @@ VALID_ROLES = {"system", "user", "assistant"}
 
 # H5: literal empty-enumeration artifact left over from bad link-stripping,
 # e.g. "yaitu: , , dan ." (validation-rules.md H5).
-_EMPTY_ENUMERATION_RE = re.compile(r"(yaitu|antara lain)\s*:?\s*(,\s*)+(dan\s*)?\.?", re.IGNORECASE)
+_EMPTY_ENUMERATION_RE = re.compile(
+    r"(yaitu|antara lain)\s*:?\s*(,\s*)+(dan\s*)?\.?", re.IGNORECASE
+)
 
 # H6: known source-boilerplate phrase variants named in validation-rules.md H6
 # ("site footers, 'baca/klik/simak ulasan' variants").
@@ -38,7 +40,12 @@ def _hard_errors_for_record(record: dict) -> list[str]:
     metadata = record.get("metadata") or {}
 
     # H1: required fields present.
-    if not record.get("id") or not messages or not metadata.get("source_dataset") or not metadata.get("source_id"):
+    if (
+        not record.get("id")
+        or not messages
+        or not metadata.get("source_dataset")
+        or not metadata.get("source_id")
+    ):
         errors.append("H1_missing_required_field")
 
     for message in messages or []:
@@ -144,7 +151,9 @@ def validate_dataset_version(
     # H8: train/eval leakage detection - exact match of normalized user content against
     # known eval-set records.
     eval_user_contents = {
-        content for record in (eval_records or []) if (content := _user_content(record)) is not None
+        content
+        for record in (eval_records or [])
+        if (content := _user_content(record)) is not None
     }
     leakage_overlaps = 0
     for index, record in enumerate(records):
@@ -160,7 +169,8 @@ def validate_dataset_version(
         len(message["content"].split())
         for record in records
         for message in record.get("messages") or []
-        if message.get("role") == "assistant" and isinstance(message.get("content"), str)
+        if message.get("role") == "assistant"
+        and isinstance(message.get("content"), str)
     ]
     length_distribution_words = (
         {
@@ -187,7 +197,11 @@ def validate_dataset_version(
         rule_set_version=rule_set_version,
         run_at=run_at,
         record_count=len(records),
-        status_counts={"VALID": valid_count, "INVALID": invalid_count, "NEEDS_REVIEW": 0},
+        status_counts={
+            "VALID": valid_count,
+            "INVALID": invalid_count,
+            "NEEDS_REVIEW": 0,
+        },
         warnings_summary={},
         dataset_statistics={
             "length_distribution_words": length_distribution_words,
@@ -206,8 +220,12 @@ def validate_dataset_version(
     return report
 
 
-def list_validation_reports(db: Session, dataset_version: DatasetVersionModel) -> list[ValidationReportModel]:
-    return sorted(dataset_version.validation_reports, key=lambda r: r.run_at, reverse=True)
+def list_validation_reports(
+    db: Session, dataset_version: DatasetVersionModel
+) -> list[ValidationReportModel]:
+    return sorted(
+        dataset_version.validation_reports, key=lambda r: r.run_at, reverse=True
+    )
 
 
 def get_latest_validation_report(

@@ -1,4 +1,4 @@
-import logging
+import structlog
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -19,7 +19,7 @@ from app.schemas.training import TrainingRun, TrainingRunCreateRequest
 from app.services import dataset_service, training_service
 from app.services import unsloth_client
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Training"])
 
@@ -58,7 +58,11 @@ async def create_training_run(
         training_service.start_training_run(db, training_run)
         db.commit()
     except Exception:
-        logger.exception("Failed to start training on Unsloth Studio")
+        logger.exception(
+            "Failed to start training on Unsloth Studio",
+            training_run_id=training_run.training_run_id,
+            base_model=training_run.base_model,
+        )
 
     return training_service.to_schema(training_run)
 

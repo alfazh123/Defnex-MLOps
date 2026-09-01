@@ -19,7 +19,10 @@ from app.api.training import router as training_router
 from app.api.users import router as users_router
 from app.api.validation import router as validation_router
 from app.config import settings
+from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
+
+configure_logging(log_level=settings.log_level, debug=settings.debug)
 
 app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
 app.state.limiter = limiter

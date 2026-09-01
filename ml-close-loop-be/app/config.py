@@ -28,5 +28,9 @@ class Settings(BaseSettings):
     # Request size limit
     max_request_body_size: int = 1_048_576  # 1MB
 
+    # Logging
+    debug: bool = False
+    log_level: str = "INFO"
+
 
 settings = Settings()

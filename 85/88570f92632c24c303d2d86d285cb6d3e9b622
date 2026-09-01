@@ -1,0 +1,45 @@
+ml-close-loop-be/app/api/training.py
+  s_be021b8ce5f737::t_caffade2727fb8 74,77-81
+  s_be021b8ce5f737::t_69b07946fa7eff 7-13
+ml-close-loop-be/app/api/datasets.py
+  s_be021b8ce5f737::t_8f90f8be77895e 31,33-39
+  s_be021b8ce5f737::t_d1aed214591b6f 5,8
+ml-close-loop-be/app/services/dataset_service.py
+  s_be021b8ce5f737::t_b6561b792c8ca1 76-80,95-112,118
+  s_be021b8ce5f737::t_69b07946fa7eff 114
+ml-close-loop-be/tests/test_filtering.py
+  s_be021b8ce5f737::t_69b07946fa7eff 85,125
+  s_be021b8ce5f737::t_bdfb43b1cce02c 1-84,86-124,126-198
+ml-close-loop-be/app/api/deps.py
+  s_be021b8ce5f737::t_d1d4032a07bd63 39-53
+ml-close-loop-be/app/services/training_service.py
+  s_be021b8ce5f737::t_69b07946fa7eff 104
+  s_be021b8ce5f737::t_6a7fa64ad32e19 89-93,97-103,107
+ml-close-loop-be/app/services/model_service.py
+  s_be021b8ce5f737::t_b8430cdd35b3da 60-62,64-65,75
+  s_be021b8ce5f737::t_83e486de2319e2 76
+ml-close-loop-be/app/api/models.py
+  s_be021b8ce5f737::t_69b07946fa7eff 4-9
+  s_be021b8ce5f737::t_2fe544174349ad 39,41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8588570f92632c24c303d2d86d285cb6d3e9b622",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_be021b8ce5f737": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3dd9136ffetycC54Nj8SUkKf",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

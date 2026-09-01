@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.session import get_db
+from app.limiter import limiter
 from app.main import app
 from app.services import auth_service
 
@@ -29,6 +30,7 @@ def client():
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    limiter.reset()
     test_client = TestClient(app)
     test_client.engine = engine
     yield test_client

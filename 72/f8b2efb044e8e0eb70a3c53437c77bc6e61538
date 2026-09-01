@@ -1,0 +1,111 @@
+ml-close-loop-be/tests/test_deployment_api.py
+  s_88a32d5a6c1057::t_44e1fe4e9bac3f 160
+  s_88a32d5a6c1057::t_35c5032a317366 206
+  s_88a32d5a6c1057::t_44a6d9688fb9c2 145,203
+  s_88a32d5a6c1057::t_7bb6307020e159 84
+  s_88a32d5a6c1057::t_948f9a89fe6092 35-37,97-98,121-123,132-134,151-153
+  s_88a32d5a6c1057::t_50dc670dbfb3ca 142,201
+  s_88a32d5a6c1057::t_965085a2a74609 39
+  s_88a32d5a6c1057::t_e2c4767022a15f 56
+  s_88a32d5a6c1057::t_84e894243fe61b 109,186
+  s_88a32d5a6c1057::t_0e9056fc11cf53 171,188,219
+ml-close-loop-be/tests/test_auth.py
+  s_88a32d5a6c1057::t_3bdaab82fa1cae 8,22,34,42,147,154,161
+  s_88a32d5a6c1057::t_c7ca1d4fa3bb4b 83
+  s_88a32d5a6c1057::t_dade8755fe024a 103,110
+  s_88a32d5a6c1057::t_87bc9450b30944 97
+  s_88a32d5a6c1057::t_227a37f02fec7b 54,77,171,196,214
+  s_88a32d5a6c1057::t_f396a815ae68b4 125,129
+  s_88a32d5a6c1057::t_0e558337fe4a70 134
+  s_88a32d5a6c1057::t_cfb2e784955405 90
+  s_88a32d5a6c1057::t_9d1135f98ff75b 175,200,229,250
+  s_88a32d5a6c1057::t_948f9a89fe6092 18-20,30-32,50-52,65-70,117-122,139-141,167-169,184-186,192-194,210-212
+ml-close-loop-be/tests/test_rate_limit.py
+  s_88a32d5a6c1057::t_948f9a89fe6092 36-38
+  s_88a32d5a6c1057::t_b222b68b147830 32
+  s_88a32d5a6c1057::t_c6ed36823688fa 8,13,26,48,53,67,71,78
+ml-close-loop-be/tests/test_training_api.py
+  s_88a32d5a6c1057::t_948f9a89fe6092 43-45,84-86,91-93
+  s_88a32d5a6c1057::t_e5fabbdd284354 75
+  s_88a32d5a6c1057::t_2453f7c596d0e0 32,48,65,88
+ml-close-loop-be/tests/test_request_size.py
+  s_88a32d5a6c1057::t_2ba4e35e7cd033 8,21,32,42
+ml-close-loop-be/tests/test_validation_api.py
+  s_88a32d5a6c1057::t_a3b69bd6e4f9ac 40,55,70,85,109,123,152,164
+  s_88a32d5a6c1057::t_b55d93f429a820 140,155,178
+  s_88a32d5a6c1057::t_3716c4e411d518 42,58,74,89,125-126,167,172
+  s_88a32d5a6c1057::t_ea93b8feebcc79 99,112,129
+  s_88a32d5a6c1057::t_948f9a89fe6092 30-31
+ml-close-loop-be/tests/test_api_versioning.py
+  s_88a32d5a6c1057::t_67b38487d9eb27 1-67
+ml-close-loop-be/tests/test_promotion_api.py
+  s_88a32d5a6c1057::t_948f9a89fe6092 36-38,118-120,131-133,233-235
+  s_88a32d5a6c1057::t_a689a75a2ebf09 40,135
+  s_88a32d5a6c1057::t_2c79a2876c43f3 54
+  s_88a32d5a6c1057::t_613a6957fa0662 217,244
+  s_88a32d5a6c1057::t_532b811f582c78 86
+  s_88a32d5a6c1057::t_61270e3b195164 100,150,162,186
+  s_88a32d5a6c1057::t_2abeb2effc0b7b 199
+ml-close-loop-be/tests/test_model_api.py
+  s_88a32d5a6c1057::t_948f9a89fe6092 36-38,68-69,103-105,114-115,204-206
+  s_88a32d5a6c1057::t_f240e3fd577397 140
+  s_88a32d5a6c1057::t_c27e8089c1bcd0 40
+  s_88a32d5a6c1057::t_44fb9d316ad853 88
+  s_88a32d5a6c1057::t_c36ce90e9b256a 57
+  s_88a32d5a6c1057::t_04fdfa91c66a92 126,153,169,222
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_88a32d5a6c1057::t_5f13bc5779a8e9 96
+  s_88a32d5a6c1057::t_f120f7b226c0a5 210
+  s_88a32d5a6c1057::t_70859131811e37 182
+  s_88a32d5a6c1057::t_948f9a89fe6092 74-76,86-88,129-131,238-240
+  s_88a32d5a6c1057::t_7c1dfeb343b706 202
+  s_88a32d5a6c1057::t_3eeb82e1256286 118
+  s_88a32d5a6c1057::t_24a567049ae058 229
+  s_88a32d5a6c1057::t_5db367fb4cf0b8 103
+  s_88a32d5a6c1057::t_27612719ed8543 145
+  s_88a32d5a6c1057::t_f6a43cc89b798e 140
+ml-close-loop-be/tests/test_pagination.py
+  s_88a32d5a6c1057::t_4f25381a22dc2b 20
+  s_88a32d5a6c1057::t_32047eadfb1f95 31,124
+  s_88a32d5a6c1057::t_b2f7bcfd095dde 110
+  s_88a32d5a6c1057::t_948f9a89fe6092 27-29
+  s_88a32d5a6c1057::t_0f51d4e1d14d49 50,64,73,138,148,154
+  s_88a32d5a6c1057::t_480f2ac11af798 85
+  s_88a32d5a6c1057::t_bc46ff3c686074 114
+  s_88a32d5a6c1057::t_6f841937f4beb1 87,97
+ml-close-loop-be/app/main.py
+  s_88a32d5a6c1057::t_1d866885fd7382 69
+  s_88a32d5a6c1057::t_3355f0b0a8328e 9
+  s_88a32d5a6c1057::t_f9e348ae116184 1-3,8,43-46,55-59,63-68,70-81
+  s_88a32d5a6c1057::t_948f9a89fe6092 47-54,60-62
+ml-close-loop-be/tests/conftest.py
+  s_88a32d5a6c1057::t_5c1b28fd0f8932 46,50,59,63
+ml-close-loop-be/tests/test_health.py
+  s_88a32d5a6c1057::t_4b59b58766c781 9
+ml-close-loop-be/tests/test_dataset_api.py
+  s_88a32d5a6c1057::t_01329bf8f16fe1 89,100
+  s_88a32d5a6c1057::t_33813b8d9fcada 62
+  s_88a32d5a6c1057::t_254eb5d0eb268b 21,36,45-46,76-77,79,98
+  s_88a32d5a6c1057::t_9f787bf8f49ab2 12,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "72f8b2efb044e8e0eb70a3c53437c77bc6e61538",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_88a32d5a6c1057": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3fa9674ffe74Q07NU4CwObsD",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

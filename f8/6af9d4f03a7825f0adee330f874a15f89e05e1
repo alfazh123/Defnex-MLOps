@@ -1,0 +1,32 @@
+ml-close-loop-be/app/main.py
+  s_09ddb3a6855c10::t_dcc2140d567496 17-18
+  s_09ddb3a6855c10::t_3f0507d8328621 34-38
+ml-close-loop-be/tests/test_request_size.py
+  s_09ddb3a6855c10::t_2b686afd53d907 1-51
+ml-close-loop-be/app/middleware/request_size.py
+  s_09ddb3a6855c10::t_089b6e1dc8e7d2 1-43
+ml-close-loop-be/app/config.py
+  s_09ddb3a6855c10::t_822348c8b2b834 17-19
+  s_09ddb3a6855c10::t_1951b9192ec179 26-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f86af9d4f03a7825f0adee330f874a15f89e05e1",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_09ddb3a6855c10": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa446c9ecffe8G1FjywjBQ5IEm",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

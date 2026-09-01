@@ -32,9 +32,11 @@ def _registered_model_version(client, admin_token):
     from app.workers.mock_runner import MockTrainingRunner
 
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
     created = client.post(
-        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
@@ -51,7 +53,7 @@ def _registered_model_version(client, admin_token):
 def _promoted_model_version(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
     h = auth_header(admin_token)
-    url = f"/models/{model_id}/versions/{version}/evaluation"
+    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
     client.post(
         url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
     )
@@ -79,7 +81,7 @@ def _promoted_model_version(client, admin_token):
         headers=h,
     )
     client.post(
-        f"/models/{model_id}/versions/{version}/decisions",
+        f"/api/v1/models/{model_id}/versions/{version}/decisions",
         json={
             "decision": "PROMOTED",
             "decided_by": "reviewer-1",
@@ -92,7 +94,8 @@ def _promoted_model_version(client, admin_token):
 
 def test_deploy_returns_404_when_version_missing(client, admin_token):
     response = client.post(
-        "/models/no-such-model/versions/1/deploy", headers=auth_header(admin_token)
+        "/api/v1/models/no-such-model/versions/1/deploy",
+        headers=auth_header(admin_token),
     )
 
     assert response.status_code == 404
@@ -103,7 +106,7 @@ def test_deploy_returns_409_when_not_promoted(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
 
     response = client.post(
-        f"/models/{model_id}/versions/{version}/deploy",
+        f"/api/v1/models/{model_id}/versions/{version}/deploy",
         headers=auth_header(admin_token),
     )
 
@@ -115,7 +118,9 @@ def test_deploy_promoted_version_updates_pointer_and_registry(client, admin_toke
     model_id, version = _promoted_model_version(client, admin_token)
     h = auth_header(admin_token)
 
-    response = client.post(f"/models/{model_id}/versions/{version}/deploy", headers=h)
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -124,7 +129,9 @@ def test_deploy_promoted_version_updates_pointer_and_registry(client, admin_toke
         "previous_deployed_version": None,
     }
     assert (
-        client.get(f"/models/{model_id}/versions/{version}", headers=h).json()["status"]
+        client.get(f"/api/v1/models/{model_id}/versions/{version}", headers=h).json()[
+            "status"
+        ]
         == "DEPLOYED"
     )
 
@@ -132,23 +139,25 @@ def test_deploy_promoted_version_updates_pointer_and_registry(client, admin_toke
 def test_deploy_reports_and_retires_the_superseded_version(client, admin_token):
     h = auth_header(admin_token)
     model_id, v1 = _promoted_model_version(client, admin_token)
-    client.post(f"/models/{model_id}/versions/{v1}/deploy", headers=h)
+    client.post(f"/api/v1/models/{model_id}/versions/{v1}/deploy", headers=h)
     _, v2 = _promoted_model_version(client, admin_token)
 
-    response = client.post(f"/models/{model_id}/versions/{v2}/deploy", headers=h)
+    response = client.post(f"/api/v1/models/{model_id}/versions/{v2}/deploy", headers=h)
 
     assert response.status_code == 200
     assert response.json()["current_deployed_version"] == v2
     assert response.json()["previous_deployed_version"] == v1
     assert (
-        client.get(f"/models/{model_id}/versions/{v1}", headers=h).json()["status"]
+        client.get(f"/api/v1/models/{model_id}/versions/{v1}", headers=h).json()[
+            "status"
+        ]
         == "RETIRED"
     )
 
 
 def test_get_deployment_returns_404_when_model_missing(client, admin_token):
     response = client.get(
-        "/models/no-such-model/deployment", headers=auth_header(admin_token)
+        "/api/v1/models/no-such-model/deployment", headers=auth_header(admin_token)
     )
 
     assert response.status_code == 404
@@ -159,7 +168,7 @@ def test_get_deployment_returns_null_pointer_before_any_deploy(client, admin_tok
     model_id, _ = _registered_model_version(client, admin_token)
 
     response = client.get(
-        f"/models/{model_id}/deployment", headers=auth_header(admin_token)
+        f"/api/v1/models/{model_id}/deployment", headers=auth_header(admin_token)
     )
 
     assert response.status_code == 200
@@ -174,9 +183,9 @@ def test_get_deployment_returns_null_pointer_before_any_deploy(client, admin_tok
 def test_get_deployment_returns_current_pointer_after_deploy(client, admin_token):
     model_id, version = _promoted_model_version(client, admin_token)
     h = auth_header(admin_token)
-    client.post(f"/models/{model_id}/versions/{version}/deploy", headers=h)
+    client.post(f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h)
 
-    response = client.get(f"/models/{model_id}/deployment", headers=h)
+    response = client.get(f"/api/v1/models/{model_id}/deployment", headers=h)
 
     assert response.status_code == 200
     body = response.json()
@@ -189,12 +198,12 @@ def test_get_deployment_returns_current_pointer_after_deploy(client, admin_token
 def test_rollback_moves_the_deployment_pointer_back(client, admin_token):
     h = auth_header(admin_token)
     model_id, v1 = _promoted_model_version(client, admin_token)
-    client.post(f"/models/{model_id}/versions/{v1}/deploy", headers=h)
+    client.post(f"/api/v1/models/{model_id}/versions/{v1}/deploy", headers=h)
     _, v2 = _promoted_model_version(client, admin_token)
-    client.post(f"/models/{model_id}/versions/{v2}/deploy", headers=h)
+    client.post(f"/api/v1/models/{model_id}/versions/{v2}/deploy", headers=h)
 
     response = client.post(
-        f"/models/{model_id}/rollback",
+        f"/api/v1/models/{model_id}/rollback",
         json={
             "rollback_of_version": v1,
             "decided_by": "reviewer-1",
@@ -207,7 +216,7 @@ def test_rollback_moves_the_deployment_pointer_back(client, admin_token):
     # DecisionRecord.version is "the version being rolled back from".
     assert response.json()["version"] == v2
     assert (
-        client.get(f"/models/{model_id}/deployment", headers=h).json()[
+        client.get(f"/api/v1/models/{model_id}/deployment", headers=h).json()[
             "current_deployed_version"
         ]
         == v1

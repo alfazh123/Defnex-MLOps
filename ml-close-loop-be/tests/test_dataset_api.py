@@ -9,7 +9,7 @@ CREATE_REQUEST = {
 
 
 def test_list_datasets_empty(client, admin_token):
-    response = client.get("/datasets", headers=auth_header(admin_token))
+    response = client.get("/api/v1/datasets", headers=auth_header(admin_token))
     assert response.status_code == 200
     data = response.json()
     assert data["items"] == []
@@ -18,7 +18,7 @@ def test_list_datasets_empty(client, admin_token):
 
 def test_create_dataset_version_returns_201_with_body(client, admin_token):
     response = client.post(
-        "/datasets/no_robots/versions",
+        "/api/v1/datasets/no_robots/versions",
         json=CREATE_REQUEST,
         headers=auth_header(admin_token),
     )
@@ -33,7 +33,7 @@ def test_create_dataset_version_returns_201_with_body(client, admin_token):
 
 def test_create_dataset_version_rejects_invalid_body(client, admin_token):
     response = client.post(
-        "/datasets/no_robots/versions",
+        "/api/v1/datasets/no_robots/versions",
         json={"source_type": "bogus"},
         headers=auth_header(admin_token),
     )
@@ -42,10 +42,10 @@ def test_create_dataset_version_rejects_invalid_body(client, admin_token):
 
 def test_list_datasets_reflects_latest_version_and_status(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets", headers=h)
+    response = client.get("/api/v1/datasets", headers=h)
 
     assert response.status_code == 200
     data = response.json()
@@ -59,7 +59,7 @@ def test_list_dataset_versions_returns_404_error_envelope_when_missing(
     client, admin_token
 ):
     response = client.get(
-        "/datasets/missing/versions", headers=auth_header(admin_token)
+        "/api/v1/datasets/missing/versions", headers=auth_header(admin_token)
     )
 
     assert response.status_code == 404
@@ -73,10 +73,10 @@ def test_list_dataset_versions_returns_404_error_envelope_when_missing(
 
 def test_list_dataset_versions_returns_all_versions(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets/no_robots/versions", headers=h)
+    response = client.get("/api/v1/datasets/no_robots/versions", headers=h)
 
     assert response.status_code == 200
     assert [v["version"] for v in response.json()] == [2, 1]
@@ -86,7 +86,7 @@ def test_get_dataset_version_returns_404_error_envelope_when_missing(
     client, admin_token
 ):
     response = client.get(
-        "/datasets/no_robots/versions/1", headers=auth_header(admin_token)
+        "/api/v1/datasets/no_robots/versions/1", headers=auth_header(admin_token)
     )
 
     assert response.status_code == 404
@@ -95,9 +95,9 @@ def test_get_dataset_version_returns_404_error_envelope_when_missing(
 
 def test_get_dataset_version_returns_manifest(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets/no_robots/versions/1", headers=h)
+    response = client.get("/api/v1/datasets/no_robots/versions/1", headers=h)
 
     assert response.status_code == 200
     body = response.json()

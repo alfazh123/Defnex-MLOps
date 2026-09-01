@@ -17,16 +17,18 @@ def _seed_users_via_client(client, admin_token):
     for i in range(5):
         limiter.reset()
         client.post(
-            "/auth/register",
+            "/api/v1/auth/register",
             json={"username": f"seed{i}", "password": "Seed1234", "role": "user"},
         )
     limiter.reset()
 
 
 def _create_training_run(client, h, dataset_id="no_robots", dataset_version=1):
-    client.post(f"/datasets/{dataset_id}/versions", json=DATASET_CREATE, headers=h)
+    client.post(
+        f"/api/v1/datasets/{dataset_id}/versions", json=DATASET_CREATE, headers=h
+    )
     return client.post(
-        "/training-runs",
+        "/api/v1/training-runs",
         json={
             "dataset_id": dataset_id,
             "dataset_version": dataset_version,
@@ -45,7 +47,7 @@ def test_users_pagination_returns_paginated_response(client, admin_token):
     h = auth_header(admin_token)
     _seed_users_via_client(client, admin_token)
 
-    resp = client.get("/users?page=1&size=3", headers=h)
+    resp = client.get("/api/v1/users?page=1&size=3", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["items"]) == 3
@@ -59,7 +61,7 @@ def test_users_pagination_page_2(client, admin_token):
     h = auth_header(admin_token)
     _seed_users_via_client(client, admin_token)
 
-    resp = client.get("/users?page=2&size=3", headers=h)
+    resp = client.get("/api/v1/users?page=2&size=3", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["items"]) == 3
@@ -68,7 +70,7 @@ def test_users_pagination_page_2(client, admin_token):
 
 def test_users_out_of_range_page_returns_empty(client, admin_token):
     h = auth_header(admin_token)
-    resp = client.get("/users?page=999&size=20", headers=h)
+    resp = client.get("/api/v1/users?page=999&size=20", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert data["items"] == []
@@ -80,9 +82,9 @@ def test_users_out_of_range_page_returns_empty(client, admin_token):
 def test_datasets_pagination(client, admin_token):
     h = auth_header(admin_token)
     for name in ["ds1", "ds2", "ds3"]:
-        client.post(f"/datasets/{name}/versions", json=DATASET_CREATE, headers=h)
+        client.post(f"/api/v1/datasets/{name}/versions", json=DATASET_CREATE, headers=h)
 
-    resp = client.get("/datasets?page=1&size=2", headers=h)
+    resp = client.get("/api/v1/datasets?page=1&size=2", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["items"]) == 2
@@ -92,7 +94,7 @@ def test_datasets_pagination(client, admin_token):
 
 def test_datasets_empty_returns_paginated(client, admin_token):
     h = auth_header(admin_token)
-    resp = client.get("/datasets", headers=h)
+    resp = client.get("/api/v1/datasets", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert data["items"] == []
@@ -105,11 +107,11 @@ def test_datasets_empty_returns_paginated(client, admin_token):
 
 def test_training_runs_pagination(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=DATASET_CREATE, headers=h)
     for _ in range(4):
         _create_training_run(client, h)
 
-    resp = client.get("/training-runs?page=1&size=2", headers=h)
+    resp = client.get("/api/v1/training-runs?page=1&size=2", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["items"]) == 2
@@ -119,7 +121,7 @@ def test_training_runs_pagination(client, admin_token):
 
 def test_training_runs_empty_returns_paginated(client, admin_token):
     h = auth_header(admin_token)
-    resp = client.get("/training-runs", headers=h)
+    resp = client.get("/api/v1/training-runs", headers=h)
     assert resp.status_code == 200
     data = resp.json()
     assert data["items"] == []
@@ -133,7 +135,7 @@ def test_users_default_page_size(client, admin_token):
     h = auth_header(admin_token)
     _seed_users_via_client(client, admin_token)
 
-    resp = client.get("/users", headers=h)
+    resp = client.get("/api/v1/users", headers=h)
     data = resp.json()
     assert len(data["items"]) == 6  # all fit in default size=20
     assert data["page"] == 1
@@ -143,11 +145,11 @@ def test_users_default_page_size(client, admin_token):
 
 def test_max_size_capped_at_100(client, admin_token):
     h = auth_header(admin_token)
-    resp = client.get("/users?size=200", headers=h)
+    resp = client.get("/api/v1/users?size=200", headers=h)
     assert resp.status_code == 422
 
 
 def test_page_must_be_at_least_1(client, admin_token):
     h = auth_header(admin_token)
-    resp = client.get("/users?page=0", headers=h)
+    resp = client.get("/api/v1/users?page=0", headers=h)
     assert resp.status_code == 422

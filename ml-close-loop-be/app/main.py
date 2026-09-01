@@ -1,8 +1,12 @@
-from fastapi import FastAPI, Request
+from collections.abc import Awaitable, Callable
+
+from fastapi import FastAPI, Request, APIRouter
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import RedirectResponse, Response
 
 from app.api.auth import router as auth_router
 from app.api.datasets import router as datasets_router
@@ -36,15 +40,45 @@ app.add_middleware(
     max_body_size=settings.max_request_body_size,
 )
 
-app.include_router(health_router)
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(datasets_router)
-app.include_router(validation_router)
-app.include_router(training_router)
-app.include_router(models_router)
-app.include_router(promotion_router)
-app.include_router(deployment_router)
+
+class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
+    """Redirect legacy /<path> to /api/v1/<path> with 301 Moved Permanently."""
+
+    _LEGACY_PREFIXES = (
+        "/health",
+        "/auth",
+        "/users",
+        "/datasets",
+        "/training-runs",
+        "/models",
+    )
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        path = request.url.path
+        if not path.startswith("/api/v1/") and any(
+            path.startswith(p) for p in self._LEGACY_PREFIXES
+        ):
+            return RedirectResponse(url=f"/api/v1{path}", status_code=301)
+        return await call_next(request)
+
+
+app.add_middleware(ApiVersionRedirectMiddleware)
+
+v1_router = APIRouter(prefix="/api/v1")
+
+v1_router.include_router(health_router)
+v1_router.include_router(auth_router)
+v1_router.include_router(users_router)
+v1_router.include_router(datasets_router)
+v1_router.include_router(validation_router)
+v1_router.include_router(training_router)
+v1_router.include_router(models_router)
+v1_router.include_router(promotion_router)
+v1_router.include_router(deployment_router)
+
+app.include_router(v1_router)
 
 
 @app.exception_handler(HTTPException)

@@ -43,11 +43,11 @@ def client():
 def admin_token(client) -> str:
     """Register an admin user and return their JWT token."""
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"username": "admin", "password": "Admin1234", "role": "admin"},
     )
     resp = client.post(
-        "/auth/login", json={"username": "admin", "password": "Admin1234"}
+        "/api/v1/auth/login", json={"username": "admin", "password": "Admin1234"}
     )
     return resp.json()["access_token"]
 
@@ -56,11 +56,11 @@ def admin_token(client) -> str:
 def user_token(client) -> str:
     """Register a regular user and return their JWT token."""
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"username": "alice", "password": "Alice1234", "role": "user"},
     )
     resp = client.post(
-        "/auth/login", json={"username": "alice", "password": "Alice1234"}
+        "/api/v1/auth/login", json={"username": "alice", "password": "Alice1234"}
     )
     return resp.json()["access_token"]
 

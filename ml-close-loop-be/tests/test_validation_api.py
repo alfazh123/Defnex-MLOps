@@ -27,7 +27,8 @@ def _mark_processed(client, dataset_id="no_robots", version=1):
 
 def test_validate_returns_404_when_dataset_version_missing(client, admin_token):
     response = client.post(
-        "/datasets/no_robots/versions/1/validate", headers=auth_header(admin_token)
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        headers=auth_header(admin_token),
     )
 
     assert response.status_code == 404
@@ -36,9 +37,9 @@ def test_validate_returns_404_when_dataset_version_missing(client, admin_token):
 
 def test_validate_returns_409_when_not_processed(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.post("/datasets/no_robots/versions/1/validate", headers=h)
+    response = client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
 
     assert response.status_code == 409
     assert response.json() == {
@@ -51,10 +52,10 @@ def test_validate_returns_409_when_not_processed(client, admin_token):
 
 def test_validate_returns_201_report_when_processed(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
     _mark_processed(client)
 
-    response = client.post("/datasets/no_robots/versions/1/validate", headers=h)
+    response = client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
 
     assert response.status_code == 201
     body = response.json()
@@ -66,11 +67,11 @@ def test_validate_returns_201_report_when_processed(client, admin_token):
 
 def test_validate_accepts_rule_set_version_override(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
     _mark_processed(client)
 
     response = client.post(
-        "/datasets/no_robots/versions/1/validate",
+        "/api/v1/datasets/no_robots/versions/1/validate",
         json={"rule_set_version": "9.9.9"},
         headers=h,
     )
@@ -81,11 +82,11 @@ def test_validate_accepts_rule_set_version_override(client, admin_token):
 
 def test_validate_rejects_invalid_body(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
     _mark_processed(client)
 
     response = client.post(
-        "/datasets/no_robots/versions/1/validate",
+        "/api/v1/datasets/no_robots/versions/1/validate",
         json={"rule_set_version": 123},
         headers=h,
     )
@@ -95,7 +96,7 @@ def test_validate_rejects_invalid_body(client, admin_token):
 
 def test_list_validation_reports_returns_404_when_missing(client, admin_token):
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports",
+        "/api/v1/datasets/no_robots/versions/1/validation-reports",
         headers=auth_header(admin_token),
     )
 
@@ -105,10 +106,10 @@ def test_list_validation_reports_returns_404_when_missing(client, admin_token):
 
 def test_list_validation_reports_returns_empty_list_before_any_run(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports", headers=h
+        "/api/v1/datasets/no_robots/versions/1/validation-reports", headers=h
     )
 
     assert response.status_code == 200
@@ -119,13 +120,13 @@ def test_list_validation_reports_returns_all_runs_most_recent_first(
     client, admin_token
 ):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
     _mark_processed(client)
-    client.post("/datasets/no_robots/versions/1/validate", headers=h)
-    client.post("/datasets/no_robots/versions/1/validate", headers=h)
+    client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
+    client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
 
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports", headers=h
+        "/api/v1/datasets/no_robots/versions/1/validation-reports", headers=h
     )
 
     assert response.status_code == 200
@@ -136,7 +137,7 @@ def test_get_latest_validation_report_returns_404_when_dataset_version_missing(
     client, admin_token
 ):
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports/latest",
+        "/api/v1/datasets/no_robots/versions/1/validation-reports/latest",
         headers=auth_header(admin_token),
     )
 
@@ -148,10 +149,10 @@ def test_get_latest_validation_report_returns_404_when_none_run_yet(
     client, admin_token
 ):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports/latest", headers=h
+        "/api/v1/datasets/no_robots/versions/1/validation-reports/latest", headers=h
     )
 
     assert response.status_code == 404
@@ -160,21 +161,21 @@ def test_get_latest_validation_report_returns_404_when_none_run_yet(
 
 def test_get_latest_validation_report_returns_most_recent(client, admin_token):
     h = auth_header(admin_token)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
     _mark_processed(client)
     client.post(
-        "/datasets/no_robots/versions/1/validate",
+        "/api/v1/datasets/no_robots/versions/1/validate",
         json={"rule_set_version": "1.0.0"},
         headers=h,
     )
     client.post(
-        "/datasets/no_robots/versions/1/validate",
+        "/api/v1/datasets/no_robots/versions/1/validate",
         json={"rule_set_version": "2.0.0"},
         headers=h,
     )
 
     response = client.get(
-        "/datasets/no_robots/versions/1/validation-reports/latest", headers=h
+        "/api/v1/datasets/no_robots/versions/1/validation-reports/latest", headers=h
     )
 
     assert response.status_code == 200

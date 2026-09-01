@@ -71,7 +71,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
 
     # --- Dataset ---------------------------------------------------------------------------
     response = client.post(
-        f"/datasets/{DATASET_ID}/versions", json=DATASET_CREATE_REQUEST, headers=h
+        f"/api/v1/datasets/{DATASET_ID}/versions",
+        json=DATASET_CREATE_REQUEST,
+        headers=h,
     )
     assert response.status_code == 201
     dataset_version = response.json()
@@ -81,7 +83,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     _mark_processed(client, DATASET_ID, 1)
 
     # --- Validation ------------------------------------------------------------------------
-    response = client.post(f"/datasets/{DATASET_ID}/versions/1/validate", headers=h)
+    response = client.post(
+        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate", headers=h
+    )
     assert response.status_code == 201
     report = response.json()
     assert report["dataset_id"] == DATASET_ID
@@ -89,14 +93,14 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert report["gate_decision"] == "PASS"
 
     latest = client.get(
-        f"/datasets/{DATASET_ID}/versions/1/validation-reports/latest", headers=h
+        f"/api/v1/datasets/{DATASET_ID}/versions/1/validation-reports/latest", headers=h
     )
     assert latest.status_code == 200
     assert latest.json() == report
 
     # --- Training run ----------------------------------------------------------------------
     response = client.post(
-        "/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     )
     assert response.status_code == 201
     training_run = response.json()
@@ -111,7 +115,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
         db.commit()
         assert processed.training_run_id == training_run_id
 
-    response = client.get(f"/training-runs/{training_run_id}", headers=h)
+    response = client.get(f"/api/v1/training-runs/{training_run_id}", headers=h)
     assert response.status_code == 200
     completed = response.json()
     assert completed["status"] == "COMPLETED"
@@ -122,7 +126,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert model_version == 1
 
     # --- Model registry --------------------------------------------------------------------
-    response = client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h)
+    response = client.get(
+        f"/api/v1/models/{MODEL_ID}/versions/{model_version}", headers=h
+    )
     assert response.status_code == 200
     record = response.json()
     assert record["status"] == "REGISTERED"
@@ -131,12 +137,12 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert record["dataset_version"] == 1
     assert record["artifacts"][0]["uri"] is not None
 
-    assert client.get("/models", headers=h).json() == [
+    assert client.get("/api/v1/models", headers=h).json() == [
         {"model_id": MODEL_ID, "latest_version": model_version, "status": "REGISTERED"}
     ]
 
     # --- Evaluation ------------------------------------------------------------------------
-    evaluation_url = f"/models/{MODEL_ID}/versions/{model_version}/evaluation"
+    evaluation_url = f"/api/v1/models/{MODEL_ID}/versions/{model_version}/evaluation"
     partial = client.post(
         evaluation_url,
         json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
@@ -173,7 +179,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
 
     # --- Promotion -------------------------------------------------------------------------
     response = client.post(
-        f"/models/{MODEL_ID}/versions/{model_version}/decisions",
+        f"/api/v1/models/{MODEL_ID}/versions/{model_version}/decisions",
         json={
             "decision": "PROMOTED",
             "decided_by": "reviewer-1",
@@ -193,7 +199,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     )
 
     record = client.get(
-        f"/models/{MODEL_ID}/versions/{model_version}", headers=h
+        f"/api/v1/models/{MODEL_ID}/versions/{model_version}", headers=h
     ).json()
     assert record["status"] == "PROMOTED"
     assert record["promotion_decision_ref"] == decision_id
@@ -201,7 +207,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     # --- Deployment ------------------------------------------------------------------------
     if serving_backend is None:
         response = client.post(
-            f"/models/{MODEL_ID}/versions/{model_version}/deploy", headers=h
+            f"/api/v1/models/{MODEL_ID}/versions/{model_version}/deploy", headers=h
         )
         assert response.status_code == 200
         assert response.json() == {
@@ -220,7 +226,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
             )
             db.commit()
 
-    response = client.get(f"/models/{MODEL_ID}/deployment", headers=h)
+    response = client.get(f"/api/v1/models/{MODEL_ID}/deployment", headers=h)
     assert response.status_code == 200
     status = response.json()
     assert status["model_id"] == MODEL_ID
@@ -229,9 +235,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
     assert status["deployed_at"] is not None
 
     assert (
-        client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()[
-            "status"
-        ]
+        client.get(
+            f"/api/v1/models/{MODEL_ID}/versions/{model_version}", headers=h
+        ).json()["status"]
         == "DEPLOYED"
     )
 

@@ -116,6 +116,12 @@ class TestUnslothErrorLogging:
         from app.services import unsloth_client
         from unittest.mock import MagicMock
 
+        def _always_return(response):
+            def _fn(*args, **kwargs):
+                return response
+
+            return _fn
+
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.text = "Server Error"
@@ -124,7 +130,7 @@ class TestUnslothErrorLogging:
         )
 
         mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.request = AsyncMock(side_effect=_always_return(mock_resp))
 
         async def run():
             with patch.object(unsloth_client, "_get_client", return_value=mock_client):
@@ -145,7 +151,7 @@ class TestUnslothErrorLogging:
         from app.services import unsloth_client
 
         mock_client = AsyncMock()
-        mock_client.post = AsyncMock(
+        mock_client.request = AsyncMock(
             side_effect=httpx.ConnectError("Connection refused")
         )
 
@@ -162,4 +168,4 @@ class TestUnslothErrorLogging:
         asyncio.run(run())
 
         error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
-        assert any("unsloth_api_connection_error" in r.message for r in error_records)
+        assert any("unsloth_api_error" in r.message for r in error_records)

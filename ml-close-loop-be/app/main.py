@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request, APIRouter
@@ -13,6 +14,7 @@ from app.api.auth import router as auth_router
 from app.api.datasets import router as datasets_router
 from app.api.deployment import router as deployment_router
 from app.api.health import router as health_router
+from app.db.session import engine
 from app.limiter import limiter
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
@@ -25,9 +27,17 @@ from app.middleware.request_size import RequestSizeLimitMiddleware
 
 logger = structlog.get_logger(__name__)
 
-configure_logging(log_level=settings.log_level, debug=settings.debug)
 
-app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    configure_logging(log_level=settings.log_level, debug=settings.debug)
+    logger.info("application_starting")
+    yield
+    logger.info("application_shutting_down")
+    engine.dispose()
+
+
+app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 
 app.add_middleware(

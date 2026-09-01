@@ -14,6 +14,8 @@ from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
 from app.api.users import router as users_router
 from app.api.validation import router as validation_router
+from app.config import settings
+from app.middleware.request_size import RequestSizeLimitMiddleware
 
 app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
 app.state.limiter = limiter
@@ -27,6 +29,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    RequestSizeLimitMiddleware,
+    max_body_size=settings.max_request_body_size,
 )
 
 app.include_router(health_router)

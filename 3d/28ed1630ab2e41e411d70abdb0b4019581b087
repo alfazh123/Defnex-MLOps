@@ -1,0 +1,43 @@
+ml-close-loop-be/tests/test_auth.py
+  s_96bf11c06e88da::t_d6c7bb364780bb 119-121,123-144
+  s_8859b2a2882a63::t_7c48ecbb81cf84 7-8,10,19-20,22,29,31,37-38,40,65,67,78-80
+  s_96bf11c06e88da::t_a49c822442538f 30
+  s_96bf11c06e88da::t_346e8f6cf4ed07 47-49,122
+  s_96bf11c06e88da::t_03694998686dd5 9,18,21,28,39,46,58,66,104
+ml-close-loop-be/tests/conftest.py
+  s_96bf11c06e88da::t_bc50f78f2bf52c 60,63
+  s_8859b2a2882a63::t_7c48ecbb81cf84 24-26,45-46,48-49,51,58-59,61-62,64
+  s_96bf11c06e88da::t_b9838f82a32f05 47,50
+ml-close-loop-be/app/schemas/auth.py
+  s_96bf11c06e88da::t_1b46f56e6a21fa 1,4,23-32
+  s_96bf11c06e88da::t_25ecc6ebb6b6f1 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3d28ed1630ab2e41e411d70abdb0b4019581b087",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8859b2a2882a63": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa442b1b5ffe1Y6q44uC2khQXm",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_96bf11c06e88da": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa439af0dffee6r1Ajc0NJR5xd",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

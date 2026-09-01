@@ -8,7 +8,6 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.limiter import limiter
 from app.main import app
-from app.services import auth_service
 
 
 @pytest.fixture
@@ -22,7 +21,9 @@ def db_session():
 
 @pytest.fixture
 def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     Base.metadata.create_all(engine)
 
     def override_get_db():
@@ -41,16 +42,26 @@ def client():
 @pytest.fixture
 def admin_token(client) -> str:
     """Register an admin user and return their JWT token."""
-    client.post("/auth/register", json={"username": "admin", "password": "admin123", "role": "admin"})
-    resp = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+    client.post(
+        "/auth/register",
+        json={"username": "admin", "password": "Admin1234", "role": "admin"},
+    )
+    resp = client.post(
+        "/auth/login", json={"username": "admin", "password": "Admin1234"}
+    )
     return resp.json()["access_token"]
 
 
 @pytest.fixture
 def user_token(client) -> str:
     """Register a regular user and return their JWT token."""
-    client.post("/auth/register", json={"username": "alice", "password": "alice123", "role": "user"})
-    resp = client.post("/auth/login", json={"username": "alice", "password": "alice123"})
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "password": "Alice1234", "role": "user"},
+    )
+    resp = client.post(
+        "/auth/login", json={"username": "alice", "password": "Alice1234"}
+    )
     return resp.json()["access_token"]
 
 

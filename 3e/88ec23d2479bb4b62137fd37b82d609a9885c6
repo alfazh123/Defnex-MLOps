@@ -1,0 +1,38 @@
+ml-close-loop-be/tests/test_retry.py
+  s_899e156e037073::t_cec2e502c44df7 1-27,57,60-61,71-72,75,135,139
+  s_899e156e037073::t_c305e308358b2c 37-38,43-45,52,54-55,64-68,81-84,94-96,104-106,112-113,119-120,128-129,136-137
+  s_899e156e037073::t_ad31005dffe441 46-51,53,58-59,62,69-70,73-74,76-78,80,85,89-91,93,97-101,103,107-111,114-118,122-127,130-134,140-141
+  s_899e156e037073::t_d52d041965133b 30,33,56,86-88,121,138
+  s_899e156e037073::t_90ce198f5c2064 28-29,31-32,34-36,39-42,63,79,92,102
+ml-close-loop-be/app/services/unsloth_client.py
+  s_899e156e037073::t_f5b9c9de0596de 196-201
+  s_899e156e037073::t_de3d11905b0f42 3,13-14
+  s_899e156e037073::t_4844d659bec2d1 120-180
+  s_899e156e037073::t_debd046371af7a 205-210
+  s_899e156e037073::t_f5d332d1aa88fd 187-192
+  s_899e156e037073::t_d57a1109034770 15
+ml-close-loop-be/tests/test_error_logging.py
+  s_899e156e037073::t_0b5bf673ea78ab 119-121,123-124,133,154,171
+  s_899e156e037073::t_d52d041965133b 122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3e88ec23d2479bb4b62137fd37b82d609a9885c6",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_899e156e037073": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3b3d147ffeLF83xINimwSOFP",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

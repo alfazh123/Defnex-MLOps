@@ -86,15 +86,25 @@ def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
 
 
 def list_training_runs(
-    db: Session, limit: int = 20, offset: int = 0
+    db: Session,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    model: str | None = None,
 ) -> tuple[list[TrainingRun], int]:
     from sqlalchemy import func, select
 
-    total = db.scalar(select(func.count()).select_from(TrainingRun))
+    base_filter = select(TrainingRun)
+
+    if status is not None:
+        base_filter = base_filter.where(TrainingRun.status == status)
+    if model is not None:
+        base_filter = base_filter.where(TrainingRun.model_id.ilike(f"%{model}%"))
+
+    total = db.scalar(select(func.count()).select_from(base_filter.subquery()))
     runs = list(
         db.scalars(
-            select(TrainingRun)
-            .order_by(TrainingRun.created_at.desc())
+            base_filter.order_by(TrainingRun.created_at.desc())
             .limit(limit)
             .offset(offset)
         ).all()

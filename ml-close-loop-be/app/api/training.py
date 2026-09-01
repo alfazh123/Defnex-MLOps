@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import PaginationParams, get_current_user, get_pagination
+from app.api.deps import (
+    FilterParams,
+    PaginationParams,
+    get_current_user,
+    get_filters,
+    get_pagination,
+)
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
@@ -65,9 +71,14 @@ def list_training_runs(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
     pg: PaginationParams = Depends(get_pagination),
+    fl: FilterParams = Depends(get_filters),
 ) -> PaginatedResponse[TrainingRun]:
     runs, total = training_service.list_training_runs(
-        db, limit=pg.limit, offset=pg.offset
+        db,
+        limit=pg.limit,
+        offset=pg.offset,
+        status=fl.status,
+        model=fl.model,
     )
     return PaginatedResponse(
         items=[training_service.to_schema(r) for r in runs],

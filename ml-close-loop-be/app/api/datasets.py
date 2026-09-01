@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
+    FilterParams,
     PaginationParams,
     get_current_user,
+    get_filters,
     get_pagination,
     require_admin,
 )
@@ -26,8 +28,15 @@ def list_datasets(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
     pg: PaginationParams = Depends(get_pagination),
+    fl: FilterParams = Depends(get_filters),
 ) -> PaginatedResponse[DatasetSummary]:
-    items, total = dataset_service.list_datasets(db, limit=pg.limit, offset=pg.offset)
+    items, total = dataset_service.list_datasets(
+        db,
+        limit=pg.limit,
+        offset=pg.offset,
+        status=fl.status,
+        search=fl.search,
+    )
     return PaginatedResponse(
         items=items,
         total=total,

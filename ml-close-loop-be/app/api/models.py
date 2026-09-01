@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_model_version_or_404
+from app.api.deps import (
+    FilterParams,
+    get_current_user,
+    get_filters,
+    get_model_version_or_404,
+)
 from app.api.errors import APIError
 from app.config import settings
 from app.db.session import get_db
@@ -11,7 +16,6 @@ from app.schemas.model import (
     EvaluationObject,
     EvaluationSubmitResponse,
     EvaluationUpdateRequest,
-    ModelLifecycleStatus,
     ModelRegistryRecord,
     ModelSummary,
 )
@@ -30,11 +34,11 @@ def list_available_models(_user: User = Depends(get_current_user)) -> dict:
 
 @router.get("/models", response_model=list[ModelSummary])
 def list_models(
-    status: ModelLifecycleStatus | None = None,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
+    fl: FilterParams = Depends(get_filters),
 ) -> list[ModelSummary]:
-    return model_service.list_models(db, status)
+    return model_service.list_models(db, status=fl.status, search=fl.search)
 
 
 @router.get(

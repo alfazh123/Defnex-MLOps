@@ -73,7 +73,11 @@ def get_dataset_version(
 
 
 def list_datasets(
-    db: Session, limit: int = 20, offset: int = 0
+    db: Session,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    search: str | None = None,
 ) -> tuple[list[DatasetSummary], int]:
     """Every dataset with its latest version + that version's status, for GET /datasets.
 
@@ -88,16 +92,30 @@ def list_datasets(
         .subquery()
     )
 
+    base_filter = Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id))
+
+    # Filter by latest version status
+    if status is not None:
+        latest_status = (
+            select(DatasetVersionModel.dataset_id)
+            .where(DatasetVersionModel.status == status)
+            .group_by(DatasetVersionModel.dataset_id)
+            .subquery()
+        )
+        base_filter = base_filter & Dataset.dataset_id.in_(
+            select(latest_status.c.dataset_id)
+        )
+
+    # Search by dataset_id substring
+    if search is not None:
+        base_filter = base_filter & Dataset.dataset_id.ilike(f"%{search}%")
+
     # Count
-    total = db.scalar(
-        select(func.count())
-        .select_from(Dataset)
-        .where(Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id)))
-    )
+    total = db.scalar(select(func.count()).select_from(Dataset).where(base_filter))
 
     datasets = db.scalars(
         select(Dataset)
-        .where(Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id)))
+        .where(base_filter)
         .order_by(Dataset.dataset_id)
         .limit(limit)
         .offset(offset)

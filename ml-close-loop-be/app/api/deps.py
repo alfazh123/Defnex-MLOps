@@ -36,6 +36,21 @@ def get_pagination(
     return PaginationParams(page=page, size=size)
 
 
+@dataclass
+class FilterParams:
+    status: str | None = None
+    search: str | None = None
+    model: str | None = None
+
+
+def get_filters(
+    status: str | None = Query(None),
+    search: str | None = Query(None),
+    model: str | None = Query(None),
+) -> FilterParams:
+    return FilterParams(status=status, search=search, model=model)
+
+
 def get_model_version_or_404(db: Session, model_id: str, version: int) -> ModelVersion:
     """Resolve a model version or raise the standard 404 error envelope (openapi.yaml)."""
     model_version = model_service.get_model_version(db, model_id, version)

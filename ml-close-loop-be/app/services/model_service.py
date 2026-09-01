@@ -57,9 +57,12 @@ def register_model_version(db: Session, training_run: TrainingRun) -> ModelVersi
     return model_version
 
 
-def list_models(db: Session, status: str | None = None) -> list[ModelSummary]:
+def list_models(
+    db: Session, status: str | None = None, search: str | None = None
+) -> list[ModelSummary]:
     """List every model_id with its latest version and status (openapi.yaml GET /models),
-    optionally filtered to models whose latest version is currently in `status`."""
+    optionally filtered to models whose latest version is currently in `status`
+    and/or whose model_id matches a search substring."""
 
     models = db.scalars(select(Model)).all()
     summaries = []
@@ -68,6 +71,8 @@ def list_models(db: Session, status: str | None = None) -> list[ModelSummary]:
             continue
         latest = model.versions[-1]
         if status is not None and latest.status != status:
+            continue
+        if search is not None and search.lower() not in model.model_id.lower():
             continue
         summaries.append(
             ModelSummary(

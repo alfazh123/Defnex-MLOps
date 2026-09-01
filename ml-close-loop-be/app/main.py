@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 
+import structlog
 from fastapi import FastAPI, Request, APIRouter
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,8 @@ from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
+
+logger = structlog.get_logger(__name__)
 
 configure_logging(log_level=settings.log_level, debug=settings.debug)
 
@@ -93,6 +96,24 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         if isinstance(exc.detail, dict) and "error" in exc.detail
         else {"detail": exc.detail}
     )
+
+    log_kwargs: dict = {
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": exc.status_code,
+    }
+
+    error_code = ""
+    if isinstance(content, dict) and "error" in content:
+        error_code = content["error"].get("code", "")
+
+    log_kwargs["error_code"] = error_code
+
+    if exc.status_code >= 500:
+        logger.error("http_exception", **log_kwargs, exc_info=True)
+    elif exc.status_code >= 400:
+        logger.warning("http_exception", **log_kwargs)
+
     return JSONResponse(status_code=exc.status_code, content=content)
 
 
@@ -100,6 +121,12 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 async def rate_limit_exception_handler(
     request: Request, exc: RateLimitExceeded
 ) -> JSONResponse:
+    logger.warning(
+        "rate_limit_exceeded",
+        method=request.method,
+        path=request.url.path,
+        client_host=request.client.host if request.client else None,
+    )
     response = JSONResponse(
         status_code=429,
         content={"error": {"code": "RATE_LIMIT_EXCEEDED", "message": str(exc.detail)}},

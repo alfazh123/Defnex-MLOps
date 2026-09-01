@@ -59,9 +59,11 @@ async def create_training_run(
         db.commit()
     except Exception:
         logger.exception(
-            "Failed to start training on Unsloth Studio",
+            "failed_to_start_training",
             training_run_id=training_run.training_run_id,
             base_model=training_run.base_model,
+            dataset_id=request.dataset_id,
+            dataset_version=request.dataset_version,
         )
 
     return training_service.to_schema(training_run)

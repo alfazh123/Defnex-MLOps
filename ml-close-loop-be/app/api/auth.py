@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+import structlog
 
 from app.api.errors import APIError
 from app.db.session import get_db
@@ -13,6 +14,8 @@ from app.schemas.auth import (
 )
 from app.services import auth_service
 
+logger = structlog.get_logger(__name__)
+
 router = APIRouter(tags=["Auth"])
 
 
@@ -25,8 +28,15 @@ def login(
     if user is None or not auth_service.verify_password(
         body.password, user.hashed_password
     ):
+        logger.warning(
+            "login_failed",
+            username=body.username,
+            client_host=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
         raise APIError(401, "INVALID_CREDENTIALS", "Username or password is incorrect")
 
+    logger.info("login_success", username=body.username)
     token = auth_service.create_access_token({"sub": str(user.id), "role": user.role})
     refresh = auth_service.create_refresh_token(
         {"sub": str(user.id), "role": user.role}
@@ -77,6 +87,12 @@ def register(
 ) -> UserResponse:
     existing = auth_service.get_user_by_username(db, body.username)
     if existing is not None:
+        logger.warning(
+            "register_username_taken",
+            username=body.username,
+            client_host=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
         raise APIError(
             409, "USERNAME_TAKEN", f'Username "{body.username}" is already taken'
         )
@@ -95,6 +111,7 @@ def register(
 
     user = auth_service.create_user(db, body.username, body.password, role)
     db.commit()
+    logger.info("register_success", username=body.username, role=role)
     return UserResponse(
         id=user.id, username=user.username, role=user.role, created_at=user.created_at
     )

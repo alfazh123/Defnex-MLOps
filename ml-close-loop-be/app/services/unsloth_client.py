@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+import structlog
 
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 _UNSLOTH_URL = settings.unsloth_studio_url
 _UNSLOTH_KEY = settings.unsloth_api_key
@@ -117,35 +120,92 @@ async def start_training(
 ) -> dict[str, Any]:
     client = await _get_client()
     payload = _map_training_config(training_config, base_model)
-    resp = await client.post(
-        f"{_UNSLOTH_URL}/api/train/start",
-        json=payload,
-        headers=_headers(),
-    )
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = await client.post(
+            f"{_UNSLOTH_URL}/api/train/start",
+            json=payload,
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPStatusError as exc:
+        body_preview = exc.response.text[:500] if exc.response else ""
+        logger.error(
+            "unsloth_api_error",
+            endpoint="/api/train/start",
+            status_code=exc.response.status_code if exc.response else None,
+            response_body=body_preview,
+            training_run_id=training_run_id,
+        )
+        raise
+    except httpx.RequestError as exc:
+        logger.error(
+            "unsloth_api_connection_error",
+            endpoint="/api/train/start",
+            error=str(exc),
+            training_run_id=training_run_id,
+        )
+        raise
 
 
 async def get_training_status(training_run_id: str) -> dict[str, Any]:
     client = await _get_client()
-    resp = await client.get(
-        f"{_UNSLOTH_URL}/api/train/status",
-        params={"training_run_id": training_run_id},
-        headers=_headers(),
-    )
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = await client.get(
+            f"{_UNSLOTH_URL}/api/train/status",
+            params={"training_run_id": training_run_id},
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPStatusError as exc:
+        body_preview = exc.response.text[:500] if exc.response else ""
+        logger.error(
+            "unsloth_api_error",
+            endpoint="/api/train/status",
+            status_code=exc.response.status_code if exc.response else None,
+            response_body=body_preview,
+            training_run_id=training_run_id,
+        )
+        raise
+    except httpx.RequestError as exc:
+        logger.error(
+            "unsloth_api_connection_error",
+            endpoint="/api/train/status",
+            error=str(exc),
+            training_run_id=training_run_id,
+        )
+        raise
 
 
 async def stop_training(training_run_id: str) -> dict[str, Any]:
     client = await _get_client()
-    resp = await client.post(
-        f"{_UNSLOTH_URL}/api/train/stop",
-        json={"training_run_id": training_run_id},
-        headers=_headers(),
-    )
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = await client.post(
+            f"{_UNSLOTH_URL}/api/train/stop",
+            json={"training_run_id": training_run_id},
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPStatusError as exc:
+        body_preview = exc.response.text[:500] if exc.response else ""
+        logger.error(
+            "unsloth_api_error",
+            endpoint="/api/train/stop",
+            status_code=exc.response.status_code if exc.response else None,
+            response_body=body_preview,
+            training_run_id=training_run_id,
+        )
+        raise
+    except httpx.RequestError as exc:
+        logger.error(
+            "unsloth_api_connection_error",
+            endpoint="/api/train/stop",
+            error=str(exc),
+            training_run_id=training_run_id,
+        )
+        raise
 
 
 async def stream_progress(training_run_id: str):

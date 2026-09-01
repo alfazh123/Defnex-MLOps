@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_model_version_or_404
+from app.api.deps import get_current_user, get_model_version_or_404, require_admin
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.model import Model
+from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.deployment import DeployResult, DeploymentStatus
 from app.services import deployment_service
@@ -17,7 +18,9 @@ router = APIRouter(tags=["Deployment"])
     response_model=DeployResult,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
-def deploy_model_version(model_id: str, version: int, db: Session = Depends(get_db)) -> DeployResult:
+def deploy_model_version(
+    model_id: str, version: int, db: Session = Depends(get_db), _admin: User = Depends(require_admin)
+) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)
     if model_version.status != "PROMOTED":
         raise APIError(
@@ -36,7 +39,9 @@ def deploy_model_version(model_id: str, version: int, db: Session = Depends(get_
     response_model=DeploymentStatus,
     responses={404: {"model": ErrorResponse}},
 )
-def get_deployment_status(model_id: str, db: Session = Depends(get_db)) -> DeploymentStatus:
+def get_deployment_status(
+    model_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+) -> DeploymentStatus:
     if db.get(Model, model_id) is None:
         raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" not found')
     return deployment_service.get_deployment_status(db, model_id)

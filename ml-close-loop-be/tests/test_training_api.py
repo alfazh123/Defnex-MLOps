@@ -1,12 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
     "source_type": "huggingface",
@@ -33,34 +27,18 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
-@pytest.fixture
-def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-
-    def override_get_db():
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-    test_client.engine = engine
-    yield test_client
-    app.dependency_overrides.clear()
-    engine.dispose()
-
-
-def test_create_training_run_returns_404_when_dataset_version_missing(client):
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST)
+def test_create_training_run_returns_404_when_dataset_version_missing(client, admin_token):
+    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=auth_header(admin_token))
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "DATASET_NOT_FOUND"
 
 
-def test_create_training_run_returns_201_queued(client):
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST)
+def test_create_training_run_returns_201_queued(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
 
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST)
+    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h)
 
     assert response.status_code == 201
     body = response.json()
@@ -74,24 +52,25 @@ def test_create_training_run_returns_201_queued(client):
     assert body["model_version"] is None
 
 
-def test_create_training_run_rejects_invalid_body(client):
-    response = client.post("/training-runs", json={"dataset_id": "no_robots"})
+def test_create_training_run_rejects_invalid_body(client, admin_token):
+    response = client.post("/training-runs", json={"dataset_id": "no_robots"}, headers=auth_header(admin_token))
 
     assert response.status_code == 422
 
 
-def test_get_training_run_returns_404_when_missing(client):
-    response = client.get("/training-runs/run-doesnotexist")
+def test_get_training_run_returns_404_when_missing(client, admin_token):
+    response = client.get("/training-runs/run-doesnotexist", headers=auth_header(admin_token))
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "TRAINING_RUN_NOT_FOUND"
 
 
-def test_get_training_run_returns_created_run(client):
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST).json()
+def test_get_training_run_returns_created_run(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
+    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
 
-    response = client.get(f"/training-runs/{created['training_run_id']}")
+    response = client.get(f"/training-runs/{created['training_run_id']}", headers=h)
 
     assert response.status_code == 200
     assert response.json() == created

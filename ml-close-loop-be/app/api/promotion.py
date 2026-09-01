@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_model_version_or_404
+from app.api.deps import get_model_version_or_404, require_admin
 from app.api.errors import APIError
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.promotion import DecisionCreateRequest, DecisionRecord, RollbackRequest
 from app.services import promotion_service
@@ -18,7 +19,11 @@ router = APIRouter(tags=["Decisions"])
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
 def create_decision(
-    model_id: str, version: int, request: DecisionCreateRequest, db: Session = Depends(get_db)
+    model_id: str,
+    version: int,
+    request: DecisionCreateRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ) -> DecisionRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     try:
@@ -35,7 +40,12 @@ def create_decision(
     status_code=201,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
-def rollback_model(model_id: str, request: RollbackRequest, db: Session = Depends(get_db)) -> DecisionRecord:
+def rollback_model(
+    model_id: str,
+    request: RollbackRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> DecisionRecord:
     target = get_model_version_or_404(db, model_id, request.rollback_of_version)
     try:
         decision = promotion_service.rollback(db, target, request)

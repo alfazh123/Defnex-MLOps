@@ -12,14 +12,9 @@ Two steps have no HTTP trigger in this codebase and are driven directly instead:
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
 from app.models.dataset import DatasetVersion
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
@@ -28,6 +23,7 @@ from app.services import deployment_service, model_service
 from app.services.serving import MockServingBackend
 from app.workers.mock_runner import MockTrainingRunner
 from app.workers.training_worker import process_next_job
+from tests.conftest import auth_header
 
 DATASET_ID = "no_robots"
 MODEL_ID = "qwen-sft-domain-x"
@@ -56,23 +52,6 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
-@pytest.fixture
-def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-
-    def override_get_db():
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-    test_client.engine = engine
-    yield test_client
-    app.dependency_overrides.clear()
-    engine.dispose()
-
-
 def _mark_processed(client, dataset_id, version):
     """No intake pipeline exists to do this — see module docstring."""
 
@@ -86,11 +65,12 @@ def _mark_processed(client, dataset_id, version):
         db.commit()
 
 
-def _run_lifecycle(client, serving_backend=None):
+def _run_lifecycle(client, admin_token, serving_backend=None):
     """Walk the whole lifecycle through the API, asserting each step, and return the IDs it produced."""
+    h = auth_header(admin_token)
 
     # --- Dataset ---------------------------------------------------------------------------
-    response = client.post(f"/datasets/{DATASET_ID}/versions", json=DATASET_CREATE_REQUEST)
+    response = client.post(f"/datasets/{DATASET_ID}/versions", json=DATASET_CREATE_REQUEST, headers=h)
     assert response.status_code == 201
     dataset_version = response.json()
     assert dataset_version["dataset_id"] == DATASET_ID
@@ -99,19 +79,19 @@ def _run_lifecycle(client, serving_backend=None):
     _mark_processed(client, DATASET_ID, 1)
 
     # --- Validation ------------------------------------------------------------------------
-    response = client.post(f"/datasets/{DATASET_ID}/versions/1/validate")
+    response = client.post(f"/datasets/{DATASET_ID}/versions/1/validate", headers=h)
     assert response.status_code == 201
     report = response.json()
     assert report["dataset_id"] == DATASET_ID
     assert report["dataset_version"] == 1
     assert report["gate_decision"] == "PASS"
 
-    latest = client.get(f"/datasets/{DATASET_ID}/versions/1/validation-reports/latest")
+    latest = client.get(f"/datasets/{DATASET_ID}/versions/1/validation-reports/latest", headers=h)
     assert latest.status_code == 200
     assert latest.json() == report
 
     # --- Training run ----------------------------------------------------------------------
-    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST)
+    response = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h)
     assert response.status_code == 201
     training_run = response.json()
     training_run_id = training_run["training_run_id"]
@@ -125,7 +105,7 @@ def _run_lifecycle(client, serving_backend=None):
         db.commit()
         assert processed.training_run_id == training_run_id
 
-    response = client.get(f"/training-runs/{training_run_id}")
+    response = client.get(f"/training-runs/{training_run_id}", headers=h)
     assert response.status_code == 200
     completed = response.json()
     assert completed["status"] == "COMPLETED"
@@ -136,7 +116,7 @@ def _run_lifecycle(client, serving_backend=None):
     assert model_version == 1
 
     # --- Model registry --------------------------------------------------------------------
-    response = client.get(f"/models/{MODEL_ID}/versions/{model_version}")
+    response = client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h)
     assert response.status_code == 200
     record = response.json()
     assert record["status"] == "REGISTERED"
@@ -145,13 +125,13 @@ def _run_lifecycle(client, serving_backend=None):
     assert record["dataset_version"] == 1
     assert record["artifacts"][0]["uri"] is not None
 
-    assert client.get("/models").json() == [
+    assert client.get("/models", headers=h).json() == [
         {"model_id": MODEL_ID, "latest_version": model_version, "status": "REGISTERED"}
     ]
 
     # --- Evaluation ------------------------------------------------------------------------
     evaluation_url = f"/models/{MODEL_ID}/versions/{model_version}/evaluation"
-    partial = client.post(evaluation_url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}})
+    partial = client.post(evaluation_url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h)
     assert partial.json()["status"] == "REGISTERED"  # partial evaluation does not qualify
     client.post(
         evaluation_url,
@@ -164,9 +144,10 @@ def _run_lifecycle(client, serving_backend=None):
                 "total": 20,
             }
         },
+        headers=h,
     )
     response = client.post(
-        evaluation_url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}
+        evaluation_url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}, headers=h
     )
     assert response.status_code == 200
     assert response.json()["status"] == "EVALUATED"
@@ -175,6 +156,7 @@ def _run_lifecycle(client, serving_backend=None):
     response = client.post(
         f"/models/{MODEL_ID}/versions/{model_version}/decisions",
         json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "All three signals aligned."},
+        headers=h,
     )
     assert response.status_code == 201
     decision = response.json()
@@ -184,13 +166,13 @@ def _run_lifecycle(client, serving_backend=None):
     # The evidence snapshot is frozen from the evaluation submitted above.
     assert decision["evidence_snapshot"]["eval_loss_trend"]["this_version_eval_loss"] == 0.84
 
-    record = client.get(f"/models/{MODEL_ID}/versions/{model_version}").json()
+    record = client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()
     assert record["status"] == "PROMOTED"
     assert record["promotion_decision_ref"] == decision_id
 
     # --- Deployment ------------------------------------------------------------------------
     if serving_backend is None:
-        response = client.post(f"/models/{MODEL_ID}/versions/{model_version}/deploy")
+        response = client.post(f"/models/{MODEL_ID}/versions/{model_version}/deploy", headers=h)
         assert response.status_code == 200
         assert response.json() == {
             "model_id": MODEL_ID,
@@ -206,7 +188,7 @@ def _run_lifecycle(client, serving_backend=None):
             )
             db.commit()
 
-    response = client.get(f"/models/{MODEL_ID}/deployment")
+    response = client.get(f"/models/{MODEL_ID}/deployment", headers=h)
     assert response.status_code == 200
     status = response.json()
     assert status["model_id"] == MODEL_ID
@@ -214,7 +196,7 @@ def _run_lifecycle(client, serving_backend=None):
     assert status["status"] == "DEPLOYED"
     assert status["deployed_at"] is not None
 
-    assert client.get(f"/models/{MODEL_ID}/versions/{model_version}").json()["status"] == "DEPLOYED"
+    assert client.get(f"/models/{MODEL_ID}/versions/{model_version}", headers=h).json()["status"] == "DEPLOYED"
 
     return {
         "dataset_id": DATASET_ID,
@@ -226,23 +208,23 @@ def _run_lifecycle(client, serving_backend=None):
     }
 
 
-def test_full_lifecycle_runs_end_to_end_through_the_api(client):
-    ids = _run_lifecycle(client)
+def test_full_lifecycle_runs_end_to_end_through_the_api(client, admin_token):
+    ids = _run_lifecycle(client, admin_token)
 
     assert ids["training_run_id"].startswith("run-")
     assert ids["decision_id"].startswith("decision-")
 
 
-def test_full_lifecycle_reaches_the_serving_backend(client):
+def test_full_lifecycle_reaches_the_serving_backend(client, admin_token):
     backend = MockServingBackend()
 
-    ids = _run_lifecycle(client, serving_backend=backend)
+    ids = _run_lifecycle(client, admin_token, serving_backend=backend)
 
     assert backend.deployed == [(ids["model_id"], ids["model_version"])]
 
 
-def test_full_lifecycle_persists_a_complete_lineage_chain(client):
-    ids = _run_lifecycle(client)
+def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
+    ids = _run_lifecycle(client, admin_token)
 
     with Session(client.engine) as db:
         model_version = db.scalar(

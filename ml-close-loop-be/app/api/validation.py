@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_admin
 from app.api.errors import APIError
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.validation import ValidationReport
 from app.services import dataset_service, validation_service
@@ -35,6 +37,7 @@ def validate_dataset_version(
     version: int,
     request: ValidateDatasetVersionRequest | None = None,
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ) -> ValidationReport:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     if dataset_version.status != "PROCESSED":
@@ -58,7 +61,9 @@ def validate_dataset_version(
     response_model=list[ValidationReport],
     responses={404: {"model": ErrorResponse}},
 )
-def list_validation_reports(dataset_id: str, version: int, db: Session = Depends(get_db)) -> list[ValidationReport]:
+def list_validation_reports(
+    dataset_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+) -> list[ValidationReport]:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     reports = validation_service.list_validation_reports(db, dataset_version)
     return [validation_service.to_schema(r) for r in reports]
@@ -69,7 +74,9 @@ def list_validation_reports(dataset_id: str, version: int, db: Session = Depends
     response_model=ValidationReport,
     responses={404: {"model": ErrorResponse}},
 )
-def get_latest_validation_report(dataset_id: str, version: int, db: Session = Depends(get_db)) -> ValidationReport:
+def get_latest_validation_report(
+    dataset_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+) -> ValidationReport:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     report = validation_service.get_latest_validation_report(db, dataset_version)
     if report is None:

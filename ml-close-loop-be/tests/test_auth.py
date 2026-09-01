@@ -92,7 +92,9 @@ def test_list_users_requires_admin(client, admin_token, user_token):
     # admin can list
     resp = client.get("/users", headers=auth_header(admin_token))
     assert resp.status_code == 200
-    assert len(resp.json()) == 2  # admin + user
+    data = resp.json()
+    assert "items" in data
+    assert data["total"] == 2  # admin + user
 
     # regular user cannot
     resp = client.get("/users", headers=auth_header(user_token))
@@ -103,7 +105,9 @@ def test_list_users_requires_admin(client, admin_token, user_token):
 def test_delete_user_requires_admin(client, admin_token, user_token):
     # create a user to delete
     client.post("/auth/register", json={"username": "target", "password": "Pass1234"})
-    target_id = client.get("/users", headers=auth_header(admin_token)).json()[-1]["id"]
+    target_id = client.get("/users", headers=auth_header(admin_token)).json()["items"][
+        -1
+    ]["id"]
 
     # regular user cannot delete
     resp = client.delete(f"/users/{target_id}", headers=auth_header(user_token))

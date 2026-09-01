@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.dataset import Dataset, DatasetVersion as DatasetVersionModel
@@ -72,14 +72,36 @@ def get_dataset_version(
     )
 
 
-def list_datasets(db: Session) -> list[DatasetSummary]:
+def list_datasets(
+    db: Session, limit: int = 20, offset: int = 0
+) -> tuple[list[DatasetSummary], int]:
     """Every dataset with its latest version + that version's status, for GET /datasets.
 
     No single ORM entity maps to this composed view, so it returns the response
     schema directly instead of an ORM instance (unlike the other functions here).
     """
 
-    datasets = db.scalars(select(Dataset).order_by(Dataset.dataset_id))
+    # Subquery: datasets that have at least one version
+    ds_with_versions = (
+        select(DatasetVersionModel.dataset_id)
+        .group_by(DatasetVersionModel.dataset_id)
+        .subquery()
+    )
+
+    # Count
+    total = db.scalar(
+        select(func.count())
+        .select_from(Dataset)
+        .where(Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id)))
+    )
+
+    datasets = db.scalars(
+        select(Dataset)
+        .where(Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id)))
+        .order_by(Dataset.dataset_id)
+        .limit(limit)
+        .offset(offset)
+    )
     return [
         DatasetSummary(
             dataset_id=dataset.dataset_id,
@@ -87,8 +109,7 @@ def list_datasets(db: Session) -> list[DatasetSummary]:
             status=dataset.versions[-1].status,
         )
         for dataset in datasets
-        if dataset.versions
-    ]
+    ], total
 
 
 def list_dataset_versions(db: Session, dataset_id: str) -> list[DatasetVersionModel]:

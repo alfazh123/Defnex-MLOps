@@ -11,7 +11,9 @@ CREATE_REQUEST = {
 def test_list_datasets_empty(client, admin_token):
     response = client.get("/datasets", headers=auth_header(admin_token))
     assert response.status_code == 200
-    assert response.json() == []
+    data = response.json()
+    assert data["items"] == []
+    assert data["total"] == 0
 
 
 def test_create_dataset_version_returns_201_with_body(client, admin_token):
@@ -46,9 +48,11 @@ def test_list_datasets_reflects_latest_version_and_status(client, admin_token):
     response = client.get("/datasets", headers=h)
 
     assert response.status_code == 200
-    assert response.json() == [
+    data = response.json()
+    assert data["items"] == [
         {"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSING"}
     ]
+    assert data["total"] == 1
 
 
 def test_list_dataset_versions_returns_404_error_envelope_when_missing(

@@ -85,8 +85,21 @@ def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
     return db.get(TrainingRun, training_run_id)
 
 
-def list_training_runs(db: Session) -> list[TrainingRun]:
-    return db.query(TrainingRun).order_by(TrainingRun.created_at.desc()).all()
+def list_training_runs(
+    db: Session, limit: int = 20, offset: int = 0
+) -> tuple[list[TrainingRun], int]:
+    from sqlalchemy import func, select
+
+    total = db.scalar(select(func.count()).select_from(TrainingRun))
+    runs = list(
+        db.scalars(
+            select(TrainingRun)
+            .order_by(TrainingRun.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        ).all()
+    )
+    return runs, total
 
 
 async def sync_status_from_unsloth(

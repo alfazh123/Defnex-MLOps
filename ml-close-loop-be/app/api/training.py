@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user, get_pagination
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.common import ErrorResponse
+from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
 from app.services import dataset_service, training_service
 from app.services import unsloth_client
@@ -59,13 +59,23 @@ async def create_training_run(
 
 @router.get(
     "/training-runs",
-    response_model=list[TrainingRun],
+    response_model=PaginatedResponse[TrainingRun],
 )
 def list_training_runs(
-    db: Session = Depends(get_db), _user: User = Depends(get_current_user)
-) -> list[TrainingRun]:
-    runs = training_service.list_training_runs(db)
-    return [training_service.to_schema(r) for r in runs]
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+    pg: PaginationParams = Depends(get_pagination),
+) -> PaginatedResponse[TrainingRun]:
+    runs, total = training_service.list_training_runs(
+        db, limit=pg.limit, offset=pg.offset
+    )
+    return PaginatedResponse(
+        items=[training_service.to_schema(r) for r in runs],
+        total=total,
+        page=pg.page,
+        size=pg.size,
+        pages=PaginationParams.pages_from(total, pg.size),
+    )
 
 
 @router.get(

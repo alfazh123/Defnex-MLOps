@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -64,8 +64,12 @@ def create_user(db: Session, username: str, password: str, role: str = "user") -
     return user
 
 
-def list_users(db: Session) -> list[User]:
-    return list(db.scalars(select(User).order_by(User.id)).all())
+def list_users(db: Session, limit: int = 20, offset: int = 0) -> tuple[list[User], int]:
+    total = db.scalar(select(func.count()).select_from(User))
+    users = list(
+        db.scalars(select(User).order_by(User.id).limit(limit).offset(offset)).all()
+    )
+    return users, total
 
 
 def delete_user(db: Session, user_id: int) -> bool:

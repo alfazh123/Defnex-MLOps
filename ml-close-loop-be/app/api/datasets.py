@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import (
+    PaginationParams,
+    get_current_user,
+    get_pagination,
+    require_admin,
+)
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.common import ErrorResponse
+from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.dataset import (
     DatasetSummary,
     DatasetVersion,
@@ -16,11 +21,20 @@ from app.services import dataset_service
 router = APIRouter(tags=["Datasets"])
 
 
-@router.get("/datasets", response_model=list[DatasetSummary])
+@router.get("/datasets", response_model=PaginatedResponse[DatasetSummary])
 def list_datasets(
-    db: Session = Depends(get_db), _user: User = Depends(get_current_user)
-) -> list[DatasetSummary]:
-    return dataset_service.list_datasets(db)
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+    pg: PaginationParams = Depends(get_pagination),
+) -> PaginatedResponse[DatasetSummary]:
+    items, total = dataset_service.list_datasets(db, limit=pg.limit, offset=pg.offset)
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=pg.page,
+        size=pg.size,
+        pages=PaginationParams.pages_from(total, pg.size),
+    )
 
 
 @router.post(

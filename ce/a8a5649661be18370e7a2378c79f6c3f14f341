@@ -1,0 +1,42 @@
+ml-close-loop-be/app/config.py
+  s_a84425b91c478f::t_c7eadcf73f406b 31-34
+ml-close-loop-be/app/api/training.py
+  s_a84425b91c478f::t_e4f089c3b2f1a6 61-65
+  s_a84425b91c478f::t_a7cf18e1c295d7 1
+  s_a84425b91c478f::t_4b67e10733270b 22
+ml-close-loop-be/app/logging.py
+  s_a84425b91c478f::t_61645576e9f64f 1-48
+ml-close-loop-be/app/main.py
+  s_a84425b91c478f::t_718cd3d1ada3e1 22,25
+  s_a84425b91c478f::t_eef83e30359cc7 26
+ml-close-loop-be/tests/test_structured_logging.py
+  s_a84425b91c478f::t_a935377d8d89ea 15,19-24,27,36,48,58,71,84
+  s_a84425b91c478f::t_f36a553944ef4e 1-2,4-9,12,14,16-18,25-26,33-35,37-41,43-47,49-51,53-57,59-64,66-70,72-83,85-93
+  s_a84425b91c478f::t_8ca9cdd7430015 3
+  s_a84425b91c478f::t_ab7957d4fae622 10-11,13,28-32,42,52,65,94-95
+ml-close-loop-be/pyproject.toml
+  s_a84425b91c478f::t_3ffaa06c89c364 16
+ml-close-loop-be/uv.lock
+  s_a84425b91c478f::t_94006a301b7b35 575,597,979-987
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "cea8a5649661be18370e7a2378c79f6c3f14f341",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a84425b91c478f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3d3a018ffeXescevD1u3urJH",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

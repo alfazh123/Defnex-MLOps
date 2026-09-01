@@ -1,0 +1,28 @@
+ml-close-loop-be/tests/test_graceful_shutdown.py
+  s_843899d6819648::t_69b1fed493a804 21,29-31
+  s_843899d6819648::t_53c616f5ee619b 2-6,9-11,13,17-18,32-42
+  s_843899d6819648::t_e700a5d5aa54ce 1,7-8,12,14-16,19-20,22-28
+ml-close-loop-be/app/main.py
+  s_843899d6819648::t_aa12ae73725b8e 2,17,31-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "af3aaa16bd2f5b000bbd6ea7020d3428f6f8989e",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_843899d6819648": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3bf172effeGsUQLsHVyggj9K",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

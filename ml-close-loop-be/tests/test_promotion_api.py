@@ -1,12 +1,7 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
     "source_type": "huggingface",
@@ -33,30 +28,14 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
-@pytest.fixture
-def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-
-    def override_get_db():
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    test_client = TestClient(app)
-    test_client.engine = engine
-    yield test_client
-    app.dependency_overrides.clear()
-    engine.dispose()
-
-
-def _evaluated_model_version(client):
+def _evaluated_model_version(client, admin_token):
     """Drive a training run to COMPLETED, register it, and submit all 3 evaluation signals."""
     from app.services import model_service, training_service
     from app.workers.mock_runner import MockTrainingRunner
 
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST).json()
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
+    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
 
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
@@ -68,27 +47,30 @@ def _evaluated_model_version(client):
         model_id, version = model_version.model_id, model_version.version
 
     url = f"/models/{model_id}/versions/{version}/evaluation"
-    client.post(url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}})
+    client.post(url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h)
     client.post(
         url,
         json={"qualitative_comparison": {"question_table_version": 1, "wins": 13, "losses": 5, "ties": 2, "total": 20}},
+        headers=h,
     )
-    client.post(url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}})
+    client.post(url, json={"general_domain_regression_check": {"checked": True, "regressions_found": []}}, headers=h)
     return model_id, version
 
 
-def test_create_decision_returns_404_when_missing(client):
+def test_create_decision_returns_404_when_missing(client, admin_token):
     response = client.post(
         "/models/no-such-model/versions/1/decisions",
         json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "n/a"},
+        headers=auth_header(admin_token),
     )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
 
 
-def test_create_decision_promotes_and_returns_evidence_snapshot(client):
-    model_id, version = _evaluated_model_version(client)
+def test_create_decision_promotes_and_returns_evidence_snapshot(client, admin_token):
+    model_id, version = _evaluated_model_version(client, admin_token)
+    h = auth_header(admin_token)
 
     response = client.post(
         f"/models/{model_id}/versions/{version}/decisions",
@@ -97,6 +79,7 @@ def test_create_decision_promotes_and_returns_evidence_snapshot(client):
             "decided_by": "reviewer-1",
             "rationale": "All three signals aligned.",
         },
+        headers=h,
     )
 
     assert response.status_code == 201
@@ -108,19 +91,19 @@ def test_create_decision_promotes_and_returns_evidence_snapshot(client):
     assert body["evidence_snapshot"]["qualitative_comparison"]["wins"] == 13
     assert body["rollback_of_version"] is None
 
-    lineage = client.get(f"/models/{model_id}/versions/{version}").json()
+    lineage = client.get(f"/models/{model_id}/versions/{version}", headers=h).json()
     assert lineage["status"] == "PROMOTED"
     assert lineage["promotion_decision_ref"] == body["decision_id"]
 
 
-def test_create_decision_returns_409_when_not_evaluated(client):
-    from app.services import model_service
-
-    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST)
-    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST).json()
-
+def test_create_decision_returns_409_when_not_evaluated(client, admin_token):
     from app.services import training_service
     from app.workers.mock_runner import MockTrainingRunner
+    from app.services import model_service
+
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h)
+    created = client.post("/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h).json()
 
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
@@ -134,48 +117,54 @@ def test_create_decision_returns_409_when_not_evaluated(client):
     response = client.post(
         f"/models/{model_id}/versions/{version}/decisions",
         json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "n/a"},
+        headers=h,
     )
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "DECISION_NOT_ALLOWED"
 
 
-def test_create_decision_returns_409_when_already_decided(client):
-    model_id, version = _evaluated_model_version(client)
+def test_create_decision_returns_409_when_already_decided(client, admin_token):
+    model_id, version = _evaluated_model_version(client, admin_token)
+    h = auth_header(admin_token)
     url = f"/models/{model_id}/versions/{version}/decisions"
-    client.post(url, json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "first"})
+    client.post(url, json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "first"}, headers=h)
 
-    response = client.post(url, json={"decision": "REJECTED", "decided_by": "reviewer-1", "rationale": "second"})
+    response = client.post(url, json={"decision": "REJECTED", "decided_by": "reviewer-1", "rationale": "second"}, headers=h)
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "DECISION_NOT_ALLOWED"
 
 
-def _promoted_model_version(client):
-    model_id, version = _evaluated_model_version(client)
+def _promoted_model_version(client, admin_token):
+    model_id, version = _evaluated_model_version(client, admin_token)
     client.post(
         f"/models/{model_id}/versions/{version}/decisions",
         json={"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "All three signals aligned."},
+        headers=auth_header(admin_token),
     )
     return model_id, version
 
 
-def test_rollback_returns_404_when_missing(client):
+def test_rollback_returns_404_when_missing(client, admin_token):
     response = client.post(
         "/models/no-such-model/rollback",
         json={"rollback_of_version": 1, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+        headers=auth_header(admin_token),
     )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
 
 
-def test_rollback_deploys_target_and_returns_decision_record(client):
-    model_id, version = _promoted_model_version(client)
+def test_rollback_deploys_target_and_returns_decision_record(client, admin_token):
+    model_id, version = _promoted_model_version(client, admin_token)
+    h = auth_header(admin_token)
 
     response = client.post(
         f"/models/{model_id}/rollback",
         json={"rollback_of_version": version, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+        headers=h,
     )
 
     assert response.status_code == 201
@@ -185,17 +174,18 @@ def test_rollback_deploys_target_and_returns_decision_record(client):
     assert body["rollback_of_version"] == version
     assert body["evidence_snapshot"] is None
 
-    lineage = client.get(f"/models/{model_id}/versions/{version}").json()
+    lineage = client.get(f"/models/{model_id}/versions/{version}", headers=h).json()
     assert lineage["status"] == "DEPLOYED"
     assert lineage["promotion_decision_ref"] == body["decision_id"]
 
 
-def test_rollback_returns_409_when_target_not_promoted(client):
-    model_id, version = _evaluated_model_version(client)
+def test_rollback_returns_409_when_target_not_promoted(client, admin_token):
+    model_id, version = _evaluated_model_version(client, admin_token)
 
     response = client.post(
         f"/models/{model_id}/rollback",
         json={"rollback_of_version": version, "decided_by": "reviewer-1", "rationale": "Prod regression."},
+        headers=auth_header(admin_token),
     )
 
     assert response.status_code == 409

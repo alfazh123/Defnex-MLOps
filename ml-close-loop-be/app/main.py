@@ -3,12 +3,14 @@ from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.auth import router as auth_router
 from app.api.datasets import router as datasets_router
 from app.api.deployment import router as deployment_router
 from app.api.health import router as health_router
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
+from app.api.users import router as users_router
 from app.api.validation import router as validation_router
 
 app = FastAPI(title="DEFNEX MLOps Backend", version="0.1.0")
@@ -25,6 +27,8 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(datasets_router)
 app.include_router(validation_router)
 app.include_router(training_router)

@@ -16,22 +16,142 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Health Health Get
-  /datasets:
-    get:
+  /auth/login:
+    post:
       tags:
-      - Datasets
-      summary: List Datasets
-      operationId: list_datasets_datasets_get
+      - Auth
+      summary: Login
+      operationId: login_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/register:
+    post:
+      tags:
+      - Auth
+      summary: Register
+      operationId: register_auth_register_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /users:
+    get:
+      tags:
+      - Users
+      summary: List Users
+      operationId: list_users_users_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+                title: Response List Users Users Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /users/{user_id}:
+    delete:
+      tags:
+      - Users
+      summary: Delete User
+      operationId: delete_user_users__user_id__delete
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: User Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /datasets:
+    get:
+      tags:
+      - Datasets
+      summary: List Datasets
+      operationId: list_datasets_datasets_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/DatasetSummary'
-                type: array
                 title: Response List Datasets Datasets Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /datasets/{dataset_id}/versions:
     post:
       tags:
@@ -45,6 +165,12 @@ paths:
         schema:
           type: string
           title: Dataset Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
         required: true
         content:
@@ -76,6 +202,12 @@ paths:
         schema:
           type: string
           title: Dataset Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -118,6 +250,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -156,6 +294,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
         content:
           application/json:
@@ -208,6 +352,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -250,6 +400,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -270,32 +426,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /training-runs:
-    get:
-      tags:
-      - Training
-      summary: List Training Runs
-      operationId: list_training_runs_training_runs_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/TrainingRun'
-                type: array
-                title: Response List Training Runs Training Runs Get
     post:
       tags:
       - Training
       summary: Create Training Run
       operationId: create_training_run_training_runs_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/TrainingRunCreateRequest'
-        required: true
       responses:
         '201':
           description: Successful Response
@@ -304,11 +452,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrainingRun'
         '404':
-          description: Not Found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Training
+      summary: List Training Runs
+      operationId: list_training_runs_training_runs_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingRun'
+                title: Response List Training Runs Training Runs Get
         '422':
           description: Validation Error
           content:
@@ -328,6 +504,12 @@ paths:
         schema:
           type: string
           title: Training Run Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -360,6 +542,12 @@ paths:
         schema:
           type: string
           title: Training Run Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -384,15 +572,28 @@ paths:
       - Models
       summary: List Available Models
       operationId: list_available_models_models_available_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
+                additionalProperties: true
                 title: Response List Available Models Models Available Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /models:
     get:
       tags:
@@ -415,6 +616,12 @@ paths:
             type: string
           - type: 'null'
           title: Status
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -450,6 +657,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -488,6 +701,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
         required: true
         content:
@@ -537,6 +756,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -575,6 +800,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
         required: true
         content:
@@ -619,6 +850,12 @@ paths:
         schema:
           type: string
           title: Model Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
         required: true
         content:
@@ -669,6 +906,12 @@ paths:
         schema:
           type: integer
           title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -707,6 +950,12 @@ paths:
         schema:
           type: string
           title: Model Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       responses:
         '200':
           description: Successful Response
@@ -1136,6 +1385,19 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    LoginRequest:
+      properties:
+        username:
+          type: string
+          title: Username
+        password:
+          type: string
+          title: Password
+      type: object
+      required:
+      - username
+      - password
+      title: LoginRequest
     ModelRegistryRecord:
       properties:
         model_id:
@@ -1287,6 +1549,22 @@ components:
       title: RollbackRequest
       description: Request body for POST /models/{model_id}/rollback (openapi.yaml
         RollbackRequest).
+    TokenResponse:
+      properties:
+        access_token:
+          type: string
+          title: Access Token
+        token_type:
+          type: string
+          title: Token Type
+          default: bearer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+      type: object
+      required:
+      - access_token
+      - user
+      title: TokenResponse
     TrainingConfig:
       properties:
         peft_method:
@@ -1540,6 +1818,45 @@ components:
       - training_config
       title: TrainingRunCreateRequest
       description: Request to create a training run (openapi.yaml TrainingRunCreateRequest).
+    UserCreate:
+      properties:
+        username:
+          type: string
+          title: Username
+        password:
+          type: string
+          title: Password
+        role:
+          type: string
+          title: Role
+          default: user
+      type: object
+      required:
+      - username
+      - password
+      title: UserCreate
+    UserResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        username:
+          type: string
+          title: Username
+        role:
+          type: string
+          title: Role
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - username
+      - role
+      - created_at
+      title: UserResponse
     ValidateDatasetVersionRequest:
       properties:
         rule_set_version:

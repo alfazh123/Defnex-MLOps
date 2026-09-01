@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     unsloth_default_model: str = "unsloth/Qwen3-0.6B"
     unsloth_models: str = "unsloth/Qwen3-0.6B,unsloth/Qwen3.8-27B,unsloth/Qwen2.5-7B-Instruct"
 
+    # Auth (Phase 9)
+    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440
+
 
 settings = Settings()

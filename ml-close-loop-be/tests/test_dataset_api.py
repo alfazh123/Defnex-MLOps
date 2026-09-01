@@ -1,28 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
-
-
-@pytest.fixture
-def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-
-    def override_get_db():
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
-    engine.dispose()
-
+from tests.conftest import auth_header
 
 CREATE_REQUEST = {
     "source_type": "huggingface",
@@ -32,14 +10,14 @@ CREATE_REQUEST = {
 }
 
 
-def test_list_datasets_empty(client):
-    response = client.get("/datasets")
+def test_list_datasets_empty(client, admin_token):
+    response = client.get("/datasets", headers=auth_header(admin_token))
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_create_dataset_version_returns_201_with_body(client):
-    response = client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
+def test_create_dataset_version_returns_201_with_body(client, admin_token):
+    response = client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=auth_header(admin_token))
 
     assert response.status_code == 201
     body = response.json()
@@ -49,49 +27,52 @@ def test_create_dataset_version_returns_201_with_body(client):
     assert body["manifest"]["source_format"] == "chatml"
 
 
-def test_create_dataset_version_rejects_invalid_body(client):
-    response = client.post("/datasets/no_robots/versions", json={"source_type": "bogus"})
+def test_create_dataset_version_rejects_invalid_body(client, admin_token):
+    response = client.post("/datasets/no_robots/versions", json={"source_type": "bogus"}, headers=auth_header(admin_token))
     assert response.status_code == 422
 
 
-def test_list_datasets_reflects_latest_version_and_status(client):
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
+def test_list_datasets_reflects_latest_version_and_status(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets")
+    response = client.get("/datasets", headers=h)
 
     assert response.status_code == 200
     assert response.json() == [{"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSING"}]
 
 
-def test_list_dataset_versions_returns_404_error_envelope_when_missing(client):
-    response = client.get("/datasets/missing/versions")
+def test_list_dataset_versions_returns_404_error_envelope_when_missing(client, admin_token):
+    response = client.get("/datasets/missing/versions", headers=auth_header(admin_token))
 
     assert response.status_code == 404
     assert response.json() == {"error": {"code": "DATASET_NOT_FOUND", "message": 'dataset_id "missing" not found'}}
 
 
-def test_list_dataset_versions_returns_all_versions(client):
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
+def test_list_dataset_versions_returns_all_versions(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets/no_robots/versions")
+    response = client.get("/datasets/no_robots/versions", headers=h)
 
     assert response.status_code == 200
     assert [v["version"] for v in response.json()] == [2, 1]
 
 
-def test_get_dataset_version_returns_404_error_envelope_when_missing(client):
-    response = client.get("/datasets/no_robots/versions/1")
+def test_get_dataset_version_returns_404_error_envelope_when_missing(client, admin_token):
+    response = client.get("/datasets/no_robots/versions/1", headers=auth_header(admin_token))
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "DATASET_NOT_FOUND"
 
 
-def test_get_dataset_version_returns_manifest(client):
-    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST)
+def test_get_dataset_version_returns_manifest(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
-    response = client.get("/datasets/no_robots/versions/1")
+    response = client.get("/datasets/no_robots/versions/1", headers=h)
 
     assert response.status_code == 200
     body = response.json()

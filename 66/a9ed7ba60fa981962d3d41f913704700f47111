@@ -1,0 +1,38 @@
+ml-close-loop-be/app/models/model.py
+  s_d596e7d640e4c7::t_149c3a672b539c 37
+  s_d596e7d640e4c7::t_8c3af83899f50e 32
+ml-close-loop-be/app/models/validation.py
+  s_d596e7d640e4c7::t_a411f1684cb310 19-21
+ml-close-loop-be/app/models/training.py
+  s_d596e7d640e4c7::t_0f20d6c15fcab0 15-17
+ml-close-loop-be/tests/test_fk_indexes.py
+  s_d596e7d640e4c7::t_8aa90e5fb3fb44 14-17,25
+  s_d596e7d640e4c7::t_2342788b0bcd95 1-2,4-13,18-24
+  s_d596e7d640e4c7::t_d1f8ba51863628 3
+ml-close-loop-be/alembic/versions/190c9e1c557c_us_013_add_indexes_on_foreign_keys.py
+  s_d596e7d640e4c7::t_9d2e5410a1fc76 1-7,9-14,17-23,51-56,72
+  s_d596e7d640e4c7::t_8aa90e5fb3fb44 8,15-16,24-50,57-71
+ml-close-loop-be/app/models/promotion.py
+  s_d596e7d640e4c7::t_71834a728f8bd5 20-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "66a9ed7ba60fa981962d3d41f913704700f47111",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d596e7d640e4c7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa06117acffeuIO0KrVBagx4Ei",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

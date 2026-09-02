@@ -1,0 +1,33 @@
+ml-close-loop-be/.env.example
+  s_27337639229112::t_1d0c5599816e21 31-40
+ml-close-loop-be/app/config.py
+  s_27337639229112::t_2e4a3b4a07a2c3 27-31
+  s_27337639229112::t_ee96a8b441cc60 26
+ml-close-loop-be/tests/test_db_pool.py
+  s_27337639229112::t_7e47edc245675e 2-23,26
+  s_27337639229112::t_84f922feb9827d 1,24-25,27-30
+ml-close-loop-be/app/db/session.py
+  s_27337639229112::t_65471e866852c9 6-7
+  s_27337639229112::t_90789d23c21a54 9-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8ba5900d0263283ca3990bf43973d914f68df428",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_27337639229112": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa05867c7ffe6tWygnbz802eq5",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

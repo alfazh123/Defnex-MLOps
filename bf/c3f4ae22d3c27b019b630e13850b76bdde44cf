@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  s_6657df04cd04cf::t_61ff0212254706 12-14,25,32,40-42,44,47-62
+ml-close-loop-be/requirements-dev.txt
+  s_6657df04cd04cf::t_426ced7a7da6f8 1-5
+ml-close-loop-be/README.md
+  s_6657df04cd04cf::t_7151f0abd334fb 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "bfc3f4ae22d3c27b019b630e13850b76bdde44cf",
+  "prompts": {},
+  "sessions": {
+    "s_6657df04cd04cf": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9f432d2dffenJxmum96rkiNYf",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

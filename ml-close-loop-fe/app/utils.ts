@@ -1,0 +1,630 @@
+import type { Dataset, TrainingRun } from "./type"
+
+export const datasetFormats = [
+    {
+        "id": "fmt-jsonl",
+        "name": "JSONL (General / Custom)",
+        "extension": ".jsonl",
+        "description": "Format baris demi baris JSON standar untuk berbagai kebutuhan fine-tuning.",
+        "useCase": "General text completion & custom schema"
+    },
+    {
+        "id": "fmt-sharegpt",
+        "name": "JSONL (ShareGPT Dialogs)",
+        "extension": ".jsonl",
+        "description": "Format percakapan multi-turn (multi-putaran) antara user dan asisten.",
+        "useCase": "Chatbot & conversational models"
+    },
+    {
+        "id": "fmt-alpaca",
+        "name": "JSON (Alpaca Instruction)",
+        "extension": ".json",
+        "description": "Struktur dengan komponen instruction, input, dan output yang jelas.",
+        "useCase": "Instruction-following & task-specific models"
+    },
+    {
+        "id": "fmt-csv",
+        "name": "CSV (Tabular Data)",
+        "extension": ".csv",
+        "description": "Format tabel berbasis teks untuk data terstruktur sederhana.",
+        "useCase": "Text classification & data preprocessing"
+    }
+]
+
+export const datasets: Dataset[] = [
+    {
+        "id": "ds-001",
+        "title": "Customer Service FAQ Q4",
+        "fileName": "cs_faq_2026_q4.jsonl",
+        "format": "JSONL", // enum JSONL, CSV, Alpaca, ShareGPT
+        "category": "Customer Support",
+        "fileSize": 2.4, // in MB
+        "totalRows": 1250,
+        // "estimatedTokens": 345000,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready", // enum Ready, Training, Queued, Failed
+        "uploadedAt": "2026-08-28T10:30:00Z",
+        "uploadedBy": "Admin Lab"
+    },
+    {
+        "id": "ds-002",
+        "title": "Multimedia Lab SOP & Guidelines",
+        "fileName": "lab_sop_v2.jsonl",
+        "format": "JSONL",
+        "category": "Laboratory Policy",
+        "fileSize": 3.8,
+        "totalRows": 420,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-08-29T14:15:00Z",
+        "uploadedBy": "Asisten Lab"
+    },
+    {
+        "id": "ds-003",
+        "title": "React & Vite Technical Documentation",
+        "fileName": "react_vite_docs.jsonl",
+        "format": "JSONL",
+        "category": "Development",
+        "fileSize": 5.1,
+        "totalRows": 3100,
+        "validationStatus": "Error",
+        "sftStatus": "Failed",
+        "uploadedAt": "2026-08-30T09:00:00Z",
+        "uploadedBy": "Developer"
+    },
+    {
+        "id": "ds-004",
+        "title": "General Onboarding & Culture",
+        "fileName": "onboarding_guide.jsonl",
+        "format": "JSONL",
+        "category": "HR / Onboarding",
+        "fileSize": 1.2,
+        "totalRows": 650,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-08-31T08:45:00Z",
+        "uploadedBy": "Admin Lab"
+    },
+    {
+        "id": "ds-005",
+        "title": "Product Feature Specifications",
+        "fileName": "product_features_v1.jsonl",
+        "format": "JSONL",
+        "category": "Product",
+        "fileSize": 4.6,
+        "totalRows": 2840,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-01T11:20:00Z",
+        "uploadedBy": "Product Team"
+    },
+    {
+        "id": "ds-006",
+        "title": "API Reference & Integration Guide",
+        "fileName": "api_reference.jsonl",
+        "format": "JSONL",
+        "category": "Development",
+        "fileSize": 3.2,
+        "totalRows": 1560,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-02T15:30:00Z",
+        "uploadedBy": "Developer"
+    },
+    {
+        "id": "ds-007",
+        "title": "Sales Pitch & Demo Scripts",
+        "fileName": "sales_scripts.jsonl",
+        "format": "JSONL",
+        "category": "Sales",
+        "fileSize": 2.1,
+        "totalRows": 890,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-03T09:15:00Z",
+        "uploadedBy": "Sales Manager"
+    },
+    {
+        "id": "ds-008",
+        "title": "Customer Feedback & Reviews",
+        "fileName": "customer_feedback.csv",
+        "format": "CSV",
+        "category": "Customer Support",
+        "fileSize": 1.8,
+        "totalRows": 4200,
+        "validationStatus": "Error",
+        "sftStatus": "Failed",
+        "uploadedAt": "2026-09-04T13:45:00Z",
+        "uploadedBy": "Support Team"
+    },
+    {
+        "id": "ds-009",
+        "title": "Marketing Campaign Content",
+        "fileName": "marketing_campaigns.jsonl",
+        "format": "JSONL",
+        "category": "Marketing",
+        "fileSize": 2.9,
+        "totalRows": 1125,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-05T10:00:00Z",
+        "uploadedBy": "Marketing Team"
+    },
+    {
+        "id": "ds-010",
+        "title": "Training & Certification Materials",
+        "fileName": "training_materials.json",
+        "format": "JSONL",
+        "category": "Training",
+        "fileSize": 6.4,
+        "totalRows": 2240,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-06T14:20:00Z",
+        "uploadedBy": "Learning Team"
+    }
+    ,
+    {
+        "id": "ds-011",
+        "title": "Internal Bug Reports Q3",
+        "fileName": "bug_reports_q3.jsonl",
+        "format": "JSONL",
+        "category": "Development",
+        "fileSize": 2.7,
+        "totalRows": 980,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-07T09:10:00Z",
+        "uploadedBy": "QA Team"
+    },
+    {
+        "id": "ds-012",
+        "title": "Customer Onboarding Emails",
+        "fileName": "onboarding_emails.csv",
+        "format": "CSV",
+        "category": "Customer Support",
+        "fileSize": 0.9,
+        "totalRows": 420,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-07T11:30:00Z",
+        "uploadedBy": "CS Ops"
+    },
+    {
+        "id": "ds-013",
+        "title": "Legal Policies & Terms",
+        "fileName": "legal_policies.jsonl",
+        "format": "JSONL",
+        "category": "Legal",
+        "fileSize": 3.5,
+        "totalRows": 760,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-08T08:00:00Z",
+        "uploadedBy": "Legal Team"
+    },
+    {
+        "id": "ds-014",
+        "title": "Interview Transcripts",
+        "fileName": "interviews_sharegpt.jsonl",
+        "format": "ShareGPT",
+        "category": "Research",
+        "fileSize": 5.0,
+        "totalRows": 1340,
+        "validationStatus": "Error",
+        "sftStatus": "Failed",
+        "uploadedAt": "2026-09-08T13:20:00Z",
+        "uploadedBy": "Researcher"
+    },
+    {
+        "id": "ds-015",
+        "title": "Feature Request Backlog",
+        "fileName": "feature_requests.jsonl",
+        "format": "JSONL",
+        "category": "Product",
+        "fileSize": 1.6,
+        "totalRows": 540,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-09T10:05:00Z",
+        "uploadedBy": "Product Manager"
+    },
+    {
+        "id": "ds-016",
+        "title": "Social Media Content Calendar",
+        "fileName": "social_calendar.csv",
+        "format": "CSV",
+        "category": "Marketing",
+        "fileSize": 0.7,
+        "totalRows": 180,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-09T12:40:00Z",
+        "uploadedBy": "Marketing Ops"
+    },
+    {
+        "id": "ds-017",
+        "title": "Customer Support Chat Logs",
+        "fileName": "support_chats_sharegpt.jsonl",
+        "format": "ShareGPT",
+        "category": "Customer Support",
+        "fileSize": 8.2,
+        "totalRows": 6200,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-10T07:50:00Z",
+        "uploadedBy": "Support Team"
+    },
+    {
+        "id": "ds-018",
+        "title": "Knowledge Base Articles",
+        "fileName": "kb_articles.jsonl",
+        "format": "JSONL",
+        "category": "Documentation",
+        "fileSize": 4.4,
+        "totalRows": 1500,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-10T15:15:00Z",
+        "uploadedBy": "Docs Team"
+    },
+    {
+        "id": "ds-019",
+        "title": "Localization Strings (ID/EN)",
+        "fileName": "localization_id_en.csv",
+        "format": "CSV",
+        "category": "I18n",
+        "fileSize": 0.5,
+        "totalRows": 240,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-11T09:00:00Z",
+        "uploadedBy": "Localization"
+    },
+    {
+        "id": "ds-020",
+        "title": "UX Research Notes",
+        "fileName": "ux_notes.jsonl",
+        "format": "JSONL",
+        "category": "Design",
+        "fileSize": 2.3,
+        "totalRows": 610,
+        "validationStatus": "Error",
+        "sftStatus": "Failed",
+        "uploadedAt": "2026-09-11T11:25:00Z",
+        "uploadedBy": "Design Team"
+    },
+    {
+        "id": "ds-021",
+        "title": "Competition Analysis",
+        "fileName": "competitor_analysis.jsonl",
+        "format": "JSONL",
+        "category": "Strategy",
+        "fileSize": 3.9,
+        "totalRows": 980,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-12T08:10:00Z",
+        "uploadedBy": "Strategy Team"
+    },
+    {
+        "id": "ds-022",
+        "title": "Billing & Invoices",
+        "fileName": "invoices_2026_q2.csv",
+        "format": "CSV",
+        "category": "Finance",
+        "fileSize": 1.1,
+        "totalRows": 320,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-12T13:00:00Z",
+        "uploadedBy": "Finance"
+    },
+    {
+        "id": "ds-023",
+        "title": "Accessibility Checklist",
+        "fileName": "accessibility_checklist.jsonl",
+        "format": "JSONL",
+        "category": "Design",
+        "fileSize": 0.8,
+        "totalRows": 220,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-13T09:45:00Z",
+        "uploadedBy": "Design Ops"
+    },
+    {
+        "id": "ds-024",
+        "title": "Partner Integration Specs",
+        "fileName": "partner_integration_alpaca.json",
+        "format": "Alpaca",
+        "category": "Integration",
+        "fileSize": 2.0,
+        "totalRows": 410,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-13T14:55:00Z",
+        "uploadedBy": "Integrations"
+    },
+    {
+        "id": "ds-025",
+        "title": "Press Releases Archive",
+        "fileName": "press_releases.jsonl",
+        "format": "JSONL",
+        "category": "PR",
+        "fileSize": 1.9,
+        "totalRows": 300,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-14T10:30:00Z",
+        "uploadedBy": "PR Team"
+    },
+    {
+        "id": "ds-026",
+        "title": "User Stories & Epics",
+        "fileName": "user_stories.jsonl",
+        "format": "JSONL",
+        "category": "Product",
+        "fileSize": 3.1,
+        "totalRows": 1250,
+        "validationStatus": "Error",
+        "sftStatus": "Failed",
+        "uploadedAt": "2026-09-14T16:45:00Z",
+        "uploadedBy": "PM Office"
+    },
+    {
+        "id": "ds-027",
+        "title": "Deployment Runbooks",
+        "fileName": "deployment_runbooks.jsonl",
+        "format": "JSONL",
+        "category": "DevOps",
+        "fileSize": 2.6,
+        "totalRows": 720,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-15T07:20:00Z",
+        "uploadedBy": "DevOps"
+    },
+    {
+        "id": "ds-028",
+        "title": "Email Templates Library",
+        "fileName": "email_templates.csv",
+        "format": "CSV",
+        "category": "Marketing",
+        "fileSize": 0.6,
+        "totalRows": 150,
+        "validationStatus": "Valid",
+        "sftStatus": "Queued",
+        "uploadedAt": "2026-09-15T12:00:00Z",
+        "uploadedBy": "Marketing"
+    },
+    {
+        "id": "ds-029",
+        "title": "Security Incident Logs",
+        "fileName": "security_incidents.jsonl",
+        "format": "JSONL",
+        "category": "Security",
+        "fileSize": 7.3,
+        "totalRows": 4100,
+        "validationStatus": "Valid",
+        "sftStatus": "Training",
+        "uploadedAt": "2026-09-16T03:30:00Z",
+        "uploadedBy": "Security Team"
+    },
+    {
+        "id": "ds-030",
+        "title": "Annual Survey Responses",
+        "fileName": "annual_survey_2026.csv",
+        "format": "CSV",
+        "category": "Research",
+        "fileSize": 2.2,
+        "totalRows": 2750,
+        "validationStatus": "Valid",
+        "sftStatus": "Ready",
+        "uploadedAt": "2026-09-16T14:10:00Z",
+        "uploadedBy": "Research Team"
+    }
+]
+
+export const trainingRunsData: TrainingRun[] = [
+    {
+        runId: "run-sft-089",
+        targetModel: "defnex-support-llm",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-customer-support-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.428,
+        evalLoss: 0.492,
+        created: new Date("2026-08-31")
+    },
+    {
+        runId: "run-sft-090",
+        targetModel: "defnex-finance-llm",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-finance-faq-v2 @v1.1.0",
+        status: "COMPLETED",
+        trainLoss: 0.312,
+        evalLoss: 0.385,
+        created: new Date("2026-09-01")
+    },
+    {
+        runId: "run-sft-091",
+        targetModel: "defnex-hr-bot",
+        targetModelBase: "unsloth/Mistral-7B-Instruct",
+        datasetVersion: "ds-hr-policy-v1 @v1.0.0",
+        status: "RUNNING",
+        trainLoss: 0.514,
+        evalLoss: null,
+        created: new Date("2026-09-02")
+    },
+    {
+        runId: "run-sft-092",
+        targetModel: "defnex-tech-doc",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-tech-docs-v3 @v2.0.0",
+        status: "PENDING",
+        trainLoss: null,
+        evalLoss: null,
+        created: new Date("2026-09-02")
+    },
+    {
+        runId: "run-sft-093",
+        targetModel: "defnex-sales-assistant",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-sales-script-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.295,
+        evalLoss: 0.341,
+        created: new Date("2026-09-03")
+    },
+    {
+        runId: "run-sft-094",
+        targetModel: "defnex-legal-llm",
+        targetModelBase: "unsloth/Qwen2.5-14B-Inst...",
+        datasetVersion: "ds-legal-contract-v2 @v1.2.0",
+        status: "FAILED",
+        trainLoss: 0.890,
+        evalLoss: null,
+        created: new Date("2026-09-03")
+    },
+    {
+        runId: "run-sft-095",
+        targetModel: "defnex-support-llm",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-customer-support-v2 @v1.1.0",
+        status: "COMPLETED",
+        trainLoss: 0.398,
+        evalLoss: 0.455,
+        created: new Date("2026-09-04")
+    },
+    {
+        runId: "run-sft-096",
+        targetModel: "defnex-marketing-bot",
+        targetModelBase: "unsloth/Mistral-7B-Instruct",
+        datasetVersion: "ds-campaign-v1 @v1.0.0",
+        status: "RUNNING",
+        trainLoss: 0.445,
+        evalLoss: null,
+        created: new Date("2026-09-04")
+    },
+    {
+        runId: "run-sft-097",
+        targetModel: "defnex-operations-ai",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-ops-manual-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.350,
+        evalLoss: 0.412,
+        created: new Date("2026-09-05")
+    },
+    {
+        runId: "run-sft-098",
+        targetModel: "defnex-product-llm",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-product-specs-v1 @v1.0.0",
+        status: "PENDING",
+        trainLoss: null,
+        evalLoss: null,
+        created: new Date("2026-09-05")
+    },
+    {
+        runId: "run-sft-099",
+        targetModel: "defnex-dev-assistant",
+        targetModelBase: "unsloth/Qwen2.5-14B-Inst...",
+        datasetVersion: "ds-api-docs-v2 @v2.1.0",
+        status: "COMPLETED",
+        trainLoss: 0.275,
+        evalLoss: 0.310,
+        created: new Date("2026-09-06")
+    },
+    {
+        runId: "run-sft-100",
+        targetModel: "defnex-support-llm",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-customer-feedback-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.410,
+        evalLoss: 0.470,
+        created: new Date("2026-09-06")
+    },
+    {
+        runId: "run-sft-101",
+        targetModel: "defnex-security-bot",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-security-policy-v1 @v1.0.0",
+        status: "FAILED",
+        trainLoss: 0.920,
+        evalLoss: null,
+        created: new Date("2026-09-07")
+    },
+    {
+        runId: "run-sft-102",
+        targetModel: "defnex-onboarding-ai",
+        targetModelBase: "unsloth/Mistral-7B-Instruct",
+        datasetVersion: "ds-general-onboard-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.330,
+        evalLoss: 0.390,
+        created: new Date("2026-09-07")
+    },
+    {
+        runId: "run-sft-103",
+        targetModel: "defnex-finance-llm",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-finance-faq-v3 @v2.0.0",
+        status: "RUNNING",
+        trainLoss: 0.380,
+        evalLoss: null,
+        created: new Date("2026-09-08")
+    },
+    {
+        runId: "run-sft-104",
+        targetModel: "defnex-qa-assistant",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-qa-internal-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.365,
+        evalLoss: 0.420,
+        created: new Date("2026-09-08")
+    },
+    {
+        runId: "run-sft-105",
+        targetModel: "defnex-research-llm",
+        targetModelBase: "unsloth/Qwen2.5-14B-Inst...",
+        datasetVersion: "ds-interviews-v1 @v1.0.0",
+        status: "PENDING",
+        trainLoss: null,
+        evalLoss: null,
+        created: new Date("2026-09-08")
+    },
+    {
+        runId: "run-sft-106",
+        targetModel: "defnex-support-llm",
+        targetModelBase: "unsloth/Qwen2.5-7B-Inst...",
+        datasetVersion: "ds-customer-support-v3 @v1.2.0",
+        status: "COMPLETED",
+        trainLoss: 0.315,
+        evalLoss: 0.360,
+        created: new Date("2026-09-09")
+    },
+    {
+        runId: "run-sft-107",
+        targetModel: "defnex-logistics-bot",
+        targetModelBase: "unsloth/Mistral-7B-Instruct",
+        datasetVersion: "ds-logistics-v1 @v1.0.0",
+        status: "COMPLETED",
+        trainLoss: 0.450,
+        evalLoss: 0.510,
+        created: new Date("2026-09-09")
+    },
+    {
+        runId: "run-sft-108",
+        targetModel: "defnex-executive-ai",
+        targetModelBase: "unsloth/Llama-3-8B-Instruct",
+        datasetVersion: "ds-board-summary-v1 @v1.0.0",
+        status: "RUNNING",
+        trainLoss: 0.290,
+        evalLoss: null,
+        created: new Date("2026-09-09")
+    }
+];

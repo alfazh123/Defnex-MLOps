@@ -93,8 +93,12 @@ def list_training_runs(
     model: str | None = None,
 ) -> tuple[list[TrainingRun], int]:
     from sqlalchemy import func, select
+    from sqlalchemy.orm import selectinload
 
-    base_filter = select(TrainingRun)
+    base_filter = select(TrainingRun).options(
+        selectinload(TrainingRun.dataset_version),
+        selectinload(TrainingRun.model_versions),
+    )
 
     if status is not None:
         base_filter = base_filter.where(TrainingRun.status == status)

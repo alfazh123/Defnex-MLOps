@@ -1,6 +1,8 @@
+import contextlib
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -8,6 +10,33 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.limiter import limiter
 from app.main import app
+
+
+@pytest.fixture
+def count_queries():
+    """Context manager that counts SQL statements executed during its body."""
+
+    @contextlib.contextmanager
+    def _count():
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
+        counters = {"n": 0}
+
+        @event.listens_for(engine, "before_cursor_execute")
+        def _count_statements(
+            conn, cursor, statement, parameters, context, executemany
+        ):
+            counters["n"] += 1
+
+        with Session(engine) as session:
+            yield session, counters
+        engine.dispose()
+
+    return _count
 
 
 @pytest.fixture

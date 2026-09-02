@@ -149,3 +149,24 @@ def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
     assert evaluation.eval_loss_trend.this_version_eval_loss == 0.84
     assert evaluation.qualitative_comparison.wins == 13
     assert evaluation.general_domain_regression_check.checked is True
+
+
+def test_list_models_has_no_n_plus_1(count_queries):
+    with count_queries() as (session, counters):
+        for idx in range(10):
+            run = _completed_training_run(session, model_id=f"model-{idx}")
+            model_service.register_model_version(session, run)
+        session.commit()
+        counters["n"] = 0
+        model_service.list_models(session)
+        count_10 = counters["n"]
+
+    with count_queries() as (session, counters):
+        run = _completed_training_run(session, model_id="model-0")
+        model_service.register_model_version(session, run)
+        session.commit()
+        counters["n"] = 0
+        model_service.list_models(session)
+        count_1 = counters["n"]
+
+    assert count_10 - count_1 < 9

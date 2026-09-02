@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.model import Model, ModelVersion
 from app.models.training import TrainingRun
@@ -64,7 +64,7 @@ def list_models(
     optionally filtered to models whose latest version is currently in `status`
     and/or whose model_id matches a search substring."""
 
-    models = db.scalars(select(Model)).all()
+    models = db.scalars(select(Model).options(selectinload(Model.versions))).all()
     summaries = []
     for model in models:
         if not model.versions:

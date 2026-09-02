@@ -10,3 +10,6 @@ ml-close-loop-be/.coverage
 ml-close-loop-be/.coverage.*
 ml-close-loop-be/htmlcov/
 ml-close-loop-be/.pytest_cache/
+
+# QA agent skills (personal tooling, not committed)
+.agents/

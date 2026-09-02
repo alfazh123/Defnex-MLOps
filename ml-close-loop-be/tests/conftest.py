@@ -1,3 +1,7 @@
+# ============================================================
+# FROZEN — shared fixtures, do not modify without team review.
+# Parallel QA agents (Phase 1–7) must NOT change this file.
+# ============================================================
 import contextlib
 
 import pytest

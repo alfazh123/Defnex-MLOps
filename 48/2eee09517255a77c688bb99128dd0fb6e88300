@@ -1,0 +1,18 @@
+.github/workflows/ci.yml
+  h_20649baae43f97 12-14,25,32,40-42,44,47-62
+ml-close-loop-be/README.md
+  h_20649baae43f97 3-4
+ml-close-loop-be/requirements-dev.txt
+  h_20649baae43f97 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "482eee09517255a77c688bb99128dd0fb6e88300",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

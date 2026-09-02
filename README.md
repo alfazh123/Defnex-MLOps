@@ -8,13 +8,13 @@ integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the t
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                    React Frontend                     │
+│                    React Frontend                    │
 │             React Router 8 · shadcn/ui · Tailwind    │
 │                      :3000                           │
 └────────────────────┬─────────────────────────────────┘
                      │  REST API (JSON)
 ┌────────────────────▼─────────────────────────────────┐
-│                  FastAPI Backend  (:8000)             │
+│                  FastAPI Backend  (:8000)            │
 │  23 routes · JWT auth (admin/user) · /api/v1/        │
 │  ┌────────────────────┐  ┌────────────────────────┐  │
 │  │  SQLite + Alembic  │  │  structlog · slowapi   │  │
@@ -22,8 +22,8 @@ integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the t
 └────────────────────┬─────────────────────────────────┘
                      │  HTTP (async, retry + backoff)
 ┌────────────────────▼─────────────────────────────────┐
-│              Unsloth Studio  (:8888)                  │
-│           GPU training · evaluation · model mgmt      │
+│              Unsloth Studio  (:8888)                 │
+│           GPU training · evaluation · model mgmt     │
 └──────────────────────────────────────────────────────┘
 
 Docker Compose also includes a lightweight worker service (stdlib-only,

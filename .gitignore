@@ -6,3 +6,7 @@ progress.txt
 .last-branch
 archive/
 .gitattributes
+ml-close-loop-be/.coverage
+ml-close-loop-be/.coverage.*
+ml-close-loop-be/htmlcov/
+ml-close-loop-be/.pytest_cache/

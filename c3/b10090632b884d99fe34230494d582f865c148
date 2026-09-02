@@ -1,0 +1,44 @@
+ml-close-loop-be/tests/test_auth.py
+  s_c4f6fcce8d5981::t_ea455ba3dfe7e7 252-312
+ml-close-loop-be/tests/test_auth_service.py
+  s_c4f6fcce8d5981::t_75a174ada97b7c 91
+  s_c4f6fcce8d5981::t_bf8a4c330a784d 1-90,92-110
+ml-close-loop-be/tests/test_training_api.py
+  s_c4f6fcce8d5981::t_f36dd0fa92eeac 97-117,120-181,183-186
+  s_c4f6fcce8d5981::t_3fddc1ccdd481b 118-119
+  s_c4f6fcce8d5981::t_d7441a76d38871 182
+ml-close-loop-be/tests/test_unsloth_client.py
+  s_c4f6fcce8d5981::t_cc54afb270b80c 95-102,105-107
+  s_c4f6fcce8d5981::t_58327fe9eb29c7 91,103,108-119,121,131,136,139-141,149,153,162-163
+  s_c4f6fcce8d5981::t_4a3c7865bf4647 120,122-124
+  s_c4f6fcce8d5981::t_dec6ee265c9582 1-90,92-94,104,125-130,132-135,137-138,142-148,150-152,154-161
+  s_c4f6fcce8d5981::t_a494b540845704 164-165
+ml-close-loop-be/tests/test_dataset_api.py
+  s_c4f6fcce8d5981::t_41c37d6631beed 106-167
+  s_c4f6fcce8d5981::t_69ce2b71f5fbfc 168
+ml-close-loop-be/tests/test_training_progress.py
+  s_c4f6fcce8d5981::t_87379c6bf676fb 1-82
+ml-close-loop-be/tests/test_model_api.py
+  s_c4f6fcce8d5981::t_757ed15436276c 229-235
+ml-close-loop-be/tests/test_models_available.py
+  s_c4f6fcce8d5981::t_5b55a3ee1fa78e 1-50
+ml-close-loop-be/tests/test_deployment_api.py
+  s_c4f6fcce8d5981::t_6d355e398353ec 226
+  s_c4f6fcce8d5981::t_dc12427bcba221 224-225,227-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c3b10090632b884d99fe34230494d582f865c148",
+  "prompts": {},
+  "sessions": {
+    "s_c4f6fcce8d5981": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9f43955dffe7hg2KNDmg9Mo4r",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

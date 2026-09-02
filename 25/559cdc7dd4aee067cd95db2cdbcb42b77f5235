@@ -1,0 +1,41 @@
+ml-close-loop-be/docker-compose.yml
+  s_4ae9a06332eeb9::t_945daa6581801b 14-33
+ml-close-loop-be/tests/test_worker.py
+  s_4ae9a06332eeb9::t_d7b423dbe11fbd 10
+  s_4ae9a06332eeb9::t_89a2796123ec18 1-9,11-31
+  s_4ae9a06332eeb9::t_03bd191a9dcce7 32
+ml-close-loop-be/app/worker.py
+  s_4ae9a06332eeb9::t_1425801d985bae 1-49
+  s_4ae9a06332eeb9::t_03bd191a9dcce7 50
+.gitignore
+  s_d585ce9a4f1441::t_0af46719eccb6e 9-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "25559cdc7dd4aee067cd95db2cdbcb42b77f5235",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4ae9a06332eeb9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa0420322ffejRYka4yzKlson3",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_d585ce9a4f1441": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa04691f7ffe1e3Q7GWBbInZOu",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

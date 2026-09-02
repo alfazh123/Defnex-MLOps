@@ -199,3 +199,49 @@ def test_to_schema_derives_model_id_and_version(db_session):
     assert schema.model_id == "qwen-sft-domain-x"
     assert schema.version == model_version.version
     assert schema.decision == "PROMOTED"
+
+
+def test_rollback_creates_decision_with_null_evidence(db_session):
+    target = _promoted_model_version(db_session)
+
+    decision = promotion_service.rollback(
+        db_session,
+        target,
+        RollbackRequest(
+            rollback_of_version=target.version,
+            decided_by="reviewer-1",
+            rationale="Prod regression.",
+        ),
+    )
+
+    assert decision.decision == "ROLLBACK"
+    assert decision.evidence_snapshot is None
+
+
+def test_rollback_sets_rollback_of_version(db_session):
+    target = _promoted_model_version(db_session)
+
+    decision = promotion_service.rollback(
+        db_session,
+        target,
+        RollbackRequest(
+            rollback_of_version=target.version,
+            decided_by="reviewer-1",
+            rationale="Prod regression.",
+        ),
+    )
+
+    assert decision.rollback_of_version == target.version
+
+
+def test_create_decision_rejects_already_promoted(db_session):
+    model_version = _promoted_model_version(db_session)
+
+    with pytest.raises(ValueError):
+        promotion_service.create_decision(
+            db_session,
+            model_version,
+            DecisionCreateRequest(
+                decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"
+            ),
+        )

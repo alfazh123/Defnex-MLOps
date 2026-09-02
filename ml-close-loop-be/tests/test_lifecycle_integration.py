@@ -65,7 +65,7 @@ def _mark_processed(client, dataset_id, version):
         db.commit()
 
 
-def _run_lifecycle(client, admin_token, serving_backend=None):
+def _run_lifecycle(client, admin_token, serving_backend=None, training_request=None):
     """Walk the whole lifecycle through the API, asserting each step, and return the IDs it produced."""
     h = auth_header(admin_token)
 
@@ -100,7 +100,9 @@ def _run_lifecycle(client, admin_token, serving_backend=None):
 
     # --- Training run ----------------------------------------------------------------------
     response = client.post(
-        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        "/api/v1/training-runs",
+        json=training_request or TRAINING_RUN_CREATE_REQUEST,
+        headers=h,
     )
     assert response.status_code == 201
     training_run = response.json()
@@ -313,3 +315,135 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
         assert deployment.model_id == ids["model_id"]
         assert deployment.model_version == ids["model_version"]
         assert model_version.status == "DEPLOYED"
+
+
+class _RaisingRunner:
+    def run(self, training_run):
+        raise RuntimeError("boom: cuda oom")
+
+
+def test_lifecycle_dataset_validation_failure_path(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        f"/api/v1/datasets/{DATASET_ID}/versions",
+        json=DATASET_CREATE_REQUEST,
+        headers=h,
+    )
+
+    response = client.post(
+        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate", headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "error": {
+            "code": "VALIDATION_INCOMPLETE",
+            "message": "Dataset version has not completed processing yet.",
+        }
+    }
+
+
+def test_lifecycle_training_failure_path(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        f"/api/v1/datasets/{DATASET_ID}/versions",
+        json=DATASET_CREATE_REQUEST,
+        headers=h,
+    )
+    _mark_processed(client, DATASET_ID, 1)
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+    assert created.status_code == 201
+    training_run_id = created.json()["training_run_id"]
+
+    with Session(client.engine) as db:
+        processed = process_next_job(db, _RaisingRunner())
+        db.commit()
+        assert processed.training_run_id == training_run_id
+        assert processed.status == "FAILED"
+        assert processed.error_message == "boom: cuda oom"
+
+
+def test_lifecycle_double_deploy_same_version(client, admin_token):
+    ids = _run_lifecycle(client, admin_token)
+
+    # The HTTP endpoint gates on PROMOTED, so the second deploy of an already-DEPLOYED
+    # version goes through the service directly — the pointer-move logic has no such guard.
+    with Session(client.engine) as db:
+        model_version = db.scalar(
+            select(ModelVersion).where(
+                ModelVersion.model_id == MODEL_ID,
+                ModelVersion.version == ids["model_version"],
+            )
+        )
+        deployment, previous = deployment_service.deploy(db, model_version)
+        db.commit()
+        rows = db.scalars(
+            select(Deployment).where(Deployment.model_id == MODEL_ID)
+        ).all()
+        record = db.scalar(
+            select(ModelVersion).where(
+                ModelVersion.model_id == MODEL_ID,
+                ModelVersion.version == ids["model_version"],
+            )
+        )
+        assert previous is None
+        assert deployment.model_version == ids["model_version"]
+        assert record.status == "DEPLOYED"
+        assert len(rows) == 2
+
+
+def test_lifecycle_with_custom_training_config(client, admin_token):
+    custom = dict(TRAINING_RUN_CREATE_REQUEST)
+    custom["training_config"] = dict(TRAINING_RUN_CREATE_REQUEST["training_config"])
+    custom["training_config"]["peft_method"] = "dora"
+    custom["training_config"]["lora_r"] = 32
+
+    ids = _run_lifecycle(client, admin_token, training_request=custom)
+
+    run = client.get(
+        f"/api/v1/training-runs/{ids['training_run_id']}",
+        headers=auth_header(admin_token),
+    ).json()
+    assert run["training_config"]["peft_method"] == "dora"
+    assert run["training_config"]["lora_r"] == 32
+    record = client.get(
+        f"/api/v1/models/{MODEL_ID}/versions/{ids['model_version']}",
+        headers=auth_header(admin_token),
+    ).json()
+    assert record["training_config"]["lora_r"] == 32
+
+
+def test_lifecycle_sequential_multi_version(client, admin_token):
+    h = auth_header(admin_token)
+    model_version_of = {}
+
+    for dataset_version in (1, 2):
+        client.post(
+            f"/api/v1/datasets/{DATASET_ID}/versions",
+            json=DATASET_CREATE_REQUEST,
+            headers=h,
+        )
+        _mark_processed(client, DATASET_ID, dataset_version)
+        request = dict(TRAINING_RUN_CREATE_REQUEST)
+        request["dataset_version"] = dataset_version
+        created = client.post("/api/v1/training-runs", json=request, headers=h)
+        assert created.status_code == 201
+
+        with Session(client.engine) as db:
+            processed = process_next_job(db, MockTrainingRunner())
+            db.commit()
+            model_version_of[dataset_version] = processed.model_versions[-1].version
+
+    assert model_version_of == {1: 1, 2: 2}
+    for version in (1, 2):
+        record = client.get(
+            f"/api/v1/models/{MODEL_ID}/versions/{version}", headers=h
+        ).json()
+        assert record["dataset_version"] == version
+        assert record["status"] == "REGISTERED"
+
+    assert client.get("/api/v1/models", headers=h).json() == [
+        {"model_id": MODEL_ID, "latest_version": 2, "status": "REGISTERED"}
+    ]

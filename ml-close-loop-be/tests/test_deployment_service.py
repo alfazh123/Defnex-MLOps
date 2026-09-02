@@ -167,3 +167,64 @@ def test_to_deploy_result_reports_the_superseded_version(db_session):
     assert result.model_id == "qwen-sft-domain-x"
     assert result.current_deployed_version == v2.version
     assert result.previous_deployed_version == v1.version
+
+
+def test_deploy_same_version_twice(db_session):
+    v1, _ = _promoted_model_version(db_session)
+    deployment_service.deploy(db_session, v1)
+
+    deployment, previous = deployment_service.deploy(db_session, v1)
+
+    assert previous is None
+    assert v1.status == "DEPLOYED"
+    assert deployment.model_version == v1.version
+    assert deployment.status == "DEPLOYED"
+    rows = {d.model_version: d.status for d in db_session.query(Deployment).all()}
+    assert rows == {v1.version: "DEPLOYED"}
+
+
+def test_deploy_when_no_previous_deployment(db_session):
+    model_version, _ = _promoted_model_version(db_session)
+
+    deployment, previous = deployment_service.deploy(db_session, model_version)
+
+    assert previous is None
+    assert deployment.status == "DEPLOYED"
+    assert model_version.status == "DEPLOYED"
+
+
+def test_rollback_deploys_target_version(db_session):
+    v1, dataset_version = _promoted_model_version(db_session)
+    deployment_service.deploy(db_session, v1)
+    v2, _ = _promoted_model_version(db_session, dataset_version)
+    deployment_service.deploy(db_session, v2)
+
+    promotion_service.rollback(
+        db_session,
+        v1,
+        RollbackRequest(
+            rollback_of_version=v1.version,
+            decided_by="reviewer-1",
+            rationale="Regression.",
+        ),
+    )
+
+    assert v1.status == "DEPLOYED"
+    assert v2.status == "RETIRED"
+    status = deployment_service.get_deployment_status(db_session, "qwen-sft-domain-x")
+    assert status.current_deployed_version == v1.version
+    assert status.status == "DEPLOYED"
+
+
+def test_get_deployment_status_after_deploy(db_session):
+    model_version, _ = _promoted_model_version(db_session)
+    deployment, _ = deployment_service.deploy(db_session, model_version)
+
+    status = deployment_service.get_deployment_status(
+        db_session, model_version.model_id
+    )
+
+    assert status.model_id == "qwen-sft-domain-x"
+    assert status.current_deployed_version == model_version.version
+    assert status.status == "DEPLOYED"
+    assert status.deployed_at == deployment.deployed_at

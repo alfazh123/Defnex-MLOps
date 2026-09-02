@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.dataset import Dataset, DatasetVersion as DatasetVersionModel
@@ -61,7 +61,9 @@ def create_dataset_version(
     return version
 
 
-def get_dataset_version(db: Session, dataset_id: str, version: int) -> DatasetVersionModel | None:
+def get_dataset_version(
+    db: Session, dataset_id: str, version: int
+) -> DatasetVersionModel | None:
     return db.scalar(
         select(DatasetVersionModel).where(
             DatasetVersionModel.dataset_id == dataset_id,
@@ -70,14 +72,54 @@ def get_dataset_version(db: Session, dataset_id: str, version: int) -> DatasetVe
     )
 
 
-def list_datasets(db: Session) -> list[DatasetSummary]:
+def list_datasets(
+    db: Session,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    search: str | None = None,
+) -> tuple[list[DatasetSummary], int]:
     """Every dataset with its latest version + that version's status, for GET /datasets.
 
     No single ORM entity maps to this composed view, so it returns the response
     schema directly instead of an ORM instance (unlike the other functions here).
     """
 
-    datasets = db.scalars(select(Dataset).order_by(Dataset.dataset_id))
+    # Subquery: datasets that have at least one version
+    ds_with_versions = (
+        select(DatasetVersionModel.dataset_id)
+        .group_by(DatasetVersionModel.dataset_id)
+        .subquery()
+    )
+
+    base_filter = Dataset.dataset_id.in_(select(ds_with_versions.c.dataset_id))
+
+    # Filter by latest version status
+    if status is not None:
+        latest_status = (
+            select(DatasetVersionModel.dataset_id)
+            .where(DatasetVersionModel.status == status)
+            .group_by(DatasetVersionModel.dataset_id)
+            .subquery()
+        )
+        base_filter = base_filter & Dataset.dataset_id.in_(
+            select(latest_status.c.dataset_id)
+        )
+
+    # Search by dataset_id substring
+    if search is not None:
+        base_filter = base_filter & Dataset.dataset_id.ilike(f"%{search}%")
+
+    # Count
+    total = db.scalar(select(func.count()).select_from(Dataset).where(base_filter))
+
+    datasets = db.scalars(
+        select(Dataset)
+        .where(base_filter)
+        .order_by(Dataset.dataset_id)
+        .limit(limit)
+        .offset(offset)
+    )
     return [
         DatasetSummary(
             dataset_id=dataset.dataset_id,
@@ -85,8 +127,7 @@ def list_datasets(db: Session) -> list[DatasetSummary]:
             status=dataset.versions[-1].status,
         )
         for dataset in datasets
-        if dataset.versions
-    ]
+    ], total
 
 
 def list_dataset_versions(db: Session, dataset_id: str) -> list[DatasetVersionModel]:

@@ -11,6 +11,26 @@ services:
     depends_on:
       - unsloth-studio
 
+  worker:
+    build: .
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    command: python -m app.worker
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,sys,time; p='data/worker.heartbeat'; sys.exit(0 if os.path.isfile(p) and time.time()-os.path.getmtime(p) < 10 else 1)"
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   unsloth-studio:
     image: unsloth/unsloth
     ports:

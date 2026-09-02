@@ -29,19 +29,25 @@ class ModelVersion(Base):
     __table_args__ = (UniqueConstraint("model_id", "version", name="uq_model_version"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    model_id: Mapped[str] = mapped_column(ForeignKey("models.model_id"))
+    model_id: Mapped[str] = mapped_column(ForeignKey("models.model_id"), index=True)
     version: Mapped[int] = mapped_column()
     status: Mapped[str] = mapped_column(String, default="REGISTERED")
 
-    training_run_id: Mapped[str] = mapped_column(ForeignKey("training_runs.training_run_id"))
+    training_run_id: Mapped[str] = mapped_column(
+        ForeignKey("training_runs.training_run_id"), index=True
+    )
     base_model: Mapped[str] = mapped_column(String)
     training_config: Mapped[dict] = mapped_column(JSON)
-    dataset_validation_report_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    dataset_validation_report_ref: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )
     artifacts: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
     eval_loss_trend: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     qualitative_comparison: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    general_domain_regression_check: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    general_domain_regression_check: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column()
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)

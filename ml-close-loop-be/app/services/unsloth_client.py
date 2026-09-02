@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
+import structlog
 
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
+
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = [1.0, 2.0, 4.0]
 
 _UNSLOTH_URL = settings.unsloth_studio_url
 _UNSLOTH_KEY = settings.unsloth_api_key
@@ -74,17 +81,14 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "load_in_4bit": config.get("load_in_4bit", False),
         "max_seq_length": config.get("max_seq_length", 2048),
         "trust_remote_code": config.get("trust_remote_code", False),
-
         # Dataset
         "hf_dataset": hf_dataset,
         "format_type": config.get("format_type", "chatml"),
         "train_split": config.get("train_split", "train"),
         "eval_split": config.get("eval_split"),
         "eval_steps": config.get("eval_steps", 0.0),
-
         # Training type
         "training_type": training_type,
-
         # Hyperparameters
         "num_epochs": config.get("epochs", 1),
         "learning_rate": lr_str,
@@ -100,7 +104,6 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "packing": config.get("packing", False),
         "optim": config.get("optim", "adamw_8bit"),
         "lr_scheduler_type": config.get("lr_scheduler_type", "linear"),
-
         # LoRA
         "use_lora": use_lora,
         "lora_r": config.get("lora_r", 16),
@@ -109,10 +112,70 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "target_modules": config.get("target_modules", []),
         "use_rslora": peft_method == "rslora",
         "use_loftq": config.get("use_loftq", False),
-
         # Gradient checkpointing
         "gradient_checkpointing": config.get("gradient_checkpointing", "unsloth"),
     }
+
+
+async def _request_with_retry(
+    method: str,
+    url: str,
+    *,
+    json: dict[str, Any] | None = None,
+    params: dict[str, str] | None = None,
+    context: str = "",
+) -> dict[str, Any]:
+    client = await _get_client()
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            resp = await client.request(
+                method, url, json=json, params=params, headers=_headers()
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code < 500:
+                body_preview = exc.response.text[:500] if exc.response else ""
+                logger.error(
+                    "unsloth_api_error",
+                    endpoint=url,
+                    status_code=exc.response.status_code,
+                    response_body=body_preview,
+                    context=context,
+                )
+                raise
+            last_exc = exc
+        except httpx.RequestError as exc:
+            last_exc = exc
+
+        if attempt < _MAX_RETRIES - 1:
+            delay = _RETRY_BACKOFF[attempt]
+            logger.warning(
+                "unsloth_api_retry",
+                endpoint=url,
+                attempt=attempt + 1,
+                delay=delay,
+                context=context,
+            )
+            await asyncio.sleep(delay)
+
+    body_preview = ""
+    if isinstance(last_exc, httpx.HTTPStatusError) and last_exc.response:
+        body_preview = last_exc.response.text[:500]
+    logger.error(
+        "unsloth_api_error",
+        endpoint=url,
+        status_code=(
+            last_exc.response.status_code
+            if isinstance(last_exc, httpx.HTTPStatusError)
+            else None
+        ),
+        response_body=body_preview,
+        context=context,
+        retries_exhausted=True,
+    )
+    raise last_exc  # type: ignore[misc]
 
 
 async def start_training(
@@ -120,37 +183,31 @@ async def start_training(
     base_model: str,
     training_config: dict[str, Any],
 ) -> dict[str, Any]:
-    client = await _get_client()
     payload = _map_training_config(training_config, base_model)
-    resp = await client.post(
+    return await _request_with_retry(
+        "POST",
         f"{_UNSLOTH_URL}/api/train/start",
         json=payload,
-        headers=_headers(),
+        context=training_run_id,
     )
-    resp.raise_for_status()
-    return resp.json()
 
 
 async def get_training_status(training_run_id: str) -> dict[str, Any]:
-    client = await _get_client()
-    resp = await client.get(
+    return await _request_with_retry(
+        "GET",
         f"{_UNSLOTH_URL}/api/train/status",
         params={"training_run_id": training_run_id},
-        headers=_headers(),
+        context=training_run_id,
     )
-    resp.raise_for_status()
-    return resp.json()
 
 
 async def stop_training(training_run_id: str) -> dict[str, Any]:
-    client = await _get_client()
-    resp = await client.post(
+    return await _request_with_retry(
+        "POST",
         f"{_UNSLOTH_URL}/api/train/stop",
         json={"training_run_id": training_run_id},
-        headers=_headers(),
+        context=training_run_id,
     )
-    resp.raise_for_status()
-    return resp.json()
 
 
 async def stream_progress(training_run_id: str):

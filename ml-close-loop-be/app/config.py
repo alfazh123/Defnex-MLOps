@@ -14,12 +14,28 @@ class Settings(BaseSettings):
     unsloth_studio_url: str = "http://localhost:8888"
     unsloth_api_key: str = ""
     unsloth_default_model: str = "unsloth/Qwen3-0.6B"
-    unsloth_models: str = "unsloth/Qwen3-0.6B,unsloth/Qwen3.8-27B,unsloth/Qwen2.5-7B-Instruct"
+    unsloth_models: str = (
+        "unsloth/Qwen3-0.6B,unsloth/Qwen3.8-27B,unsloth/Qwen2.5-7B-Instruct"
+    )
 
     # Auth (Phase 9)
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440
+    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_refresh_expire_minutes: int = 10080  # 7 days
+
+    # DB connection pool
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
+
+    # Request size limit
+    max_request_body_size: int = 1_048_576  # 1MB
+
+    # Logging
+    debug: bool = False
+    log_level: str = "INFO"
 
 
 settings = Settings()

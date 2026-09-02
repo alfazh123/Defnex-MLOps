@@ -22,7 +22,9 @@ class DatasetVersion(Base):
     """A single version of a dataset's manifest (dataset-lifecycle-and-schema.md §2)."""
 
     __tablename__ = "dataset_versions"
-    __table_args__ = (UniqueConstraint("dataset_id", "version", name="uq_dataset_version"),)
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "version", name="uq_dataset_version"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     dataset_id: Mapped[str] = mapped_column(ForeignKey("datasets.dataset_id"))
@@ -31,7 +33,9 @@ class DatasetVersion(Base):
 
     # DatasetManifest fields (openapi.yaml DatasetManifest / dataset-lifecycle-and-schema.md §2)
     source_url_or_hf_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    source_commit_or_snapshot_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_commit_or_snapshot_date: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )
     source_format: Mapped[str] = mapped_column(String)
     seed: Mapped[int | None] = mapped_column(nullable=True)
     row_count: Mapped[int | None] = mapped_column(nullable=True)
@@ -43,4 +47,6 @@ class DatasetVersion(Base):
     validation_reports: Mapped[list["ValidationReport"]] = relationship(
         back_populates="dataset_version"
     )
-    training_runs: Mapped[list["TrainingRun"]] = relationship(back_populates="dataset_version")
+    training_runs: Mapped[list["TrainingRun"]] = relationship(
+        back_populates="dataset_version"
+    )

@@ -22,7 +22,11 @@ class ValidateDatasetVersionRequest(BaseModel):
 def _get_dataset_version_or_404(db: Session, dataset_id: str, version: int):
     result = dataset_service.get_dataset_version(db, dataset_id, version)
     if result is None:
-        raise APIError(404, "DATASET_NOT_FOUND", f'dataset_id "{dataset_id}" version {version} not found')
+        raise APIError(
+            404,
+            "DATASET_NOT_FOUND",
+            f'dataset_id "{dataset_id}" version {version} not found',
+        )
     return result
 
 
@@ -42,7 +46,9 @@ def validate_dataset_version(
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     if dataset_version.status != "PROCESSED":
         raise APIError(
-            409, "VALIDATION_INCOMPLETE", "Dataset version has not completed processing yet."
+            409,
+            "VALIDATION_INCOMPLETE",
+            "Dataset version has not completed processing yet.",
         )
 
     kwargs = {}
@@ -52,7 +58,9 @@ def validate_dataset_version(
     # No intake/normalization pipeline persists actual record content anywhere in this
     # codebase yet (see validation_service module docstring + progress.txt US-005/US-006
     # notes) - `records` is an empty list until a future story adds that storage.
-    report = validation_service.validate_dataset_version(db, dataset_version, records=[], **kwargs)
+    report = validation_service.validate_dataset_version(
+        db, dataset_version, records=[], **kwargs
+    )
     return validation_service.to_schema(report)
 
 
@@ -62,7 +70,10 @@ def validate_dataset_version(
     responses={404: {"model": ErrorResponse}},
 )
 def list_validation_reports(
-    dataset_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    dataset_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> list[ValidationReport]:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     reports = validation_service.list_validation_reports(db, dataset_version)
@@ -75,7 +86,10 @@ def list_validation_reports(
     responses={404: {"model": ErrorResponse}},
 )
 def get_latest_validation_report(
-    dataset_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    dataset_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> ValidationReport:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
     report = validation_service.get_latest_validation_report(db, dataset_version)

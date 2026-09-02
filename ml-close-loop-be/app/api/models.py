@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_model_version_or_404
+from app.api.deps import (
+    FilterParams,
+    get_current_user,
+    get_filters,
+    get_model_version_or_404,
+)
 from app.api.errors import APIError
 from app.config import settings
 from app.db.session import get_db
@@ -11,7 +16,6 @@ from app.schemas.model import (
     EvaluationObject,
     EvaluationSubmitResponse,
     EvaluationUpdateRequest,
-    ModelLifecycleStatus,
     ModelRegistryRecord,
     ModelSummary,
 )
@@ -30,11 +34,11 @@ def list_available_models(_user: User = Depends(get_current_user)) -> dict:
 
 @router.get("/models", response_model=list[ModelSummary])
 def list_models(
-    status: ModelLifecycleStatus | None = None,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
+    fl: FilterParams = Depends(get_filters),
 ) -> list[ModelSummary]:
-    return model_service.list_models(db, status)
+    return model_service.list_models(db, status=fl.status, search=fl.search)
 
 
 @router.get(
@@ -43,7 +47,10 @@ def list_models(
     responses={404: {"model": ErrorResponse}},
 )
 def get_model_version(
-    model_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> ModelRegistryRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     return model_service.to_schema(model_version)
@@ -72,7 +79,8 @@ def submit_evaluation(
     model_service.submit_evaluation(db, model_version, request)
     db.commit()
     return EvaluationSubmitResponse(
-        evaluation=model_service.get_evaluation(model_version), status=model_version.status
+        evaluation=model_service.get_evaluation(model_version),
+        status=model_version.status,
     )
 
 
@@ -82,7 +90,10 @@ def submit_evaluation(
     responses={404: {"model": ErrorResponse}},
 )
 def get_evaluation(
-    model_id: str, version: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ) -> EvaluationObject:
     model_version = get_model_version_or_404(db, model_id, version)
     return model_service.get_evaluation(model_version)

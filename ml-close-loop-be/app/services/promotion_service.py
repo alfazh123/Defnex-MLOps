@@ -18,7 +18,9 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
-def create_decision(db: Session, model_version: ModelVersion, request: DecisionCreateRequest) -> PromotionDecision:
+def create_decision(
+    db: Session, model_version: ModelVersion, request: DecisionCreateRequest
+) -> PromotionDecision:
     """Record a human promotion/rejection decision and transition the model version
     EVALUATED -> PROMOTED|REJECTED (model-promotion-approval-workflow.md §2/§7/§8). Human-triggered
     only - no automatic promotion based on numeric thresholds (§10 Decision 1)."""
@@ -47,7 +49,9 @@ def create_decision(db: Session, model_version: ModelVersion, request: DecisionC
     return decision
 
 
-def rollback(db: Session, target: ModelVersion, request: RollbackRequest) -> PromotionDecision:
+def rollback(
+    db: Session, target: ModelVersion, request: RollbackRequest
+) -> PromotionDecision:
     """Roll back a model's deployed version to an earlier `target` (rollback-of-version)
     (model-promotion-approval-workflow.md §9), reusing the PromotionDecision record with
     decision=ROLLBACK and evidence_snapshot=None - a rollback responds to an observed production

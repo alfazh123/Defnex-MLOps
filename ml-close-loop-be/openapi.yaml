@@ -3,10 +3,10 @@ info:
   title: DEFNEX MLOps Backend
   version: 0.1.0
 paths:
-  /health:
+  /api/v1/health:
     get:
       summary: Health
-      operationId: health_health_get
+      operationId: health_api_v1_health_get
       responses:
         '200':
           description: Successful Response
@@ -15,13 +15,13 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Health Health Get
-  /auth/login:
+                title: Response Health Api V1 Health Get
+  /api/v1/auth/login:
     post:
       tags:
       - Auth
       summary: Login
-      operationId: login_auth_login_post
+      operationId: login_api_v1_auth_login_post
       requestBody:
         content:
           application/json:
@@ -41,12 +41,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /auth/register:
+        '429': &id002
+          description: Rate Limit Exceeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: RATE_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                        example: Too many requests
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Max requests in window
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Epoch second when window resets
+        '413': &id001
+          description: Request Entity Too Large
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: REQUEST_TOO_LARGE
+                      message:
+                        type: string
+                        example: Request body exceeds 1MB limit
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - Auth
+      summary: Refresh
+      operationId: refresh_api_v1_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '413': *id001
+  /api/v1/auth/register:
     post:
       tags:
       - Auth
       summary: Register
-      operationId: register_auth_register_post
+      operationId: register_api_v1_auth_register_post
       requestBody:
         content:
           application/json:
@@ -66,13 +137,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /users:
+        '429': *id002
+        '413': *id001
+  /api/v1/users:
     get:
       tags:
       - Users
       summary: List Users
-      operationId: list_users_users_get
+      operationId: list_users_api_v1_users_get
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
       - name: authorization
         in: header
         required: false
@@ -85,22 +175,19 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserResponse'
-                title: Response List Users Users Get
+                $ref: '#/components/schemas/PaginatedResponse_UserResponse_'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /users/{user_id}:
+  /api/v1/users/{user_id}:
     delete:
       tags:
       - Users
       summary: Delete User
-      operationId: delete_user_users__user_id__delete
+      operationId: delete_user_api_v1_users__user_id__delete
       parameters:
       - name: user_id
         in: path
@@ -123,13 +210,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets:
+  /api/v1/datasets:
     get:
       tags:
       - Datasets
       summary: List Datasets
-      operationId: list_datasets_datasets_get
+      operationId: list_datasets_api_v1_datasets_get
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: model
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
       - name: authorization
         in: header
         required: false
@@ -142,22 +270,19 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DatasetSummary'
-                title: Response List Datasets Datasets Get
+                $ref: '#/components/schemas/PaginatedResponse_DatasetSummary_'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets/{dataset_id}/versions:
+  /api/v1/datasets/{dataset_id}/versions:
     post:
       tags:
       - Datasets
       summary: Create Dataset Version
-      operationId: create_dataset_version_datasets__dataset_id__versions_post
+      operationId: create_dataset_version_api_v1_datasets__dataset_id__versions_post
       parameters:
       - name: dataset_id
         in: path
@@ -190,11 +315,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+        '413': *id001
     get:
       tags:
       - Datasets
       summary: List Dataset Versions
-      operationId: list_dataset_versions_datasets__dataset_id__versions_get
+      operationId: list_dataset_versions_api_v1_datasets__dataset_id__versions_get
       parameters:
       - name: dataset_id
         in: path
@@ -217,7 +343,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DatasetVersion'
-                title: Response List Dataset Versions Datasets  Dataset Id  Versions
+                title: Response List Dataset Versions Api V1 Datasets  Dataset Id  Versions
                   Get
         '404':
           content:
@@ -231,12 +357,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets/{dataset_id}/versions/{version}:
+  /api/v1/datasets/{dataset_id}/versions/{version}:
     get:
       tags:
       - Datasets
       summary: Get Dataset Version
-      operationId: get_dataset_version_datasets__dataset_id__versions__version__get
+      operationId: get_dataset_version_api_v1_datasets__dataset_id__versions__version__get
       parameters:
       - name: dataset_id
         in: path
@@ -275,12 +401,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets/{dataset_id}/versions/{version}/validate:
+  /api/v1/datasets/{dataset_id}/versions/{version}/validate:
     post:
       tags:
       - Validation
       summary: Validate Dataset Version
-      operationId: validate_dataset_version_datasets__dataset_id__versions__version__validate_post
+      operationId: validate_dataset_version_api_v1_datasets__dataset_id__versions__version__validate_post
       parameters:
       - name: dataset_id
         in: path
@@ -333,12 +459,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets/{dataset_id}/versions/{version}/validation-reports:
+        '413': *id001
+  /api/v1/datasets/{dataset_id}/versions/{version}/validation-reports:
     get:
       tags:
       - Validation
       summary: List Validation Reports
-      operationId: list_validation_reports_datasets__dataset_id__versions__version__validation_reports_get
+      operationId: list_validation_reports_api_v1_datasets__dataset_id__versions__version__validation_reports_get
       parameters:
       - name: dataset_id
         in: path
@@ -367,7 +494,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ValidationReport'
-                title: Response List Validation Reports Datasets  Dataset Id  Versions  Version  Validation
+                title: Response List Validation Reports Api V1 Datasets  Dataset Id  Versions  Version  Validation
                   Reports Get
         '404':
           content:
@@ -381,12 +508,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /datasets/{dataset_id}/versions/{version}/validation-reports/latest:
+  /api/v1/datasets/{dataset_id}/versions/{version}/validation-reports/latest:
     get:
       tags:
       - Validation
       summary: Get Latest Validation Report
-      operationId: get_latest_validation_report_datasets__dataset_id__versions__version__validation_reports_latest_get
+      operationId: get_latest_validation_report_api_v1_datasets__dataset_id__versions__version__validation_reports_latest_get
       parameters:
       - name: dataset_id
         in: path
@@ -425,12 +552,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /training-runs:
+  /api/v1/training-runs:
     post:
       tags:
       - Training
       summary: Create Training Run
-      operationId: create_training_run_training_runs_post
+      operationId: create_training_run_api_v1_training_runs_post
       parameters:
       - name: authorization
         in: header
@@ -463,12 +590,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+        '413': *id001
     get:
       tags:
       - Training
       summary: List Training Runs
-      operationId: list_training_runs_training_runs_get
+      operationId: list_training_runs_api_v1_training_runs_get
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: model
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
       - name: authorization
         in: header
         required: false
@@ -481,22 +650,19 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TrainingRun'
-                title: Response List Training Runs Training Runs Get
+                $ref: '#/components/schemas/PaginatedResponse_TrainingRun_'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /training-runs/{training_run_id}:
+  /api/v1/training-runs/{training_run_id}:
     get:
       tags:
       - Training
       summary: Get Training Run
-      operationId: get_training_run_training_runs__training_run_id__get
+      operationId: get_training_run_api_v1_training_runs__training_run_id__get
       parameters:
       - name: training_run_id
         in: path
@@ -529,12 +695,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /training-runs/{training_run_id}/progress:
+  /api/v1/training-runs/{training_run_id}/progress:
     get:
       tags:
       - Training
       summary: Get Training Run Progress
-      operationId: get_training_run_progress_training_runs__training_run_id__progress_get
+      operationId: get_training_run_progress_api_v1_training_runs__training_run_id__progress_get
       parameters:
       - name: training_run_id
         in: path
@@ -566,12 +732,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/available:
+  /api/v1/models/available:
     get:
       tags:
       - Models
       summary: List Available Models
-      operationId: list_available_models_models_available_get
+      operationId: list_available_models_api_v1_models_available_get
       parameters:
       - name: authorization
         in: header
@@ -587,35 +753,44 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-                title: Response List Available Models Models Available Get
+                title: Response List Available Models Api V1 Models Available Get
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models:
+  /api/v1/models:
     get:
       tags:
       - Models
       summary: List Models
-      operationId: list_models_models_get
+      operationId: list_models_api_v1_models_get
       parameters:
       - name: status
         in: query
         required: false
         schema:
           anyOf:
-          - enum:
-            - REGISTERED
-            - EVALUATED
-            - PROMOTED
-            - REJECTED
-            - DEPLOYED
-            - RETIRED
-            type: string
+          - type: string
           - type: 'null'
           title: Status
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: model
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
       - name: authorization
         in: header
         required: false
@@ -631,19 +806,19 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ModelSummary'
-                title: Response List Models Models Get
+                title: Response List Models Api V1 Models Get
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/versions/{version}:
+  /api/v1/models/{model_id}/versions/{version}:
     get:
       tags:
       - Models
       summary: Get Model Version
-      operationId: get_model_version_models__model_id__versions__version__get
+      operationId: get_model_version_api_v1_models__model_id__versions__version__get
       parameters:
       - name: model_id
         in: path
@@ -682,12 +857,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/versions/{version}/evaluation:
+  /api/v1/models/{model_id}/versions/{version}/evaluation:
     post:
       tags:
       - Models
       summary: Submit Evaluation
-      operationId: submit_evaluation_models__model_id__versions__version__evaluation_post
+      operationId: submit_evaluation_api_v1_models__model_id__versions__version__evaluation_post
       parameters:
       - name: model_id
         in: path
@@ -738,11 +913,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+        '413': *id001
     get:
       tags:
       - Models
       summary: Get Evaluation
-      operationId: get_evaluation_models__model_id__versions__version__evaluation_get
+      operationId: get_evaluation_api_v1_models__model_id__versions__version__evaluation_get
       parameters:
       - name: model_id
         in: path
@@ -781,12 +957,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/versions/{version}/decisions:
+  /api/v1/models/{model_id}/versions/{version}/decisions:
     post:
       tags:
       - Decisions
       summary: Create Decision
-      operationId: create_decision_models__model_id__versions__version__decisions_post
+      operationId: create_decision_api_v1_models__model_id__versions__version__decisions_post
       parameters:
       - name: model_id
         in: path
@@ -837,12 +1013,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/rollback:
+        '413': *id001
+  /api/v1/models/{model_id}/rollback:
     post:
       tags:
       - Decisions
       summary: Rollback Model
-      operationId: rollback_model_models__model_id__rollback_post
+      operationId: rollback_model_api_v1_models__model_id__rollback_post
       parameters:
       - name: model_id
         in: path
@@ -887,12 +1064,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/versions/{version}/deploy:
+        '413': *id001
+  /api/v1/models/{model_id}/versions/{version}/deploy:
     post:
       tags:
       - Deployment
       summary: Deploy Model Version
-      operationId: deploy_model_version_models__model_id__versions__version__deploy_post
+      operationId: deploy_model_version_api_v1_models__model_id__versions__version__deploy_post
       parameters:
       - name: model_id
         in: path
@@ -937,12 +1115,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /models/{model_id}/deployment:
+  /api/v1/models/{model_id}/deployment:
     get:
       tags:
       - Deployment
       summary: Get Deployment Status
-      operationId: get_deployment_status_models__model_id__deployment_get
+      operationId: get_deployment_status_api_v1_models__model_id__deployment_get
       parameters:
       - name: model_id
         in: path
@@ -1504,6 +1682,87 @@ components:
       - status
       title: ModelSummary
       description: Lightweight list-view entry for GET /models (openapi.yaml ModelSummary).
+    PaginatedResponse_DatasetSummary_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/DatasetSummary'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[DatasetSummary]
+    PaginatedResponse_TrainingRun_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/TrainingRun'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[TrainingRun]
+    PaginatedResponse_UserResponse_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/UserResponse'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[UserResponse]
     QualitativeComparison:
       properties:
         question_table_version:
@@ -1529,6 +1788,15 @@ components:
       - ties
       - total
       title: QualitativeComparison
+    RefreshRequest:
+      properties:
+        refresh_token:
+          type: string
+          title: Refresh Token
+      type: object
+      required:
+      - refresh_token
+      title: RefreshRequest
     RollbackRequest:
       properties:
         rollback_of_version:
@@ -1554,6 +1822,9 @@ components:
         access_token:
           type: string
           title: Access Token
+        refresh_token:
+          type: string
+          title: Refresh Token
         token_type:
           type: string
           title: Token Type
@@ -1563,6 +1834,7 @@ components:
       type: object
       required:
       - access_token
+      - refresh_token
       - user
       title: TokenResponse
     TrainingConfig:

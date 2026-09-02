@@ -1,0 +1,10 @@
+instruction,input,output,style
+Jelaskan konsep LoRA,,"LoRA (Low-Rank Adaptation) adalah metode parameter-efficient fine-tuning yang menyematkan matriks rank-rendah ke dalam layer transformer, memungkinkan fine-tuning dengan GPU minimum.",formal
+Apa itu SFT?,dalam konteks machine learning,Supervised Fine-Tuning (SFT) adalah proses melatih model bahasa besar menggunakan data berlabel (instruction-response pairs) untuk mengarahkan model agar menghasilkan output yang sesuai ekspektasi.,formal
+Buatkan kode Python untuk membaca file CSV,,"import csv
+
+with open('data.csv', 'r') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        print(row)",code
+Apa perbedaan SFT dan RAG?,untuk chatbot customer service,"SFT melatih model dengan data berlabel agar mengikuti format respons tertentu, sedangkan RAG mengambil dokumen relevan dari basis pengetahuan untuk menjawab pertanyaan tanpa melatih ulang model.",formal

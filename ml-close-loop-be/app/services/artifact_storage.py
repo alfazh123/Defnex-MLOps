@@ -18,7 +18,9 @@ class LocalFilesystemArtifactStorage:
     """
 
     def __init__(self, base_dir: Path | None = None):
-        self._base_dir = base_dir or Path(tempfile.gettempdir()) / "defnex-mock-artifacts"
+        self._base_dir = (
+            base_dir or Path(tempfile.gettempdir()) / "defnex-mock-artifacts"
+        )
 
     def store(self, key: str, content: str) -> str:
         self._base_dir.mkdir(parents=True, exist_ok=True)

@@ -17,7 +17,9 @@ class PromotionDecision(Base):
     __tablename__ = "promotion_decisions"
 
     decision_id: Mapped[str] = mapped_column(String, primary_key=True)
-    model_version_id: Mapped[int] = mapped_column(ForeignKey("model_versions.id"))
+    model_version_id: Mapped[int] = mapped_column(
+        ForeignKey("model_versions.id"), index=True
+    )
     decision: Mapped[str] = mapped_column(String)
     decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
     decided_at: Mapped[datetime] = mapped_column()
@@ -25,4 +27,6 @@ class PromotionDecision(Base):
     rationale: Mapped[str] = mapped_column(String)
     rollback_of_version: Mapped[int | None] = mapped_column(nullable=True)
 
-    model_version: Mapped["ModelVersion"] = relationship(back_populates="promotion_decisions")
+    model_version: Mapped["ModelVersion"] = relationship(
+        back_populates="promotion_decisions"
+    )

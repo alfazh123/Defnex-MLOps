@@ -1,7 +1,12 @@
 import pytest
 
 from app.schemas.dataset import DatasetVersionCreateRequest
-from app.schemas.model import EvalLossTrend, EvaluationUpdateRequest, GeneralDomainRegressionCheck, QualitativeComparison
+from app.schemas.model import (
+    EvalLossTrend,
+    EvaluationUpdateRequest,
+    GeneralDomainRegressionCheck,
+    QualitativeComparison,
+)
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
 from app.services import dataset_service, model_service, training_service
 
@@ -29,7 +34,9 @@ def _completed_training_run(db_session, **overrides):
         db_session, dataset_version, TrainingRunCreateRequest(**defaults)
     )
     training_service.start_training_run(db_session, training_run)
-    training_service.complete_training_run(db_session, training_run, artifact_uri="file:///tmp/adapter")
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/adapter"
+    )
     return training_run
 
 
@@ -44,7 +51,9 @@ def test_register_model_version_from_completed_run(db_session):
     assert model_version.training_run_id == training_run.training_run_id
     assert model_version.base_model == "Qwen/Qwen3.8-27B"
     assert model_version.training_config["peft_method"] == "lora"
-    assert model_version.artifacts == [{"type": "adapter", "uri": "file:///tmp/adapter"}]
+    assert model_version.artifacts == [
+        {"type": "adapter", "uri": "file:///tmp/adapter"}
+    ]
 
 
 def test_register_model_version_increments_version_per_model_id(db_session):
@@ -91,7 +100,9 @@ def test_submit_evaluation_partial_stays_registered(db_session):
     model_service.submit_evaluation(
         db_session,
         model_version,
-        EvaluationUpdateRequest(eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)),
+        EvaluationUpdateRequest(
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)
+        ),
     )
 
     assert model_version.status == "REGISTERED"
@@ -108,7 +119,9 @@ def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
     model_service.submit_evaluation(
         db_session,
         model_version,
-        EvaluationUpdateRequest(eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)),
+        EvaluationUpdateRequest(
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)
+        ),
     )
     model_service.submit_evaluation(
         db_session,
@@ -125,7 +138,9 @@ def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
         db_session,
         model_version,
         EvaluationUpdateRequest(
-            general_domain_regression_check=GeneralDomainRegressionCheck(checked=True, regressions_found=[])
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            )
         ),
     )
 
@@ -134,3 +149,24 @@ def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
     assert evaluation.eval_loss_trend.this_version_eval_loss == 0.84
     assert evaluation.qualitative_comparison.wins == 13
     assert evaluation.general_domain_regression_check.checked is True
+
+
+def test_list_models_has_no_n_plus_1(count_queries):
+    with count_queries() as (session, counters):
+        for idx in range(10):
+            run = _completed_training_run(session, model_id=f"model-{idx}")
+            model_service.register_model_version(session, run)
+        session.commit()
+        counters["n"] = 0
+        model_service.list_models(session)
+        count_10 = counters["n"]
+
+    with count_queries() as (session, counters):
+        run = _completed_training_run(session, model_id="model-0")
+        model_service.register_model_version(session, run)
+        session.commit()
+        counters["n"] = 0
+        model_service.list_models(session)
+        count_1 = counters["n"]
+
+    assert count_10 - count_1 < 9

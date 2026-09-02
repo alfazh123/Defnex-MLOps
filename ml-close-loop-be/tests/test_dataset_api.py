@@ -103,3 +103,66 @@ def test_get_dataset_version_returns_manifest(client, admin_token):
     body = response.json()
     assert body["version"] == 1
     assert body["manifest"]["source_url_or_hf_id"] == "HuggingFaceH4/no_robots"
+
+
+def test_create_dataset_version_invalid_source_type_returns_422(client, admin_token):
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions",
+        json={
+            "source_type": "s3",
+            "source_dataset": "bucket/data",
+            "source_format": "chatml",
+        },
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_dataset_version_missing_required_field_returns_422(client, admin_token):
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions",
+        json={
+            "source_type": "huggingface",
+            "source_dataset": "HuggingFaceH4/no_robots",
+        },
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 422
+
+
+def test_get_dataset_version_returns_correct_manifest(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+
+    response = client.get("/api/v1/datasets/no_robots/versions/1", headers=h)
+
+    assert response.status_code == 200
+    manifest = response.json()["manifest"]
+    assert manifest["source_url_or_hf_id"] == "HuggingFaceH4/no_robots"
+    assert manifest["source_commit_or_snapshot_date"] == "2026-08-01"
+    assert manifest["source_format"] == "chatml"
+    assert manifest["cleaning_steps_applied"] == []
+    assert manifest["created_at"] is not None
+
+
+def test_list_dataset_versions_empty_after_delete(client, admin_token):
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    from app.models.dataset import DatasetVersion
+
+    h = auth_header(admin_token)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(DatasetVersion.dataset_id == "no_robots")
+        )
+        session.delete(row)
+        session.commit()
+
+    response = client.get("/api/v1/datasets/no_robots/versions", headers=h)
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "DATASET_NOT_FOUND"

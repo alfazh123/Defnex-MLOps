@@ -226,3 +226,10 @@ def test_submit_evaluation_returns_409_once_promoted(client, admin_token):
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "EVALUATION_NOT_EDITABLE"
+
+
+def test_list_models_empty(client, admin_token):
+    response = client.get("/api/v1/models", headers=auth_header(admin_token))
+
+    assert response.status_code == 200
+    assert response.json() == []

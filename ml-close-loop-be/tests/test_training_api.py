@@ -94,3 +94,93 @@ def test_get_training_run_returns_created_run(client, admin_token):
 
     assert response.status_code == 200
     assert response.json() == created
+
+
+def _create_runs(client, admin_token, count):
+    from unittest.mock import AsyncMock, patch
+
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    for _ in range(count):
+        with patch(
+            "app.api.training.unsloth_client.start_training",
+            new=AsyncMock(side_effect=ConnectionError("unreachable")),
+        ):
+            client.post(
+                "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+            )
+
+
+def test_create_training_run_permissive_model_id(client, admin_token):
+    # Gap: TrainingRunCreateRequest.model_id is an unvalidated str, so any format registers.
+    from unittest.mock import AsyncMock, patch
+
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    request = dict(TRAINING_RUN_CREATE_REQUEST)
+    request["model_id"] = "bad model!@#/with spaces"
+
+    with patch(
+        "app.api.training.unsloth_client.start_training",
+        new=AsyncMock(side_effect=ConnectionError("unreachable")),
+    ):
+        response = client.post("/api/v1/training-runs", json=request, headers=h)
+
+    assert response.status_code == 201
+    assert response.json()["model_id"] == "bad model!@#/with spaces"
+
+
+def test_create_training_run_returns_correct_status_field(client, admin_token):
+    from unittest.mock import AsyncMock, patch
+
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    with patch(
+        "app.api.training.unsloth_client.start_training",
+        new=AsyncMock(side_effect=ConnectionError("unreachable")),
+    ):
+        created = client.post(
+            "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        ).json()
+
+    fetched = client.get(
+        f"/api/v1/training-runs/{created['training_run_id']}", headers=h
+    )
+
+    assert fetched.status_code == 200
+    assert fetched.json()["status"] == "PENDING"
+    assert fetched.json()["current_epoch"] is None
+
+
+def test_list_training_runs_empty(client, admin_token):
+    response = client.get("/api/v1/training-runs", headers=auth_header(admin_token))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+
+
+def test_list_training_runs_paginated_response_shape(client, admin_token):
+    _create_runs(client, admin_token, count=2)
+
+    response = client.get(
+        "/api/v1/training-runs",
+        params={"page": 1, "size": 1},
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {"items", "total", "page", "size", "pages"}
+    assert len(body["items"]) == 1
+    assert body["total"] == 2
+    assert body["page"] == 1
+    assert body["size"] == 1
+    assert body["pages"] == 2

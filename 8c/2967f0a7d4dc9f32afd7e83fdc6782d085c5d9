@@ -1,0 +1,45 @@
+ml-close-loop-be/pyproject.toml
+  s_d585ce9a4f1441::t_78da3d41dcf65a 22
+  s_51434c0e767103::t_ec52ae59be058d 25-29
+  s_d585ce9a4f1441::t_522880692ecd41 40
+ml-close-loop-be/scripts/generate_templates.py
+  s_51434c0e767103::t_bd9986a83fd216 1-55,59-65,69-107
+  s_843899d6819648::t_47fd6d82d42105 56-58,66-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8c2967f0a7d4dc9f32afd7e83fdc6782d085c5d9",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_51434c0e767103": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa407f5a3ffePMmw575va7i72h",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_843899d6819648": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3bf172effeGsUQLsHVyggj9K",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_d585ce9a4f1441": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa04691f7ffe1e3Q7GWBbInZOu",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -157,3 +157,38 @@ def test_to_schema_derives_dataset_id_and_version(db_session):
     assert schema.dataset_id == "no_robots"
     assert schema.dataset_version == 1
     assert schema.status_counts.VALID == 1
+
+
+def test_empty_records_pass_gate(db_session):
+    version = _make_version(db_session)
+
+    report = validation_service.validate_dataset_version(db_session, version, [])
+
+    assert report.record_count == 0
+    assert report.status_counts == {"VALID": 0, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert report.gate_decision == "PASS"
+
+
+def test_validate_with_custom_rule_set_version(db_session):
+    version = _make_version(db_session)
+
+    report = validation_service.validate_dataset_version(
+        db_session, version, [_record("r1")], rule_set_version="9.9.9"
+    )
+
+    assert report.rule_set_version == "9.9.9"
+
+
+def test_multiple_validations_produce_separate_reports(db_session):
+    version = _make_version(db_session)
+    first = validation_service.validate_dataset_version(
+        db_session, version, [_record("r1")]
+    )
+    second = validation_service.validate_dataset_version(
+        db_session, version, [_record("r2")]
+    )
+
+    reports = validation_service.list_validation_reports(db_session, version)
+
+    assert len(reports) == 2
+    assert {r.id for r in reports} == {first.id, second.id}

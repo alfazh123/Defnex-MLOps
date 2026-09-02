@@ -76,3 +76,37 @@ def test_process_next_job_picks_oldest_pending_first(db_session):
     processed = process_next_job(db_session, _StubRunner(artifact_uri="uri"))
 
     assert processed.training_run_id == first.training_run_id
+
+
+def test_process_next_job_with_runner_error_sets_failed_status(db_session):
+    _queued_training_run(db_session)
+
+    processed = process_next_job(
+        db_session, _StubRunner(error=RuntimeError("cuda oom"))
+    )
+
+    assert processed.status == "FAILED"
+
+
+def test_process_next_job_with_runner_error_records_message(db_session):
+    _queued_training_run(db_session)
+
+    processed = process_next_job(
+        db_session, _StubRunner(error=RuntimeError("cuda oom"))
+    )
+
+    assert processed.status == "FAILED"
+    assert processed.error_message == "cuda oom"
+
+
+def test_process_next_job_registers_model_version_on_success(db_session):
+    training_run = _queued_training_run(db_session)
+
+    process_next_job(db_session, _StubRunner(artifact_uri="file:///tmp/adapter"))
+
+    from app.services import model_service
+
+    model_version = model_service.get_model_version(db_session, "qwen-sft-domain-x", 1)
+    assert model_version is not None
+    assert model_version.status == "REGISTERED"
+    assert model_version.training_run_id == training_run.training_run_id

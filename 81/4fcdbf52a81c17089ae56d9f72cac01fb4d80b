@@ -1,0 +1,28 @@
+.gitignore
+  s_0ea268f751ae32::t_430d55061358d8 13-15
+.github/workflows/ci.yml
+  s_0ea268f751ae32::t_75a0bc25a0d6c2 1-42
+ml-close-loop-be/tests/conftest.py
+  s_0ea268f751ae32::t_7727a89bc618c0 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "814fcdbf52a81c17089ae56d9f72cac01fb4d80b",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_0ea268f751ae32": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad545e51ffeYgimMulczyet1P",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

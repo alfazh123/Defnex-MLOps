@@ -1,0 +1,36 @@
+ml-close-loop-be/tests/test_promotion_service.py
+  s_afd8573fb91b60::t_5bc3da64554a45 202-247
+ml-close-loop-be/tests/test_contract.py
+  s_afd8573fb91b60::t_a50a86f2d045b1 104-107
+  s_afd8573fb91b60::t_58e8327d327d00 1-103,108-361
+  s_afd8573fb91b60::t_086f5676b611d0 362-364
+ml-close-loop-be/tests/test_training_worker.py
+  s_afd8573fb91b60::t_52921e009501dc 79-112
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_afd8573fb91b60::t_b1929deddde208 361-363
+  s_afd8573fb91b60::t_c5869c13193a13 369-370,372-379,389-390,392
+  s_afd8573fb91b60::t_4a3a36cf7c74bb 318-360,364-368,371,380-388,391,393-447
+  s_afd8573fb91b60::t_37ded126a2efc6 68,103-105
+  s_afd8573fb91b60::t_b1fb674033e7f4 448-449
+ml-close-loop-be/tests/test_deployment_service.py
+  s_afd8573fb91b60::t_599f18a5f18f3b 170-182,184-230
+  s_afd8573fb91b60::t_c125841c6a7fdc 183
+ml-close-loop-be/tests/test_validation_service.py
+  s_afd8573fb91b60::t_dc0645001b986b 160-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6e9ecd76c3379a3be12c38df35a1f96ba18cc95d",
+  "prompts": {},
+  "sessions": {
+    "s_afd8573fb91b60": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9f43490effeUFiYuiMdl0fVC3",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

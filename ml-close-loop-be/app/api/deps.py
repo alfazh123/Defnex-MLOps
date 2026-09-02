@@ -76,7 +76,7 @@ def get_current_user(
         raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")
 
     user_id = payload.get("sub")
-    if user_id is None:
+    if user_id is None or not str(user_id).isdigit():
         raise APIError(401, "INVALID_TOKEN", "Token payload is invalid")
 
     user = auth_service.get_user_by_id(db, int(user_id))

@@ -1,0 +1,28 @@
+ml-close-loop-be/app/api/deps.py
+  s_4c4f773e7f49bf::t_5386b112c8a743 79
+ml-close-loop-be/tests/test_security.py
+  s_4c4f773e7f49bf::t_1da87bacb38ecb 1-105,124-127,130-132,134-137,140-142,144-147,150-151,153-156,159-161,163-166,170-388
+  s_4c4f773e7f49bf::t_ddb134e169d98b 106-123,128-129,133,138-139,143,148-149,152,157-158,162,167-169
+  s_4c4f773e7f49bf::t_d3f2493019af69 389-391
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7b516324479d842c5657f6b5c488c9d16bb899a5",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4c4f773e7f49bf": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9f43681dffepwwQrokASNxatj",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

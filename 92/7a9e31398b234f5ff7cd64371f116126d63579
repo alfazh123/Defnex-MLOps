@@ -1,0 +1,26 @@
+README.md
+  s_0ea268f751ae32::t_ec1a1e7e60996e 1-139
+ml-close-loop-be/README.md
+  s_0ea268f751ae32::t_16e2bfc4bfe266 3,5,7-8,10-25,30,33-40,49-58,61,64-72,78,81-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "927a9e31398b234f5ff7cd64371f116126d63579",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_0ea268f751ae32": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fad545e51ffeYgimMulczyet1P",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,5 +1,7 @@
 # DEFNEX MLOps Backend
 
+![CI](https://github.com/alfazh123/Defnex-MLOps/actions/workflows/ci.yml/badge.svg)
+
 FastAPI backend orchestrating the closed-loop MLOps pipeline:
 
 **Dataset → Validation → Training → Evaluation → Model Registry → Promotion → Deployment**

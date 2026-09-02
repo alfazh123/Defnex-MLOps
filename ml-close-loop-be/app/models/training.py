@@ -12,7 +12,9 @@ class TrainingRun(Base):
     __tablename__ = "training_runs"
 
     training_run_id: Mapped[str] = mapped_column(String, primary_key=True)
-    dataset_version_id: Mapped[int] = mapped_column(ForeignKey("dataset_versions.id"))
+    dataset_version_id: Mapped[int] = mapped_column(
+        ForeignKey("dataset_versions.id"), index=True
+    )
     model_id: Mapped[str] = mapped_column(String)
     base_model: Mapped[str] = mapped_column(String)
     training_config: Mapped[dict] = mapped_column(JSON)

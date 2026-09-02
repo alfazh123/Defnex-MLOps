@@ -17,7 +17,9 @@ class PromotionDecision(Base):
     __tablename__ = "promotion_decisions"
 
     decision_id: Mapped[str] = mapped_column(String, primary_key=True)
-    model_version_id: Mapped[int] = mapped_column(ForeignKey("model_versions.id"))
+    model_version_id: Mapped[int] = mapped_column(
+        ForeignKey("model_versions.id"), index=True
+    )
     decision: Mapped[str] = mapped_column(String)
     decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
     decided_at: Mapped[datetime] = mapped_column()

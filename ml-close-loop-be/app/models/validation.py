@@ -16,7 +16,9 @@ class ValidationReport(Base):
     __tablename__ = "validation_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    dataset_version_id: Mapped[int] = mapped_column(ForeignKey("dataset_versions.id"))
+    dataset_version_id: Mapped[int] = mapped_column(
+        ForeignKey("dataset_versions.id"), index=True
+    )
     rule_set_version: Mapped[str] = mapped_column(String)
     run_at: Mapped[datetime] = mapped_column()
     record_count: Mapped[int] = mapped_column()

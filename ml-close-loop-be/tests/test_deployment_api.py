@@ -221,3 +221,13 @@ def test_rollback_moves_the_deployment_pointer_back(client, admin_token):
         ]
         == v1
     )
+
+
+def test_deploy_requires_admin_role(client, admin_token, user_token):
+    response = client.post(
+        "/api/v1/models/no-such-model/versions/1/deploy",
+        headers=auth_header(user_token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"

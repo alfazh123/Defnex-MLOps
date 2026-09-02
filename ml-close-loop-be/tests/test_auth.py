@@ -249,3 +249,64 @@ def test_refresh_with_nonexistent_user_returns_401(client):
 
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": token})
     assert resp.status_code == 401
+
+
+def test_register_with_special_characters_in_password(client):
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"username": "spec", "password": "P@ss!#$%^&*1"},
+    )
+    assert resp.status_code == 201
+
+
+def test_login_returns_token_with_correct_user_fields(client):
+    from jose import jwt
+
+    from app.config import settings
+
+    client.post(
+        "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
+    )
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    payload = jwt.decode(
+        login_resp.json()["access_token"],
+        settings.jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+    )
+    assert payload["sub"] == str(login_resp.json()["user"]["id"])
+    assert payload["role"] == "admin"
+
+
+def test_access_token_expired_returns_401(client):
+    from datetime import datetime, timedelta, timezone
+
+    from jose import jwt
+
+    from app.config import settings
+
+    expired = jwt.encode(
+        {
+            "sub": "1",
+            "role": "user",
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
+            "type": "access",
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+    resp = client.get(
+        "/api/v1/datasets", headers={"Authorization": f"Bearer {expired}"}
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+def test_register_empty_username_accepted(client):
+    # Gap: UserCreate validates passwords but not usernames, so "" registers fine.
+    resp = client.post(
+        "/api/v1/auth/register", json={"username": "", "password": "Pass1234"}
+    )
+    assert resp.status_code == 201
+    assert resp.json()["username"] == ""

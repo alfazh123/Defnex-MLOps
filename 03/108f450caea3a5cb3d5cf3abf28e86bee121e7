@@ -1,0 +1,14 @@
+README.md
+  h_20649baae43f97 11,17,25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "03108f450caea3a5cb3d5cf3abf28e86bee121e7",
+  "prompts": {},
+  "humans": {
+    "h_20649baae43f97": {
+      "author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

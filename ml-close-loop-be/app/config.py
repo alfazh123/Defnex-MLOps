@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
     jwt_refresh_expire_minutes: int = 10080  # 7 days
-    jwt_refresh_expire_minutes: int = 10080  # 7 days
+
+    # DB connection pool
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
 
     # Request size limit
     max_request_body_size: int = 1_048_576  # 1MB

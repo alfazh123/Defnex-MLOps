@@ -7,9 +7,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./data:/app/data
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    depends_on:
-      - unsloth-studio
+    command: ./docker-entrypoint.sh
 
   worker:
     build: .
@@ -17,31 +15,22 @@ services:
     volumes:
       - ./app:/app/app
       - ./data:/app/data
-    command: python -m app.worker
+    command: ./docker-worker-entrypoint.sh
     depends_on:
       - backend
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import os,sys,time; p='data/worker.heartbeat'; sys.exit(0 if os.path.isfile(p) and time.time()-os.path.getmtime(p) < 10 else 1)"
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
 
-  unsloth-studio:
-    image: unsloth/unsloth
-    ports:
-      - "8888:8888"
-    env_file: .env
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    volumes:
-      - ./data:/data
+  # Optional: only start when GPU is available
+  # unsloth-studio:
+  #   image: unsloth/unsloth
+  #   ports:
+  #     - "8888:8888"
+  #   env_file: .env
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   volumes:
+  #     - ./data:/data

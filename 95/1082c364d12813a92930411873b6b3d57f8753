@@ -1,0 +1,39 @@
+ml-close-loop-be/.env.example
+  s_51434c0e767103::t_033d1f1069a083 41-44
+ml-close-loop-be/tests/test_dataset_api.py
+  s_51434c0e767103::t_c1940aa76b8d5a 53
+  s_51434c0e767103::t_15aa44900526d9 30
+ml-close-loop-be/app/config.py
+  s_51434c0e767103::t_5a2f475a3b988c 33-35
+ml-close-loop-be/tests/test_filtering.py
+  s_51434c0e767103::t_6641ff6eaf41fb 51,56
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_51434c0e767103::t_114a88bd7f38b6 6,10-12
+  s_51434c0e767103::t_8021837e404b42 56
+ml-close-loop-be/tests/test_dataset_service.py
+  s_51434c0e767103::t_71e989f49b9c23 29
+  s_51434c0e767103::t_aa866b5b4b41fc 79
+ml-close-loop-be/app/main.py
+  s_51434c0e767103::t_1dfcf355146f90 45
+ml-close-loop-be/app/services/dataset_service.py
+  s_51434c0e767103::t_43135953f22940 47
+  s_51434c0e767103::t_0e09af5baa860c 31-32
+ml-close-loop-be/tests/test_contract.py
+  s_51434c0e767103::t_a56dab0cdbec5b 177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "951082c364d12813a92930411873b6b3d57f8753",
+  "prompts": {},
+  "sessions": {
+    "s_51434c0e767103": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa407f5a3ffePMmw575va7i72h",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

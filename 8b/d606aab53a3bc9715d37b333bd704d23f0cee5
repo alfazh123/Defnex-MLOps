@@ -1,0 +1,27 @@
+ml-close-loop-be/docker-entrypoint.sh
+  s_51434c0e767103::t_2e8ba3b7251d48 1-8
+ml-close-loop-be/Dockerfile
+  s_51434c0e767103::t_ad7a6d52224666 9,11-14,18
+ml-close-loop-be/docker-compose.yml
+  s_51434c0e767103::t_57d36e67213aee 10,18,22-36
+ml-close-loop-be/pyproject.toml
+  s_51434c0e767103::t_35605dde5cd226 17
+ml-close-loop-be/docker-worker-entrypoint.sh
+  s_51434c0e767103::t_9873f7af2718ab 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8bd606aab53a3bc9715d37b333bd704d23f0cee5",
+  "prompts": {},
+  "sessions": {
+    "s_51434c0e767103": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa407f5a3ffePMmw575va7i72h",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

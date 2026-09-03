@@ -174,7 +174,7 @@ def test_create_dataset_returns_201_with_dataset_version_shape(client, admin_tok
     assert set(data) == {"dataset_id", "version", "status", "manifest"}
     assert data["dataset_id"] == "no_robots"
     assert isinstance(data["version"], int)
-    assert data["status"] == "PROCESSING"
+    assert data["status"] == "PROCESSED"
     assert isinstance(data["manifest"]["created_at"], str)
     assert data["manifest"]["source_format"] == "chatml"
 

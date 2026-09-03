@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     db_pool_timeout: int = 30
     db_pool_recycle: int = 1800
 
+    # CORS origins (comma-separated)
+    cors_origins: str = "http://localhost:3000,http://localhost:8888,http://localhost:5173"
+
     # Request size limit
     max_request_body_size: int = 1_048_576  # 1MB
 

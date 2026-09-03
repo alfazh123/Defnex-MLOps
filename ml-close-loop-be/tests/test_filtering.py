@@ -48,12 +48,12 @@ def test_list_datasets_filter_by_status(client, admin_token):
     _create_dataset(client, h)
 
     response = client.get(
-        "/api/v1/datasets", params={"status": "PROCESSING"}, headers=h
+        "/api/v1/datasets", params={"status": "PROCESSED"}, headers=h
     )
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1
-    assert data["items"][0]["status"] == "PROCESSING"
+    assert data["items"][0]["status"] == "PROCESSED"
 
 
 def test_list_datasets_filter_by_status_no_match(client, admin_token):

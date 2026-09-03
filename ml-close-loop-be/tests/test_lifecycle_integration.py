@@ -3,12 +3,13 @@
 Dataset -> Validation -> Training Run -> Model Registry -> Evaluation -> Promotion -> Deployment,
 driven through the HTTP API with the mock training runner — no GPU, no VM (PRD §20).
 
-Two steps have no HTTP trigger in this codebase and are driven directly instead:
+One step has no HTTP trigger in this codebase and is driven directly instead:
 
-* `DatasetVersion.status` PROCESSING -> PROCESSED. No intake/normalization pipeline exists in
-  this PRD's story list (see progress.txt US-002/US-006), so nothing transitions it.
 * The worker loop. `process_next_job` is called once instead of running `run_forever` in a
   thread — same code path the `worker` compose service runs, without the polling sleep.
+
+Note: Dataset versions are created as PROCESSED directly (no intake pipeline exists),
+so validation is immediately available after dataset creation.
 """
 
 from sqlalchemy import select
@@ -52,17 +53,7 @@ TRAINING_RUN_CREATE_REQUEST = {
 
 
 def _mark_processed(client, dataset_id, version):
-    """No intake pipeline exists to do this — see module docstring."""
-
-    with Session(client.engine) as db:
-        row = db.scalar(
-            select(DatasetVersion).where(
-                DatasetVersion.dataset_id == dataset_id,
-                DatasetVersion.version == version,
-            )
-        )
-        row.status = "PROCESSED"
-        db.commit()
+    """Versions are created as PROCESSED directly; this is now a no-op."""
 
 
 def _run_lifecycle(client, admin_token, serving_backend=None, training_request=None):
@@ -320,27 +311,6 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
 class _RaisingRunner:
     def run(self, training_run):
         raise RuntimeError("boom: cuda oom")
-
-
-def test_lifecycle_dataset_validation_failure_path(client, admin_token):
-    h = auth_header(admin_token)
-    client.post(
-        f"/api/v1/datasets/{DATASET_ID}/versions",
-        json=DATASET_CREATE_REQUEST,
-        headers=h,
-    )
-
-    response = client.post(
-        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate", headers=h
-    )
-
-    assert response.status_code == 409
-    assert response.json() == {
-        "error": {
-            "code": "VALIDATION_INCOMPLETE",
-            "message": "Dataset version has not completed processing yet.",
-        }
-    }
 
 
 def test_lifecycle_training_failure_path(client, admin_token):

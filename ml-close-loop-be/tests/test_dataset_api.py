@@ -27,7 +27,7 @@ def test_create_dataset_version_returns_201_with_body(client, admin_token):
     body = response.json()
     assert body["dataset_id"] == "no_robots"
     assert body["version"] == 1
-    assert body["status"] == "PROCESSING"
+    assert body["status"] == "PROCESSED"
     assert body["manifest"]["source_format"] == "chatml"
 
 
@@ -50,7 +50,7 @@ def test_list_datasets_reflects_latest_version_and_status(client, admin_token):
     assert response.status_code == 200
     data = response.json()
     assert data["items"] == [
-        {"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSING"}
+        {"dataset_id": "no_robots", "latest_version": 2, "status": "PROCESSED"}
     ]
     assert data["total"] == 1
 

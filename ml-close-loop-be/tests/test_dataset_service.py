@@ -26,7 +26,7 @@ def test_create_dataset_version_registers_dataset_and_starts_at_1(db_session):
 
     assert version.dataset_id == "no_robots"
     assert version.version == 1
-    assert version.status == "PROCESSING"
+    assert version.status == "PROCESSED"
     assert version.source_url_or_hf_id == "HuggingFaceH4/no_robots"
     assert version.row_count is None
     assert version.cleaning_steps_applied == []
@@ -76,6 +76,6 @@ def test_to_schema_composes_nested_manifest(db_session):
 
     assert schema.dataset_id == "no_robots"
     assert schema.version == 1
-    assert schema.status == "PROCESSING"
+    assert schema.status == "PROCESSED"
     assert schema.manifest.source_url_or_hf_id == "HuggingFaceH4/no_robots"
     assert schema.manifest.source_format == "chatml"

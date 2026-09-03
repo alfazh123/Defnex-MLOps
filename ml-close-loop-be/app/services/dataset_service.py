@@ -28,9 +28,8 @@ def create_dataset_version(
 ) -> DatasetVersionModel:
     """Create the next version for `dataset_id`, registering the dataset if needed.
 
-    No intake/normalization pipeline exists yet (not in scope for this story), so the
-    manifest is populated directly from the request and the version is left in
-    `PROCESSING`, matching openapi.yaml's documented POST response.
+    No intake/normalization pipeline exists yet, so the version is created directly in
+    `PROCESSED` status to unblock the validation→training→deploy closed loop.
     """
 
     register_dataset(db, dataset_id)
@@ -45,7 +44,7 @@ def create_dataset_version(
     version = DatasetVersionModel(
         dataset_id=dataset_id,
         version=next_version,
-        status="PROCESSING",
+        status="PROCESSED",
         source_url_or_hf_id=request.source_dataset,
         source_commit_or_snapshot_date=request.source_commit_or_snapshot_date,
         source_format=request.source_format,

@@ -39,6 +39,18 @@ def test_validate_returns_409_when_not_processed(client, admin_token):
     h = auth_header(admin_token)
     client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
 
+    from sqlalchemy.orm import Session
+
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == "no_robots",
+                DatasetVersion.version == 1,
+            )
+        )
+        row.status = "PROCESSING"
+        session.commit()
+
     response = client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
 
     assert response.status_code == 409

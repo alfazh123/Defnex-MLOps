@@ -66,6 +66,10 @@ def test_process_next_job_fails_on_runner_exception(db_session):
     assert processed.status == "FAILED"
     assert processed.error_message == "out of memory"
 
+    from app.services import model_service
+
+    assert model_service.get_model_version(db_session, "qwen-sft-domain-x", 1) is None
+
 
 def test_process_next_job_picks_oldest_pending_first(db_session):
     first = _queued_training_run(db_session)
@@ -110,3 +114,50 @@ def test_process_next_job_registers_model_version_on_success(db_session):
     assert model_version is not None
     assert model_version.status == "REGISTERED"
     assert model_version.training_run_id == training_run.training_run_id
+
+
+def test_process_next_job_sequential_second_call_finds_no_pending_run(db_session):
+    """SEQUENTIAL only: two process_next_job calls over one PENDING run. The first moves the
+    run to RUNNING; the second (same session) finds an empty PENDING queue, so the runner
+    executes once. This does NOT assert multi-worker safety: the claim query has no
+    FOR UPDATE/SKIP LOCKED, so two real worker processes could both select the same PENDING
+    run. That gap is recorded in app/workers/training_worker.py and fixed with the GPU lock
+    in issue #33."""
+    training_run = _queued_training_run(db_session)
+    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+
+    first = process_next_job(db_session, runner)
+    second = process_next_job(db_session, runner)
+
+    assert first.training_run_id == training_run.training_run_id
+    assert second is None
+    assert runner.calls == [training_run.training_run_id]
+    assert training_run.status == "COMPLETED"
+
+
+def test_runner_failure_never_leaves_run_in_running(db_session):
+    """If starting/executing fails (external service unreachable), the run must not hang
+    forever in RUNNING: process_next_job resolves it to FAILED with an explicit error."""
+    _queued_training_run(db_session)
+    runner = _StubRunner(error=ConnectionError("unreachable"))
+
+    processed = process_next_job(db_session, runner)
+
+    assert processed.status == "FAILED"
+    assert processed.error_message == "unreachable"
+
+
+def test_no_api_handler_calls_start_training_run():
+    """Regression: the only executor of a training run is the worker. No request handler
+    may transition a run out of PENDING."""
+    import pathlib
+
+    api_dir = pathlib.Path(__file__).resolve().parents[1] / "app" / "api"
+    offenders = []
+    for py in api_dir.rglob("*.py"):
+        text = py.read_text()
+        if "start_training_run" in text:
+            offenders.append(str(py))
+    assert offenders == [], (
+        f"api handlers must not call start_training_run: {offenders}"
+    )

@@ -1,5 +1,3 @@
-import structlog
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -18,8 +16,6 @@ from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
 from app.services import dataset_service, training_service
 from app.services import unsloth_client
-
-logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Training"])
 
@@ -47,24 +43,6 @@ async def create_training_run(
 
     training_run = training_service.create_training_run(db, dataset_version, request)
     db.commit()
-
-    try:
-        result = await unsloth_client.start_training(
-            training_run.training_run_id,
-            training_run.base_model,
-            training_run.training_config,
-        )
-        training_run.artifact_uri = result.get("job_id", "")
-        training_service.start_training_run(db, training_run)
-        db.commit()
-    except Exception:
-        logger.exception(
-            "failed_to_start_training",
-            training_run_id=training_run.training_run_id,
-            base_model=training_run.base_model,
-            dataset_id=request.dataset_id,
-            dataset_version=request.dataset_version,
-        )
 
     return training_service.to_schema(training_run)
 

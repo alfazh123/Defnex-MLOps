@@ -7,6 +7,7 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.schemas.training import SUPPORTED_PEFT_METHODS
 
 logger = structlog.get_logger(__name__)
 
@@ -48,19 +49,29 @@ def get_default_model() -> str:
 def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, Any]:
     """Map our internal training config dict to the Unsloth Studio TrainingStartRequest.
 
+    Accepts only the values in `SUPPORTED_PEFT_METHODS` (single source of truth in
+    app/schemas/training.py). `qlora` forces 4-bit quantization via `load_in_4bit`
+    and `rslora` forces `use_rslora` so they are not executed identically to `lora`
+    (issue #34).
+
     Field mapping from our schema → Unsloth API:
     - model → model_name
     - dataset_path → hf_dataset
     - epochs → num_epochs
     - learning_rate → learning_rate (string)
-    - peft_method → training_type ("LoRA/QLoRA" | "Full Finetuning")
+    - peft_method → training_type ("LoRA/QLoRA")
     - load_in_4bit → load_in_4bit
     - lora_r, lora_alpha, lora_dropout → same names
 
     See: https://github.com/unslothai/unsloth/blob/main/studio/backend/models/training.py
     """
     peft_method = config.get("peft_method", "lora")
-    use_lora = peft_method != "none"
+    if peft_method not in SUPPORTED_PEFT_METHODS:
+        raise ValueError(
+            f"peft_method {peft_method!r} is not supported; "
+            f"supported values: {', '.join(SUPPORTED_PEFT_METHODS)}"
+        )
+    use_lora = True
 
     # learning_rate must be string for Unsloth
     lr = config.get("learning_rate", 2e-5)
@@ -69,16 +80,14 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
     # Dataset: hf_dataset or local path
     hf_dataset = config.get("hf_dataset") or config.get("dataset_path") or ""
 
-    # Training type mapping
-    if peft_method == "none":
-        training_type = "Full Finetuning"
-    else:
-        training_type = "LoRA/QLoRA"
+    # Training type mapping — always LoRA/QLoRA; the "none" Full Finetuning branch was
+    # removed because "none" is rejected at the request schema (issue #34).
+    training_type = "LoRA/QLoRA"
 
     return {
         # Model
         "model_name": base_model,
-        "load_in_4bit": config.get("load_in_4bit", False),
+        "load_in_4bit": config.get("load_in_4bit", False) or peft_method == "qlora",
         "max_seq_length": config.get("max_seq_length", 2048),
         "trust_remote_code": config.get("trust_remote_code", False),
         # Dataset
@@ -110,7 +119,9 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "lora_alpha": config.get("lora_alpha", 16),
         "lora_dropout": config.get("lora_dropout", 0.0),
         "target_modules": config.get("target_modules", []),
-        "use_rslora": peft_method == "rslora",
+        # rslora only changes the scale factor alpha/sqrt(r), so it is honored via
+        # use_rslora (issue #34) instead of being silently downgraded to plain LoRA.
+        "use_rslora": config.get("use_rslora", False) or peft_method == "rslora",
         "use_loftq": config.get("use_loftq", False),
         # Gradient checkpointing
         "gradient_checkpointing": config.get("gradient_checkpointing", "unsloth"),

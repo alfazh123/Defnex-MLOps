@@ -21,6 +21,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=6.0",
+    "PyYAML>=6.0",
 ]
 intake = [
     "huggingface_hub>=0.25",

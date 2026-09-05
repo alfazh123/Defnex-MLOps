@@ -1,10 +1,12 @@
 """API contract validation (openapi.yaml / mlops-api-contract.md): assert each endpoint's
 response shape and status code, driven purely through the HTTP client — no service calls."""
 
+import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.dataset import DatasetVersion
+from app.schemas.training import SUPPORTED_PEFT_METHODS, TrainingConfig
 from app.workers.mock_runner import MockTrainingRunner
 from app.workers.training_worker import process_next_job
 from tests.conftest import auth_header
@@ -22,7 +24,7 @@ TRAINING_RUN_CREATE_REQUEST = {
     "model_id": "qwen-sft-domain-x",
     "base_model": "Qwen/Qwen3.8-27B",
     "training_config": {
-        "peft_method": "dora",
+        "peft_method": "lora",
         "load_in_4bit": False,
         "lora_r": 16,
         "lora_alpha": 16,
@@ -414,3 +416,23 @@ def test_combined_filters_work(client, admin_token):
     assert data["total"] == 1
     assert data["items"][0]["dataset_id"] == "no_robots"
     assert data["items"][0]["status"] == "PROCESSED"
+
+
+def test_openapi_peft_method_enum_matches_code():
+    """The frozen contract enum for peft_method must match the code's single source
+    (SUPPORTED_PEFT_METHODS) exactly — regression for issue #34."""
+    from pathlib import Path
+
+    with open(Path(__file__).resolve().parent.parent / "openapi.yaml") as f:
+        spec = yaml.safe_load(f)
+
+    spec_enum = spec["components"]["schemas"]["TrainingConfig"]["properties"][
+        "peft_method"
+    ]["enum"]
+
+    assert list(SUPPORTED_PEFT_METHODS) == spec_enum
+
+    schema_enum = TrainingConfig.model_json_schema()["properties"]["peft_method"][
+        "enum"
+    ]
+    assert list(SUPPORTED_PEFT_METHODS) == schema_enum

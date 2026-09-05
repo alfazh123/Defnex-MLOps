@@ -14,7 +14,6 @@ so validation is immediately available after dataset creation.
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.models.promotion import PromotionDecision
@@ -51,7 +50,7 @@ TRAINING_RUN_CREATE_REQUEST = {
     "model_id": MODEL_ID,
     "base_model": "Qwen/Qwen3.8-27B",
     "training_config": {
-        "peft_method": "dora",
+        "peft_method": "lora",
         "load_in_4bit": False,
         "lora_r": 16,
         "lora_alpha": 16,
@@ -389,7 +388,7 @@ def test_lifecycle_double_deploy_same_version(client, admin_token):
 def test_lifecycle_with_custom_training_config(client, admin_token):
     custom = dict(TRAINING_RUN_CREATE_REQUEST)
     custom["training_config"] = dict(TRAINING_RUN_CREATE_REQUEST["training_config"])
-    custom["training_config"]["peft_method"] = "dora"
+    custom["training_config"]["peft_method"] = "lora"
     custom["training_config"]["lora_r"] = 32
 
     ids = _run_lifecycle(client, admin_token, training_request=custom)
@@ -398,7 +397,7 @@ def test_lifecycle_with_custom_training_config(client, admin_token):
         f"/api/v1/training-runs/{ids['training_run_id']}",
         headers=auth_header(admin_token),
     ).json()
-    assert run["training_config"]["peft_method"] == "dora"
+    assert run["training_config"]["peft_method"] == "lora"
     assert run["training_config"]["lora_r"] == 32
     record = client.get(
         f"/api/v1/models/{MODEL_ID}/versions/{ids['model_version']}",

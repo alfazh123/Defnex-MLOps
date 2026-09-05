@@ -67,7 +67,13 @@ class TestAuthErrorLogging:
 
 
 class TestTrainingErrorLogging:
-    def test_training_start_failure_logs_context(self, client, admin_token, caplog):
+    def test_training_run_create_does_not_hit_unsloth(
+        self, client, admin_token, caplog
+    ):
+        """Create only queues the run; it must not call Unsloth, so no API failure can
+        surface here. Worker owns execution (issue #32)."""
+        from unittest.mock import patch
+
         h = auth_header(admin_token)
         client.post(
             "/api/v1/datasets/no_robots/versions",
@@ -107,18 +113,7 @@ class TestTrainingErrorLogging:
         assert report.status_code == 201
         assert report.json()["gate_decision"] == "PASS"
 
-        mock_resp = AsyncMock()
-        mock_resp.status_code = 500
-        mock_resp.text = "Internal Server Error"
-        mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "500 Server Error", request=AsyncMock(), response=mock_resp
-        )
-
-        with patch("app.services.unsloth_client._get_client") as mock_get:
-            mock_client = AsyncMock()
-            mock_client.post.return_value = mock_resp
-            mock_get.return_value = mock_client
-
+        with patch("app.api.training.unsloth_client._get_client") as mock_get:
             with caplog.at_level(logging.ERROR, logger="app.api.training"):
                 resp = client.post(
                     "/api/v1/training-runs",
@@ -134,8 +129,8 @@ class TestTrainingErrorLogging:
                 )
 
         assert resp.status_code == 201
-        error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
-        assert any("failed_to_start_training" in r.message for r in error_records)
+        assert resp.json()["status"] == "PENDING"
+        mock_get.assert_not_called()
 
 
 class TestUnslothErrorLogging:

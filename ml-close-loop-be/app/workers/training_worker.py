@@ -29,6 +29,10 @@ def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
         .where(TrainingRun.status == "PENDING")
         .order_by(TrainingRun.created_at)
     )
+    # ponytail: no FOR UPDATE / SKIP LOCKED on the claim query. Safe today because exactly one
+    # worker runs (docker-compose spawns a single process; GPU is shared and serial anyway).
+    # Two worker processes would both select the same PENDING run and run it twice; the
+    # row-locked claim lands with the GPU lock in issue #33.
     if training_run is None:
         return None
 

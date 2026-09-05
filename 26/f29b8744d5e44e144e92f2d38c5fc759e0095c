@@ -1,0 +1,19 @@
+ml-close-loop-be/tests/test_validation_api.py
+  s_9f52453e4e0da6::t_245d94320dd3f0 42-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "26f29b8744d5e44e144e92f2d38c5fc759e0095c",
+  "prompts": {},
+  "sessions": {
+    "s_9f52453e4e0da6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8defe6fcffeii681FjHTNnRk3",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

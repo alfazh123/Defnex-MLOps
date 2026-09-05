@@ -1,7 +1,7 @@
 """add external_job_id to training_runs
 
 Revision ID: 078245ba25b2
-Revises: 190c9e1c557c
+Revises: aabb00c1c001
 Create Date: 2026-09-05 00:00:00.000000
 
 """
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "078245ba25b2"
-down_revision: Union[str, Sequence[str], None] = "190c9e1c557c"
+down_revision: Union[str, Sequence[str], None] = "aabb00c1c001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

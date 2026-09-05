@@ -1,0 +1,32 @@
+ml-close-loop-be/openapi.yaml
+  s_9f52453e4e0da6::t_fda377cedb80df 1847
+ml-close-loop-be/tests/test_unsloth_client.py
+  s_9f52453e4e0da6::t_d932a5c4362ee8 55-63
+ml-close-loop-be/tests/test_validation_api.py
+  s_9f52453e4e0da6::t_7063323d56fd1b 44-46
+ml-close-loop-be/app/services/unsloth_client.py
+  s_9f52453e4e0da6::t_007d1957dde387 54-55
+  s_9f52453e4e0da6::t_7d9e05d187f224 122-124
+ml-close-loop-be/app/schemas/training.py
+  s_9f52453e4e0da6::t_e738ac64a9e641 11-13
+ml-close-loop-be/tests/test_training_api.py
+  s_9f52453e4e0da6::t_b1656f9f6435db 115-129
+ml-close-loop-be/README.md
+  s_9f52453e4e0da6::t_8b528e83bedf5a 98,103-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "f18cf2cf601f14bc9ffe6ac95082c9fb7adba49e",
+  "prompts": {},
+  "sessions": {
+    "s_9f52453e4e0da6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8defe6fcffeii681FjHTNnRk3",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

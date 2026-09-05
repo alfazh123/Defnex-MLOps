@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, JSON, String, UniqueConstraint
+from sqlalchemy import ForeignKey, JSON, Index, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,7 +26,16 @@ class ModelVersion(Base):
     """
 
     __tablename__ = "model_versions"
-    __table_args__ = (UniqueConstraint("model_id", "version", name="uq_model_version"),)
+    __table_args__ = (
+        UniqueConstraint("model_id", "version", name="uq_model_version"),
+        Index(
+            "uq_model_versions_one_deployed",
+            "model_id",
+            unique=True,
+            sqlite_where=text("status = 'DEPLOYED'"),
+            postgresql_where=text("status = 'DEPLOYED'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     model_id: Mapped[str] = mapped_column(ForeignKey("models.model_id"), index=True)

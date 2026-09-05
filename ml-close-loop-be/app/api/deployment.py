@@ -32,8 +32,13 @@ def deploy_model_version(
             f'model_id "{model_id}" version {version} is {model_version.status}; only a PROMOTED version '
             "can be deployed.",
         )
-    deployment, previous = deployment_service.deploy(db, model_version)
-    db.commit()
+    try:
+        deployment, previous = deployment_service.deploy(db, model_version)
+        db.commit()
+    except ValueError as exc:
+        # A concurrent deploy won the race for this model_id (partial unique index
+        # uq_model_versions_one_deployed) - a real conflict, not a fake success.
+        raise APIError(409, "DEPLOY_CONFLICT", str(exc)) from exc
     return deployment_service.to_deploy_result(deployment, previous)
 
 
@@ -49,4 +54,30 @@ def get_deployment_status(
 ) -> DeploymentStatus:
     if db.get(Model, model_id) is None:
         raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" not found')
+    return deployment_service.get_deployment_status(db, model_id)
+
+
+@router.get(
+    "/models/{model_id}/deployment/{alias}",
+    response_model=DeploymentStatus,
+    responses={404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+)
+def get_deployment_by_alias(
+    model_id: str,
+    alias: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> DeploymentStatus:
+    """Resolve a deployment alias (currently only ``prod``) to the production version, via the
+    single resolution function `deployment_service.resolve_alias` (openapi.yaml DeploymentStatus
+    alias resolution). Unknown alias -> 422, model unknown -> 404 MODEL_NOT_FOUND, model never
+    deployed -> 404 DEPLOYMENT_NOT_FOUND (explicit - never a None that propagates)."""
+    if db.get(Model, model_id) is None:
+        raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" not found')
+    try:
+        deployment_service.resolve_alias(db, model_id, alias)
+    except ValueError as exc:
+        if alias not in deployment_service.SUPPORTED_ALIASES:
+            raise APIError(422, "UNKNOWN_DEPLOYMENT_ALIAS", str(exc)) from exc
+        raise APIError(404, "DEPLOYMENT_NOT_FOUND", str(exc)) from exc
     return deployment_service.get_deployment_status(db, model_id)

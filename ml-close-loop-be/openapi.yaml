@@ -1153,6 +1153,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/deployment/{alias}:
+    get:
+      tags:
+      - Deployment
+      summary: Resolve Deployment Alias
+      description: 'Resolve a named deployment alias (currently only `prod`) to the
+        currently DEPLOYED version, via the single resolution function
+        `deployment_service.resolve_alias`. 404 MODEL_NOT_FOUND if the model is
+        unknown; 404 DEPLOYMENT_NOT_FOUND (explicit - never a propagating None) if
+        the model has never been deployed; 422 UNKNOWN_DEPLOYMENT_ALIAS for any
+        alias other than `prod`.'
+      operationId: get_deployment_by_alias_api_v1_models__model_id__deployment__alias__get
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: alias
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Alias
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentStatus'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Artifact:
@@ -1434,13 +1484,34 @@ components:
       required:
       - model_id
       title: DeploymentStatus
-      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus),
-        a separate resource
+      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus).
+        A separate resource
 
         from any single version''s registry record. `status` has no full enum yet
         - only "DEPLOYED"
 
         is confirmed by any source document - and is null when nothing has ever been
+        deployed.
+
+        Single source of truth (issue #36): the production version is the ModelVersion
+        whose
+
+        `status == "DEPLOYED"` in the model registry; the `deployments` table is append-only
+        pointer
+
+        history contributing only `deployed_at`. A partial unique index
+        (`uq_model_versions_one_deployed`,
+
+        WHERE status = "DEPLOYED") makes two DEPLOYED versions for one `model_id` impossible at
+        the DB
+
+        level. Alias resolution (`GET /models/{model_id}/deployment/{alias}`, currently only
+        `prod`)
+
+        resolves the same DEPLOYED version through `deployment_service.resolve_alias` and
+        returns this
+
+        same schema; it 404s explicitly (`DEPLOYMENT_NOT_FOUND`) when nothing has ever been
         deployed.'
     ErrorDetail:
       properties:

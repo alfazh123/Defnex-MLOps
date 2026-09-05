@@ -1,0 +1,65 @@
+ml-close-loop-be/README.md
+  s_0f6821ed0e22fe::t_150a1b259298c2 96,100-107
+ml-close-loop-be/alembic/versions/078245ba25b2_add_external_job_id_to_training_runs.py
+  s_0f6821ed0e22fe::t_d5639d79253d1c 1-31
+ml-close-loop-be/alembic/versions/aabb00c1c001_us_036_single_source_deployed_partial_index.py
+  s_0f6821ed0e22fe::t_a4148a29985911 1-78
+ml-close-loop-be/app/api/deployment.py
+  s_0f6821ed0e22fe::t_9a9aa77f426749 35-41,58-83
+ml-close-loop-be/app/models/model.py
+  s_0f6821ed0e22fe::t_dcd461255bf130 3,29-38
+ml-close-loop-be/app/models/training.py
+  s_0f6821ed0e22fe::t_78f619441ef695 31
+ml-close-loop-be/app/schemas/training.py
+  s_0f6821ed0e22fe::t_351e09e45bef15 4,7-21,41-50
+ml-close-loop-be/app/services/deployment_service.py
+  s_0f6821ed0e22fe::t_2545adcc286860 5,14-62,74-78,93-98,112-117,122-126,128-144
+ml-close-loop-be/app/services/unsloth_client.py
+  s_0f6821ed0e22fe::t_6f5d0893b4d5e3 10,52-56,62,69-74,83-85,90,122-124
+ml-close-loop-be/app/workers/training_worker.py
+  s_0f6821ed0e22fe::t_a85a3bc2ce6870 32-35
+ml-close-loop-be/openapi.yaml
+  s_0f6821ed0e22fe::t_413811ae8d8c11 560-565,1171-1220,1502-1503,1509-1529
+ml-close-loop-be/pyproject.toml
+  s_0f6821ed0e22fe::t_33046add61061b 24
+ml-close-loop-be/tests/test_contract.py
+  s_0f6821ed0e22fe::t_2d26ea302dce94 4,9,27,419-438
+ml-close-loop-be/tests/test_deployment_api.py
+  s_0f6821ed0e22fe::t_1bc5f6d027906c 18
+ml-close-loop-be/tests/test_deployment_single_source.py
+  s_0f6821ed0e22fe::t_19ccc5862bd106 1-503
+ml-close-loop-be/tests/test_error_logging.py
+  s_0f6821ed0e22fe::t_3c7d710f170c11 70-76,116,132-133
+ml-close-loop-be/tests/test_filtering.py
+  s_0f6821ed0e22fe::t_9a40e0e6adfa05 18
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_0f6821ed0e22fe::t_7438f0c586bff2 53,391,400
+ml-close-loop-be/tests/test_model_api.py
+  s_0f6821ed0e22fe::t_b337585ba5cf09 18
+ml-close-loop-be/tests/test_promotion_api.py
+  s_0f6821ed0e22fe::t_e4098f11f4097b 18
+ml-close-loop-be/tests/test_training_api.py
+  s_0f6821ed0e22fe::t_75bca824b630c8 1-3,6,22,93,107-154,179-180,185-209,211-222,232,241-243
+ml-close-loop-be/tests/test_training_progress.py
+  s_0f6821ed0e22fe::t_473a6cec0282c6 18
+ml-close-loop-be/tests/test_training_worker.py
+  s_0f6821ed0e22fe::t_49a47308eea0d0 69-72,117-163
+ml-close-loop-be/tests/test_unsloth_client.py
+  s_0f6821ed0e22fe::t_3c047f36e33f34 42-43,45-46,50-55,57-59,63-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2549f35c9a733bc63223b94c78f542094b4b8feb",
+  "prompts": {},
+  "sessions": {
+    "s_0f6821ed0e22fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ccc5bff-edd2-459d-b456-37fe93cbb5d2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

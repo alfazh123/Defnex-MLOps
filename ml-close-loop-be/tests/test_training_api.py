@@ -1,3 +1,6 @@
+from sqlalchemy import select
+
+from app.models.dataset import DatasetVersion
 from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
@@ -25,6 +28,36 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
+def _mark_processed(client, dataset_id="no_robots", version=1):
+    from sqlalchemy.orm import Session
+
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == version,
+            )
+        )
+        row.status = "PROCESSED"
+        session.commit()
+
+
+def _pass_validation(client, admin_token):
+    """Create the dataset, mark it processed, and run a PASS validation report."""
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    _mark_processed(client)
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [_valid_record()]},
+        headers=h,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["gate_decision"] == "PASS"
+
+
 def test_create_training_run_returns_404_when_dataset_version_missing(
     client, admin_token
 ):
@@ -40,9 +73,7 @@ def test_create_training_run_returns_404_when_dataset_version_missing(
 
 def test_create_training_run_returns_201_queued(client, admin_token):
     h = auth_header(admin_token)
-    client.post(
-        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
-    )
+    _pass_validation(client, admin_token)
 
     response = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
@@ -81,9 +112,7 @@ def test_get_training_run_returns_404_when_missing(client, admin_token):
 
 def test_get_training_run_returns_created_run(client, admin_token):
     h = auth_header(admin_token)
-    client.post(
-        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
-    )
+    _pass_validation(client, admin_token)
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()
@@ -100,9 +129,7 @@ def _create_runs(client, admin_token, count):
     from unittest.mock import AsyncMock, patch
 
     h = auth_header(admin_token)
-    client.post(
-        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
-    )
+    _pass_validation(client, admin_token)
     for _ in range(count):
         with patch(
             "app.api.training.unsloth_client.start_training",
@@ -118,9 +145,7 @@ def test_create_training_run_permissive_model_id(client, admin_token):
     from unittest.mock import AsyncMock, patch
 
     h = auth_header(admin_token)
-    client.post(
-        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
-    )
+    _pass_validation(client, admin_token)
     request = dict(TRAINING_RUN_CREATE_REQUEST)
     request["model_id"] = "bad model!@#/with spaces"
 
@@ -138,9 +163,7 @@ def test_create_training_run_returns_correct_status_field(client, admin_token):
     from unittest.mock import AsyncMock, patch
 
     h = auth_header(admin_token)
-    client.post(
-        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
-    )
+    _pass_validation(client, admin_token)
     with patch(
         "app.api.training.unsloth_client.start_training",
         new=AsyncMock(side_effect=ConnectionError("unreachable")),
@@ -184,3 +207,103 @@ def test_list_training_runs_paginated_response_shape(client, admin_token):
     assert body["page"] == 1
     assert body["size"] == 1
     assert body["pages"] == 2
+
+
+GOOD_ANSWER = " ".join(f"word{i}" for i in range(25))
+
+
+def _valid_record(record_id="r1", user="What is the capital of France?"):
+    return {
+        "id": record_id,
+        "messages": [
+            {"role": "user", "content": user},
+            {"role": "assistant", "content": GOOD_ANSWER},
+        ],
+        "metadata": {"source_dataset": "no_robots", "source_id": record_id},
+    }
+
+
+def test_create_training_run_returns_409_without_validation_report(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    _mark_processed(client)
+
+    response = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "VALIDATION_REQUIRED"
+    listing = client.get("/api/v1/training-runs", headers=h).json()
+    assert listing["total"] == 0
+
+
+def test_create_training_run_blocked_by_fail_gate_and_no_row_created(
+    client, admin_token
+):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    _mark_processed(client)
+    leaked = _valid_record(user="pertanyaan rahasia")
+    eval_record = {"messages": [{"role": "user", "content": "pertanyaan rahasia"}]}
+
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [leaked], "eval_records": [eval_record]},
+        headers=h,
+    )
+    assert report.status_code == 201
+    assert report.json()["gate_decision"] == "FAIL"
+
+    response = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "VALIDATION_FAILED"
+    listing = client.get("/api/v1/training-runs", headers=h).json()
+    assert listing["total"] == 0
+
+
+def test_create_training_run_uses_latest_report_for_gate(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    _mark_processed(client)
+
+    # First run: PASS (no eval overlap).
+    first = _valid_record()
+    pass_report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [first]},
+        headers=h,
+    )
+    assert pass_report.status_code == 201
+    assert pass_report.json()["gate_decision"] == "PASS"
+
+    # Second run: FAIL (leakage against the supplied eval set).
+    eval_record = {
+        "messages": [{"role": "user", "content": "What is the capital of France?"}]
+    }
+    fail_report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [first], "eval_records": [eval_record]},
+        headers=h,
+    )
+    assert fail_report.status_code == 201
+    assert fail_report.json()["gate_decision"] == "FAIL"
+
+    # The gate must consult the latest report (FAIL), not the earlier PASS.
+    response = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "VALIDATION_FAILED"
+    listing = client.get("/api/v1/training-runs", headers=h).json()
+    assert listing["total"] == 0

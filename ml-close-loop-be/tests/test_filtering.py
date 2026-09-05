@@ -35,7 +35,45 @@ def _create_dataset(client, headers, dataset_id="no_robots"):
     )
 
 
+VALID_RECORD = {
+    "id": "r1",
+    "messages": [
+        {"role": "user", "content": "What is the capital of France?"},
+        {"role": "assistant", "content": " ".join(f"word{i}" for i in range(25))},
+    ],
+    "metadata": {"source_dataset": "no_robots", "source_id": "sq-1"},
+}
+
+
+def _mark_processed(client, dataset_id="no_robots", version=1):
+    from sqlalchemy import select
+
+    from app.models.dataset import DatasetVersion
+
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == version,
+            )
+        )
+        row.status = "PROCESSED"
+        session.commit()
+
+
+def _pass_validation(client, headers):
+    _mark_processed(client)
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["gate_decision"] == "PASS"
+
+
 def _create_training_run(client, headers, model_id="qwen-sft-domain-x"):
+    _pass_validation(client, headers)
     req = {**TRAINING_RUN_CREATE_REQUEST, "model_id": model_id}
     client.post("/api/v1/training-runs", json=req, headers=headers)
 
@@ -47,9 +85,7 @@ def test_list_datasets_filter_by_status(client, admin_token):
     h = auth_header(admin_token)
     _create_dataset(client, h)
 
-    response = client.get(
-        "/api/v1/datasets", params={"status": "PROCESSED"}, headers=h
-    )
+    response = client.get("/api/v1/datasets", params={"status": "PROCESSED"}, headers=h)
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1
@@ -140,6 +176,7 @@ def _registered_model_version(client, admin_token):
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    _pass_validation(client, h)
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()

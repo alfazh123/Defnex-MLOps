@@ -27,6 +27,40 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
+VALID_RECORD = {
+    "id": "r1",
+    "messages": [
+        {"role": "user", "content": "What is the capital of France?"},
+        {"role": "assistant", "content": " ".join(f"word{i}" for i in range(25))},
+    ],
+    "metadata": {"source_dataset": "no_robots", "source_id": "sq-1"},
+}
+
+
+def _pass_validation(client, admin_token):
+    from sqlalchemy import select
+
+    from app.models.dataset import DatasetVersion
+
+    h = auth_header(admin_token)
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == "no_robots",
+                DatasetVersion.version == 1,
+            )
+        )
+        row.status = "PROCESSED"
+        session.commit()
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
+    )
+    assert report.status_code == 201, report.text
+    assert report.json()["gate_decision"] == "PASS"
+
+
 def _registered_model_version(client, admin_token):
     from app.services import model_service, training_service
     from app.workers.mock_runner import MockTrainingRunner
@@ -35,6 +69,7 @@ def _registered_model_version(client, admin_token):
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    _pass_validation(client, admin_token)
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()

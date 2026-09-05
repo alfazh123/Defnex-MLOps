@@ -584,6 +584,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: "Conflict — the dataset version has no validation report
+            (VALIDATION_REQUIRED) or its latest report's gate_decision is FAIL
+            (VALIDATION_FAILED); a dataset version must have a validation report
+            with gate_decision PASS before a training run can be created."
         '422':
           description: Validation Error
           content:
@@ -2136,6 +2145,16 @@ components:
           - type: string
           - type: 'null'
           title: Rule Set Version
+        records:
+          items: {}
+          type: array
+          title: Records
+          default: []
+        eval_records:
+          items: {}
+          type: array
+          title: Eval Records
+          default: []
       type: object
       title: ValidateDatasetVersionRequest
       description: Optional body for POST .../validate (openapi.yaml).
@@ -2196,6 +2215,14 @@ components:
           type: object
           title: Dataset Statistics
           default: {}
+        per_record_errors:
+          items:
+            items:
+              type: string
+            type: array
+          type: array
+          title: Per Record Errors
+          default: []
         gate_decision:
           type: string
           enum:

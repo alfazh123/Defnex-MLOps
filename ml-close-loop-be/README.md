@@ -90,7 +90,9 @@ alembic upgrade head
 | `401` | `INVALID_REFRESH_TOKEN` | Expired or invalid refresh token |
 | `404` | `MODEL_NOT_FOUND` | Model ID does not exist |
 | `409` | `USERNAME_TAKEN` | Register with existing username |
-| `409` | `VALIDATION_INCOMPLETE` | Dataset not yet processed |
+| `409` | `VALIDATION_REQUIRED` | No validation report yet for this dataset version |
+| `409` | `VALIDATION_FAILED` | Latest validation gate decision is FAIL or has no valid records |
+| `422` | `VALIDATION_RECORDS_REQUIRED` | Validate body missing or `records` empty |
 | `422` | validation error | Password too weak, missing fields, etc. |
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many login/register requests (see headers) |
 | `413` | `REQUEST_TOO_LARGE` | Body exceeds `MAX_REQUEST_BODY_SIZE` |

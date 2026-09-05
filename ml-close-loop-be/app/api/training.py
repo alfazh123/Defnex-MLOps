@@ -16,7 +16,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
-from app.services import dataset_service, training_service
+from app.services import dataset_service, training_service, validation_service
 from app.services import unsloth_client
 
 logger = structlog.get_logger(__name__)
@@ -28,7 +28,7 @@ router = APIRouter(tags=["Training"])
     "/training-runs",
     response_model=TrainingRun,
     status_code=201,
-    responses={404: {"model": ErrorResponse}},
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
 async def create_training_run(
     request: TrainingRunCreateRequest,
@@ -43,6 +43,29 @@ async def create_training_run(
             404,
             "DATASET_NOT_FOUND",
             f'dataset_id "{request.dataset_id}" version {request.dataset_version} not found',
+        )
+
+    latest_report = validation_service.get_latest_validation_report(db, dataset_version)
+    if latest_report is None:
+        raise APIError(
+            409,
+            "VALIDATION_REQUIRED",
+            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            "must have a validation report with gate_decision PASS before training.",
+        )
+    if latest_report.gate_decision == "FAIL":
+        raise APIError(
+            409,
+            "VALIDATION_FAILED",
+            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            "failed validation and cannot be trained on.",
+        )
+    if latest_report.record_count == 0:
+        raise APIError(
+            409,
+            "VALIDATION_FAILED",
+            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            "has a validation report that examined no records and cannot be trained on.",
         )
 
     training_run = training_service.create_training_run(db, dataset_version, request)

@@ -1,0 +1,65 @@
+ml-close-loop-be/tests/test_training_api.py
+  s_9f52453e4e0da6::t_bdea0dfc55a84d 21
+  s_9f52453e4e0da6::t_72a69fb675d778 64
+  s_9f52453e4e0da6::t_83511a05313d81 78-114
+  s_9f52453e4e0da6::t_290cd80cc88498 1-5
+ml-close-loop-be/pyproject.toml
+  s_9f52453e4e0da6::t_bbcf2b1ca7a75a 24
+ml-close-loop-be/README.md
+  s_9f52453e4e0da6::t_d81b0a1f0c127a 94,98-103
+  s_7ae865e63c2fd8::t_11dc52098d6cf2 104
+ml-close-loop-be/tests/test_promotion_api.py
+  s_9f52453e4e0da6::t_590e8bf1fcc887 18
+ml-close-loop-be/tests/test_filtering.py
+  s_9f52453e4e0da6::t_69230c7e98cd51 18
+ml-close-loop-be/app/schemas/training.py
+  s_9f52453e4e0da6::t_9fbf125e49b413 39-48
+  s_9f52453e4e0da6::t_0364e7b9d6efc9 4,7-19
+ml-close-loop-be/app/services/unsloth_client.py
+  s_9f52453e4e0da6::t_dcdf37e708e996 82-84
+  s_9f52453e4e0da6::t_f7508f32d6d732 89
+  s_9f52453e4e0da6::t_2f94b6be05312c 68-73
+  s_9f52453e4e0da6::t_409a1e33771302 10
+  s_9f52453e4e0da6::t_1f4c22d89e4c21 52-55,61
+  s_9f52453e4e0da6::t_e47b45a6a40143 121-122
+ml-close-loop-be/tests/test_unsloth_client.py
+  s_9f52453e4e0da6::t_ba82f6c078cb05 42-43,45-46,50-58
+ml-close-loop-be/tests/test_deployment_api.py
+  s_9f52453e4e0da6::t_f3f336e6b44538 18
+ml-close-loop-be/tests/test_model_api.py
+  s_9f52453e4e0da6::t_ad8af77a28ebee 18
+ml-close-loop-be/tests/test_contract.py
+  s_9f52453e4e0da6::t_57d65a2fc6d886 27
+  s_9f52453e4e0da6::t_69709be2ce2665 4,9
+  s_9f52453e4e0da6::t_bd0f8182e11ba1 384-403
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_9f52453e4e0da6::t_27601231fc2a12 43
+  s_9f52453e4e0da6::t_69fd44396524f2 409
+  s_9f52453e4e0da6::t_35cf5952d70025 400
+ml-close-loop-be/tests/test_training_progress.py
+  s_9f52453e4e0da6::t_5b23560ecea35e 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "fdc38d6f64d5e6ab940e85a39df4a95383ecc60a",
+  "prompts": {},
+  "sessions": {
+    "s_7ae865e63c2fd8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8deea836ffe5xMBaoP3XUUPIJ",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_9f52453e4e0da6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8defe6fcffeii681FjHTNnRk3",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

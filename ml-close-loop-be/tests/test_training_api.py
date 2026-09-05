@@ -1,3 +1,8 @@
+import pytest
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models.training import TrainingRun
 from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
@@ -13,7 +18,7 @@ TRAINING_RUN_CREATE_REQUEST = {
     "model_id": "qwen-sft-domain-x",
     "base_model": "Qwen/Qwen3.8-27B",
     "training_config": {
-        "peft_method": "dora",
+        "peft_method": "lora",
         "load_in_4bit": False,
         "lora_r": 16,
         "lora_alpha": 16,
@@ -56,7 +61,7 @@ def test_create_training_run_returns_201_queued(client, admin_token):
     assert body["dataset_version"] == 1
     assert body["model_id"] == "qwen-sft-domain-x"
     assert body["base_model"] == "Qwen/Qwen3.8-27B"
-    assert body["training_config"]["peft_method"] == "dora"
+    assert body["training_config"]["peft_method"] == "lora"
     assert body["model_version"] is None
 
 
@@ -68,6 +73,43 @@ def test_create_training_run_rejects_invalid_body(client, admin_token):
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("method", ["dora", "qdora", "none"])
+def test_create_training_run_rejects_unservable_peft_method(
+    client, admin_token, method
+):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    request = dict(TRAINING_RUN_CREATE_REQUEST)
+    request["training_config"] = dict(TRAINING_RUN_CREATE_REQUEST["training_config"])
+    request["training_config"]["peft_method"] = method
+
+    response = client.post("/api/v1/training-runs", json=request, headers=h)
+
+    assert response.status_code == 422
+    detail = response.json()["detail"][0]["msg"]
+    assert method in detail
+    assert "vLLM serving path" in detail
+    with Session(client.engine) as db:
+        count = db.scalar(select(func.count()).select_from(TrainingRun))
+    assert count == 0
+
+
+def test_create_training_run_peft_method_defaults_to_lora(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    request = dict(TRAINING_RUN_CREATE_REQUEST)
+    request["training_config"] = {"epochs": 2}
+
+    response = client.post("/api/v1/training-runs", json=request, headers=h)
+
+    assert response.status_code == 201
+    assert response.json()["training_config"]["peft_method"] == "lora"
 
 
 def test_get_training_run_returns_404_when_missing(client, admin_token):

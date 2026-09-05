@@ -1,10 +1,22 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
-PeftMethod = Literal["lora", "qlora", "dora", "qdora", "rslora"]
+
+# Single source of truth for accepted PEFT methods (issue #34). Consumed by both the
+# request schema (PeftMethod Literal below) and the Unsloth mapper in
+# app/services/unsloth_client.py — never keep a second, divergent list elsewhere.
+SUPPORTED_PEFT_METHODS = ("lora", "qlora")
+
+# Values that exist in the ecosystem but cannot be honored by the current vLLM serving
+# path (DoRA/QDoRA reparameterization, and the Full Finetuning branch that has no PEFT
+# adapter to serve). They are rejected with a specific message rather than silently
+# downgraded to plain LoRA.
+_SERVING_UNSUPPORTED_PEFT_METHODS = ("dora", "qdora", "none")
+
+PeftMethod = Literal[SUPPORTED_PEFT_METHODS]
 
 
 class TrainingConfig(BaseModel):
@@ -23,6 +35,16 @@ class TrainingConfig(BaseModel):
     # PEFT method
     peft_method: PeftMethod = "lora"
     load_in_4bit: bool = False
+
+    @field_validator("peft_method", mode="before")
+    @classmethod
+    def _reject_serving_unsupported(cls, v: object) -> object:
+        if v in _SERVING_UNSUPPORTED_PEFT_METHODS:
+            raise ValueError(
+                f"peft_method {v!r} is not supported by the current vLLM serving path; "
+                f"supported values: {', '.join(SUPPORTED_PEFT_METHODS)}"
+            )
+        return v
 
     # LoRA parameters
     lora_r: int = 16

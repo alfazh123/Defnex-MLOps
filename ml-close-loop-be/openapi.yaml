@@ -1844,9 +1844,6 @@ components:
           enum:
           - lora
           - qlora
-          - dora
-          - qdora
-          - rslora
           title: Peft Method
           default: lora
         load_in_4bit:

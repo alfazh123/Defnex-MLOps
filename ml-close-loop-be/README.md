@@ -91,9 +91,16 @@ alembic upgrade head
 | `404` | `MODEL_NOT_FOUND` | Model ID does not exist |
 | `409` | `USERNAME_TAKEN` | Register with existing username |
 | `409` | `VALIDATION_INCOMPLETE` | Dataset not yet processed |
-| `422` | validation error | Password too weak, missing fields, etc. |
+| `422` | validation error | Password too weak, missing fields, unsupported `peft_method`, etc. |
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many login/register requests (see headers) |
 | `413` | `REQUEST_TOO_LARGE` | Body exceeds `MAX_REQUEST_BODY_SIZE` |
+
+`training_config.peft_method` hanya menerima `lora` dan `qlora`. Nilai `dora`,
+`qdora`, dan `none` (Full Finetuning) ditolak dengan `422` beserta pesan yang
+menyebut nilai dan alasannya, karena jalur serving vLLM saat ini tidak dapat
+melayani varian weight-decomposed dan full finetune — nilai tersebut tidak lagi
+diterima lalu dipetakan diam-diam ke LoRA biasa. `qlora` mengaktifkan kuantisasi
+4-bit (`load_in_4bit: true`) pada payload pelatihan, tidak identik dengan `lora`.
 
 ## Environment Variables
 

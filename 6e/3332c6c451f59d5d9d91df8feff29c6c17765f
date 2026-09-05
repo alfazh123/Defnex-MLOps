@@ -1,0 +1,42 @@
+ml-close-loop-be/alembic/versions/aabb00c1c001_us_036_single_source_deployed_partial_index.py
+  s_7ae865e63c2fd8::t_c5ad43a7a2fe38 78
+  s_7ae865e63c2fd8::t_b16edfa1065ee8 31-35,37-63
+  s_7ae865e63c2fd8::t_b3747778dc4627 1-30,36,64-77
+ml-close-loop-be/openapi.yaml
+  s_7ae865e63c2fd8::t_7d01bcea077e71 1487-1488,1494-1504,1506-1514
+  s_7ae865e63c2fd8::t_6ffa823a826ab9 1156-1205
+  s_7ae865e63c2fd8::t_1fbb611b4972db 1505
+ml-close-loop-be/tests/test_deployment_single_source.py
+  s_7ae865e63c2fd8::t_c5ad43a7a2fe38 142-144,170-172,219-221,234-236,249-251,307-309,405-407,426-428,432-434,460-462,466-468,482
+  s_7ae865e63c2fd8::t_66c083867cd0d4 3-9,11,19,23,27,35-40,43,48,58-65,70-73,75-85,88-90,92-94,97-100,104,108,114-117,126,134,141,145-153,164-166,169,173,175-177,180-182,196-197,216-217,226,231,233,245-248,252,256,259,263,281,289,292,304,315-337,354-356,369,378,398-399,404,408-421,425,429-431,435-448,458-459,463-465,469-475,477-481
+  s_7ae865e63c2fd8::t_247f87fbba25b1 1-2,10,12-18,20-22,24-26,28-34,41-42,44-47,49-57,66-69,74,86-87,91,95-96,101-103,105-107,109-113,118-125,127-133,135-140,154-163,167-168,174,178-179,183-195,198-215,218,222-225,227-230,232,237-244,253-255,257-258,260-262,264-280,282-288,290-291,293-303,305-306,310-314,338-353,357-368,370-377,379-397,400-403,422-424,449-457,476
+ml-close-loop-be/app/services/deployment_service.py
+  s_7ae865e63c2fd8::t_8a9afcb2dc59d3 137
+  s_7ae865e63c2fd8::t_3f97c6197a581f 93-98
+  s_7ae865e63c2fd8::t_5521c621814287 21-23
+  s_7ae865e63c2fd8::t_11499664eca130 5,14-19,24-62,74-78,112-117,122-126,128-136,138-144
+  s_7ae865e63c2fd8::t_11d3c7994e4227 20
+ml-close-loop-be/app/models/model.py
+  s_7ae865e63c2fd8::t_154ba1c5dc81b8 3
+  s_7ae865e63c2fd8::t_b9ebc382a1ef72 29-38
+ml-close-loop-be/app/api/deployment.py
+  s_7ae865e63c2fd8::t_d9314dc6fd8cdb 80
+  s_7ae865e63c2fd8::t_e2756fefa94f36 35-41,58-79,81-82
+  s_7ae865e63c2fd8::t_c5ad43a7a2fe38 83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "6e3332c6c451f59d5d9d91df8feff29c6c17765f",
+  "prompts": {},
+  "sessions": {
+    "s_7ae865e63c2fd8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8deea836ffe5xMBaoP3XUUPIJ",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

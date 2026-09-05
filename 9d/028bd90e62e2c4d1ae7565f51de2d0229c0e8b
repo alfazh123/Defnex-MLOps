@@ -1,0 +1,23 @@
+ml-close-loop-be/app/workers/training_worker.py
+  s_d33bca10d4488a::t_c826a8de11ba4c 32-35
+ml-close-loop-be/tests/test_training_worker.py
+  s_d33bca10d4488a::t_25578c1446112f 119-125
+ml-close-loop-be/alembic/versions/078245ba25b2_add_external_job_id_to_training_runs.py
+  s_d33bca10d4488a::t_4fc8ebe2ace132 3-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "9d028bd90e62e2c4d1ae7565f51de2d0229c0e8b",
+  "prompts": {},
+  "sessions": {
+    "s_d33bca10d4488a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8e03f0fcffek5HdFCAIpK3rC7",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

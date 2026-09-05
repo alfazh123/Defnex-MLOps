@@ -1844,8 +1844,6 @@ components:
           enum:
           - lora
           - qlora
-          - dora
-          - qdora
           - rslora
           title: Peft Method
           default: lora

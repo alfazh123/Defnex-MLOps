@@ -15,7 +15,7 @@ TRAINING_RUN_CREATE_REQUEST = {
     "model_id": "qwen-sft-domain-x",
     "base_model": "Qwen/Qwen3.8-27B",
     "training_config": {
-        "peft_method": "dora",
+        "peft_method": "lora",
         "load_in_4bit": False,
         "lora_r": 16,
         "lora_alpha": 16,
@@ -47,9 +47,7 @@ def test_list_datasets_filter_by_status(client, admin_token):
     h = auth_header(admin_token)
     _create_dataset(client, h)
 
-    response = client.get(
-        "/api/v1/datasets", params={"status": "PROCESSED"}, headers=h
-    )
+    response = client.get("/api/v1/datasets", params={"status": "PROCESSED"}, headers=h)
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1

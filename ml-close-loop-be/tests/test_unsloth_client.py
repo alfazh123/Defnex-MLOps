@@ -39,21 +39,31 @@ def test_map_training_config_lora_base_case():
     assert result["lora_r"] == 8
 
 
-def test_map_training_config_none_is_full_finetune():
-    result = _map_training_config({"peft_method": "none"}, "m")
-    assert result["training_type"] == "Full Finetuning"
-    assert result["use_lora"] is False
-
-
-def test_map_training_config_dora_disables_rslora():
-    result = _map_training_config({"peft_method": "dora"}, "m")
+def test_map_training_config_qlora_enables_4bit():
+    result = _map_training_config({"peft_method": "qlora"}, "m")
     assert result["training_type"] == "LoRA/QLoRA"
+    assert result["use_lora"] is True
+    assert result["load_in_4bit"] is True
     assert result["use_rslora"] is False
 
 
-def test_map_training_config_rslora_enables_rslora():
+def test_map_training_config_lora_respects_load_in_4bit_flag():
+    result = _map_training_config({"peft_method": "lora", "load_in_4bit": True}, "m")
+    assert result["load_in_4bit"] is True
+
+
+def test_map_training_config_rslora_sets_flag():
     result = _map_training_config({"peft_method": "rslora"}, "m")
+    assert result["training_type"] == "LoRA/QLoRA"
+    assert result["use_lora"] is True
+    assert result["load_in_4bit"] is False
     assert result["use_rslora"] is True
+
+
+@pytest.mark.parametrize("method", ["dora", "qdora", "none"])
+def test_map_training_config_rejects_unsupported(method):
+    with pytest.raises(ValueError):
+        _map_training_config({"peft_method": method}, "m")
 
 
 def test_map_training_config_learning_rate_stringified():

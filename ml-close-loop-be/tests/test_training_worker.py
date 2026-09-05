@@ -116,9 +116,13 @@ def test_process_next_job_registers_model_version_on_success(db_session):
     assert model_version.training_run_id == training_run.training_run_id
 
 
-def test_process_next_job_does_not_run_again_after_start(db_session):
-    """Two process_next_job calls over one PENDING run must only run the runner once:
-    the first moves the run to RUNNING, the second finds an empty PENDING queue."""
+def test_process_next_job_sequential_second_call_finds_no_pending_run(db_session):
+    """SEQUENTIAL only: two process_next_job calls over one PENDING run. The first moves the
+    run to RUNNING; the second (same session) finds an empty PENDING queue, so the runner
+    executes once. This does NOT assert multi-worker safety: the claim query has no
+    FOR UPDATE/SKIP LOCKED, so two real worker processes could both select the same PENDING
+    run. That gap is recorded in app/workers/training_worker.py and fixed with the GPU lock
+    in issue #33."""
     training_run = _queued_training_run(db_session)
     runner = _StubRunner(artifact_uri="file:///tmp/adapter")
 

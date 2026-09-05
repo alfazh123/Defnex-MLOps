@@ -325,7 +325,7 @@ TRAINING_RUN_CREATE_REQUEST = {
     "model_id": "qwen-sft-domain-x",
     "base_model": "Qwen/Qwen3.8-27B",
     "training_config": {
-        "peft_method": "dora",
+        "peft_method": "lora",
         "load_in_4bit": False,
         "lora_r": 16,
         "lora_alpha": 16,

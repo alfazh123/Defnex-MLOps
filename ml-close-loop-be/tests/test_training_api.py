@@ -96,27 +96,64 @@ def test_get_training_run_returns_created_run(client, admin_token):
     assert response.json() == created
 
 
-def _create_runs(client, admin_token, count):
+def test_create_training_run_does_not_start_training_inline(client, admin_token):
+    """Create must only queue the run (PENDING); the worker owns execution."""
     from unittest.mock import AsyncMock, patch
 
     h = auth_header(admin_token)
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
-    for _ in range(count):
-        with patch(
-            "app.api.training.unsloth_client.start_training",
-            new=AsyncMock(side_effect=ConnectionError("unreachable")),
-        ):
-            client.post(
-                "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+
+    start_training = AsyncMock(return_value={"job_id": "job-123"})
+    with patch(
+        "app.api.training.unsloth_client.start_training", new=start_training
+    ) as mocked:
+        created = client.post(
+            "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        ).json()
+
+    assert created["status"] == "PENDING"
+    mocked.assert_not_called()
+
+
+def test_create_training_run_does_not_set_artifact_uri(client, admin_token):
+    """artifact_uri stays NULL on create; only the worker populates it on COMPLETED."""
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+    from app.models.training import TrainingRun
+
+    with Session(client.engine) as db:
+        row = db.scalar(
+            select(TrainingRun).where(
+                TrainingRun.training_run_id == created["training_run_id"]
             )
+        )
+        assert row.status == "PENDING"
+        assert row.artifact_uri is None
+
+
+def _create_runs(client, admin_token, count):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    for _ in range(count):
+        client.post(
+            "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        )
 
 
 def test_create_training_run_permissive_model_id(client, admin_token):
     # Gap: TrainingRunCreateRequest.model_id is an unvalidated str, so any format registers.
-    from unittest.mock import AsyncMock, patch
-
     h = auth_header(admin_token)
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
@@ -124,30 +161,20 @@ def test_create_training_run_permissive_model_id(client, admin_token):
     request = dict(TRAINING_RUN_CREATE_REQUEST)
     request["model_id"] = "bad model!@#/with spaces"
 
-    with patch(
-        "app.api.training.unsloth_client.start_training",
-        new=AsyncMock(side_effect=ConnectionError("unreachable")),
-    ):
-        response = client.post("/api/v1/training-runs", json=request, headers=h)
+    response = client.post("/api/v1/training-runs", json=request, headers=h)
 
     assert response.status_code == 201
     assert response.json()["model_id"] == "bad model!@#/with spaces"
 
 
 def test_create_training_run_returns_correct_status_field(client, admin_token):
-    from unittest.mock import AsyncMock, patch
-
     h = auth_header(admin_token)
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
-    with patch(
-        "app.api.training.unsloth_client.start_training",
-        new=AsyncMock(side_effect=ConnectionError("unreachable")),
-    ):
-        created = client.post(
-            "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
-        ).json()
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
 
     fetched = client.get(
         f"/api/v1/training-runs/{created['training_run_id']}", headers=h

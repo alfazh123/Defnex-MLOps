@@ -28,6 +28,7 @@ class TrainingRun(Base):
     eval_loss: Mapped[float | None] = mapped_column(nullable=True)
 
     artifact_uri: Mapped[str | None] = mapped_column(String, nullable=True)
+    external_job_id: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
 
     dataset_version: Mapped["DatasetVersion"] = relationship(

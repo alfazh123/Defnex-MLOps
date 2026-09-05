@@ -557,6 +557,12 @@ paths:
       tags:
       - Training
       summary: Create Training Run
+      description: |-
+        Queues a training run in PENDING status and returns 201. Execution is owned by the
+        training worker: the run is transitioned to RUNNING only when the worker picks it up,
+        and to COMPLETED or FAILED (with an error_message) when it finishes or fails to start.
+        A failure to start training is never swallowed at request time; it surfaces as a FAILED
+        run with an explicit error_message.
       operationId: create_training_run_api_v1_training_runs_post
       parameters:
       - name: authorization

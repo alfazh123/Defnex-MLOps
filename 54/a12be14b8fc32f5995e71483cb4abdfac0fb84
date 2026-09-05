@@ -1,0 +1,19 @@
+ml-close-loop-be/alembic/versions/078245ba25b2_add_external_job_id_to_training_runs.py
+  s_0f6821ed0e22fe::t_bea6f5df6342cf 4,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "54a12be14b8fc32f5995e71483cb4abdfac0fb84",
+  "prompts": {},
+  "sessions": {
+    "s_0f6821ed0e22fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ccc5bff-edd2-459d-b456-37fe93cbb5d2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 """add per_record_errors to validation reports
 
 Revision ID: 4e04cef4c8ef
-Revises: 190c9e1c557c
+Revises: 078245ba25b2
 Create Date: 2026-09-05 22:30:59.074022
 
 """
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "4e04cef4c8ef"
-down_revision: Union[str, Sequence[str], None] = "190c9e1c557c"
+down_revision: Union[str, Sequence[str], None] = "078245ba25b2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

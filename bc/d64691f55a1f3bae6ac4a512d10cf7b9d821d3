@@ -1,0 +1,46 @@
+ml-close-loop-be/tests/test_training_api.py
+  s_d33bca10d4488a::t_989187e03ac7fc 99-100,107-119,121-137,139-150
+  s_d33bca10d4488a::t_9f0b5cb3bb3ab7 120
+  s_d33bca10d4488a::t_9e53627c2e9446 175
+  s_d33bca10d4488a::t_7e646fe4edc6ce 151-152,164,176-177
+ml-close-loop-be/openapi.yaml
+  s_d33bca10d4488a::t_709cccd43d4e19 560-565
+ml-close-loop-be/alembic/versions/abcdef123456_add_external_job_id_to_training_runs.py
+  s_d33bca10d4488a::t_c545a5b55f2667 1-29
+  s_d33bca10d4488a::t_e8815c1b2dddcb 30-31
+ml-close-loop-be/tests/test_training_worker.py
+  s_d33bca10d4488a::t_2970162bdd237e 69-72
+  s_d33bca10d4488a::t_fd14ce05892ca5 117-131
+  s_d33bca10d4488a::t_ab59c37eea1745 132-136,138-156,158
+  s_d33bca10d4488a::t_65daaf5ac01d1a 137
+  s_36f62e2483624b::t_528e93b0ab3566 157,159
+ml-close-loop-be/app/models/training.py
+  s_d33bca10d4488a::t_b892103038f642 31
+ml-close-loop-be/tests/test_error_logging.py
+  s_d33bca10d4488a::t_0e3a0a84d54f75 70-74
+  s_d33bca10d4488a::t_3bcf4fa4738897 75-76,89,105-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "bcd64691f55a1f3bae6ac4a512d10cf7b9d821d3",
+  "prompts": {},
+  "sessions": {
+    "s_36f62e2483624b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8def4e71ffeKLyGxaCXSAQVoe",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    },
+    "s_d33bca10d4488a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8e03f0fcffek5HdFCAIpK3rC7",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

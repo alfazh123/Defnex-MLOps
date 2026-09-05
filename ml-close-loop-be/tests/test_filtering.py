@@ -47,9 +47,7 @@ def test_list_datasets_filter_by_status(client, admin_token):
     h = auth_header(admin_token)
     _create_dataset(client, h)
 
-    response = client.get(
-        "/api/v1/datasets", params={"status": "PROCESSED"}, headers=h
-    )
+    response = client.get("/api/v1/datasets", params={"status": "PROCESSED"}, headers=h)
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1

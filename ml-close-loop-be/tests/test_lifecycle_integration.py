@@ -14,8 +14,6 @@ so validation is immediately available after dataset creation.
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from app.models.dataset import DatasetVersion
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.models.promotion import PromotionDecision

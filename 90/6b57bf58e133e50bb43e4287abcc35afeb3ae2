@@ -1,0 +1,115 @@
+ml-close-loop-be/app/schemas/validation.py
+  s_36f62e2483624b::t_a23d480249f975 22-25,29,41
+  s_36f62e2483624b::t_d0b9133d543049 17-21,26-28,30-32,45
+ml-close-loop-be/README.md
+  s_36f62e2483624b::t_6ada48ec7adef1 93-95
+ml-close-loop-be/app/services/validation_service.py
+  s_36f62e2483624b::t_102f80d98ceb26 1-2
+  s_36f62e2483624b::t_c5deecf439739c 136-138
+  s_36f62e2483624b::t_8b129973afc242 205
+  s_36f62e2483624b::t_9469e23fdece9c 234-236
+  s_36f62e2483624b::t_bc6e7bc12b29e7 256
+  s_36f62e2483624b::t_8dfe2ee8ac166d 220
+  s_36f62e2483624b::t_c66c6a33e066c4 260
+ml-close-loop-be/app/models/validation.py
+  s_36f62e2483624b::t_c15d9f7479ad34 25
+  s_36f62e2483624b::t_5ed4c8fa7731f7 29
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_36f62e2483624b::t_dcaf6df78a864c 88-90,96-98
+  s_36f62e2483624b::t_7ffc3d71a39365 30-40
+  s_36f62e2483624b::t_a155811de52fcb 339-345
+  s_36f62e2483624b::t_3fc0001fe950fc 421-427
+ml-close-loop-be/app/api/training.py
+  s_36f62e2483624b::t_131ab736b11068 19
+  s_36f62e2483624b::t_781b22ec5739be 63-69
+  s_36f62e2483624b::t_b9aea5f61efd48 70
+  s_36f62e2483624b::t_8e792b57739954 48
+  s_36f62e2483624b::t_df5390427d7236 31,49-62
+ml-close-loop-be/tests/test_model_api.py
+  s_36f62e2483624b::t_fb36f8a14d4d40 40-54,60-63,73
+  s_36f62e2483624b::t_48228b1a30fb2c 55-56,58-59
+  s_36f62e2483624b::t_2c99ceca214023 30-39,57
+ml-close-loop-be/openapi.yaml
+  s_36f62e2483624b::t_4a2f5bb35c7f92 2218-2225
+  s_36f62e2483624b::t_13f64f0389cdfd 587-595
+  s_36f62e2483624b::t_78232ca31616c9 2148-2157
+ml-close-loop-be/tests/test_validation_api.py
+  s_36f62e2483624b::t_1e89630955b2c6 13-25
+  s_36f62e2483624b::t_5f019f45c191a9 306-315
+  s_36f62e2483624b::t_68f4daf96098c2 121,125-183
+  s_36f62e2483624b::t_a5f91a1bada141 102-105,111-120,122-124,184-213,219-227,229-263
+  s_36f62e2483624b::t_b884c1ad619b08 106-110
+  s_36f62e2483624b::t_8e792b57739954 214-218
+  s_36f62e2483624b::t_20fda449e072a6 357,362
+  s_36f62e2483624b::t_360f78b73741e1 51-52,56-60,62-63,71-75,81-83,94
+  s_36f62e2483624b::t_d7dca04f0f174f 228
+ml-close-loop-be/tests/test_filtering.py
+  s_36f62e2483624b::t_1ba8df590e9dc6 88
+  s_36f62e2483624b::t_18063a3ef77cf2 48-66,70-74,76
+  s_36f62e2483624b::t_ffd50835b0fae0 67-69
+  s_36f62e2483624b::t_51604b0f669bd6 38-47
+  s_36f62e2483624b::t_875c5a34a31d7f 179
+ml-close-loop-be/tests/test_deployment_api.py
+  s_36f62e2483624b::t_2333d0438d2e94 40-54,60-63,72
+  s_36f62e2483624b::t_eb934ed5f9cb84 30-39,55-59
+ml-close-loop-be/tests/test_training_progress.py
+  s_36f62e2483624b::t_14f108fcf82122 31-34,39-49,69
+  s_36f62e2483624b::t_cd942c1735a84c 50-68
+ml-close-loop-be/tests/test_pagination.py
+  s_36f62e2483624b::t_641aae02dd5e45 46-62
+  s_36f62e2483624b::t_6fd35c510f3af0 3-4
+  s_36f62e2483624b::t_39742a1645d904 29-32,36-45,63-65
+ml-close-loop-be/app/api/validation.py
+  s_36f62e2483624b::t_7c36c9526e36ad 9
+  s_36f62e2483624b::t_cf07d38b5059b7 55-56,58-59
+  s_36f62e2483624b::t_e8b46da69d3d5d 30,40-42,44-47,57
+ml-close-loop-be/alembic/versions/4e04cef4c8ef_add_per_record_errors_to_validation_.py
+  s_36f62e2483624b::t_c55f36b64d217e 1-7,9-15,18-23,32-35
+  s_36f62e2483624b::t_8e792b57739954 8,16-17,25-26,37
+  s_36f62e2483624b::t_146db668667d12 28-31,36
+  s_36f62e2483624b::t_84929639f85849 24,27
+ml-close-loop-be/tests/test_training_api.py
+  s_36f62e2483624b::t_20d2b73eaab004 132
+  s_36f62e2483624b::t_376dc61dfb78ce 1-3,31-51,57-58
+  s_36f62e2483624b::t_9f4f7ed5a8c0e9 52-56
+  s_36f62e2483624b::t_c599dd0cb316e4 166
+  s_36f62e2483624b::t_ce634d8fb2eff6 148
+  s_36f62e2483624b::t_c4de9d9c6a9905 76
+  s_36f62e2483624b::t_74cc0cf456a7e9 115
+  s_36f62e2483624b::t_8e792b57739954 226,290-292
+  s_36f62e2483624b::t_fa65eb1b9e380a 59-60
+  s_36f62e2483624b::t_9b9810f7245ede 210-225,227-289,293-309
+ml-close-loop-be/app/config.py
+  s_36f62e2483624b::t_1ba8df590e9dc6 34-36
+ml-close-loop-be/tests/test_promotion_api.py
+  s_36f62e2483624b::t_c13570ade7b771 169
+  s_36f62e2483624b::t_64d525f3bb2b3e 40-54,60-63,73
+  s_36f62e2483624b::t_3d26d3943eb1fc 30-39,55-59
+ml-close-loop-be/tests/test_contract.py
+  s_36f62e2483624b::t_8e62bfb5dec6af 206-210
+  s_36f62e2483624b::t_39381d3ddbfba6 278-282,296,301-304
+  s_36f62e2483624b::t_c6d167a392779c 64,70-71
+  s_36f62e2483624b::t_550cc02f960fa7 295
+  s_36f62e2483624b::t_d186a61a4a6700 37-46
+  s_36f62e2483624b::t_a31982857f3ced 65-69
+  s_36f62e2483624b::t_9994c3375391f4 205,211-212
+ml-close-loop-be/tests/test_error_logging.py
+  s_36f62e2483624b::t_87bf727703d540 82-88,93-108
+  s_36f62e2483624b::t_1ba8df590e9dc6 89-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "906b57bf58e133e50bb43e4287abcc35afeb3ae2",
+  "prompts": {},
+  "sessions": {
+    "s_36f62e2483624b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8def4e71ffeKLyGxaCXSAQVoe",
+        "model": "big-pickle"
+      },
+      "human_author": null
+    }
+  }
+}

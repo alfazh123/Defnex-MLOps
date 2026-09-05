@@ -95,12 +95,13 @@ alembic upgrade head
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many login/register requests (see headers) |
 | `413` | `REQUEST_TOO_LARGE` | Body exceeds `MAX_REQUEST_BODY_SIZE` |
 
-`training_config.peft_method` hanya menerima `lora` dan `qlora`. Nilai `dora`,
+`training_config.peft_method` menerima `lora`, `qlora`, dan `rslora`. Nilai `dora`,
 `qdora`, dan `none` (Full Finetuning) ditolak dengan `422` beserta pesan yang
 menyebut nilai dan alasannya, karena jalur serving vLLM saat ini tidak dapat
 melayani varian weight-decomposed dan full finetune — nilai tersebut tidak lagi
 diterima lalu dipetakan diam-diam ke LoRA biasa. `qlora` mengaktifkan kuantisasi
-4-bit (`load_in_4bit: true`) pada payload pelatihan, tidak identik dengan `lora`.
+4-bit (`load_in_4bit: true`) dan `rslora` mengaktifkan `use_rslora` pada payload
+pelatihan, sehingga tidak identik dengan `lora`.
 
 ## Environment Variables
 

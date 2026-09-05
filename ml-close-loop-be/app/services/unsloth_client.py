@@ -51,7 +51,8 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
 
     Accepts only the values in `SUPPORTED_PEFT_METHODS` (single source of truth in
     app/schemas/training.py). `qlora` forces 4-bit quantization via `load_in_4bit`
-    so it is not executed identically to `lora` (issue #34).
+    and `rslora` forces `use_rslora` so they are not executed identically to `lora`
+    (issue #34).
 
     Field mapping from our schema → Unsloth API:
     - model → model_name
@@ -118,8 +119,9 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
         "lora_alpha": config.get("lora_alpha", 16),
         "lora_dropout": config.get("lora_dropout", 0.0),
         "target_modules": config.get("target_modules", []),
-        # rslora is not an accepted peft_method (issue #34), so this flag is always off.
-        "use_rslora": False,
+        # rslora only changes the scale factor alpha/sqrt(r), so it is honored via
+        # use_rslora (issue #34) instead of being silently downgraded to plain LoRA.
+        "use_rslora": config.get("use_rslora", False) or peft_method == "rslora",
         "use_loftq": config.get("use_loftq", False),
         # Gradient checkpointing
         "gradient_checkpointing": config.get("gradient_checkpointing", "unsloth"),

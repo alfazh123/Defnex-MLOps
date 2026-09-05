@@ -8,7 +8,9 @@ TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
 # Single source of truth for accepted PEFT methods (issue #34). Consumed by both the
 # request schema (PeftMethod Literal below) and the Unsloth mapper in
 # app/services/unsloth_client.py — never keep a second, divergent list elsewhere.
-SUPPORTED_PEFT_METHODS = ("lora", "qlora")
+# rslora is kept because it produces a regular LoRA adapter that the vLLM serving
+# path can serve; it only changes the scale factor alpha/sqrt(r) at training time.
+SUPPORTED_PEFT_METHODS = ("lora", "qlora", "rslora")
 
 # Values that exist in the ecosystem but cannot be honored by the current vLLM serving
 # path (DoRA/QDoRA reparameterization, and the Full Finetuning branch that has no PEFT

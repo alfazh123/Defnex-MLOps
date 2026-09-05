@@ -41,6 +41,9 @@ def test_validate_returns_409_when_not_processed(client, admin_token):
 
     from sqlalchemy.orm import Session
 
+    # Lifecycle decisions (which statuses exist and when versions reach PROCESSED)
+    # belong to issue #35; forcing PROCESSING here only re-creates the not-yet-ready
+    # state the 409 guard is meant for.
     with Session(client.engine) as session:
         row = session.scalar(
             select(DatasetVersion).where(

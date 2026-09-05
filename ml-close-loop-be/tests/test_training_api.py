@@ -112,6 +112,21 @@ def test_create_training_run_peft_method_defaults_to_lora(client, admin_token):
     assert response.json()["training_config"]["peft_method"] == "lora"
 
 
+def test_create_training_run_accepts_rslora(client, admin_token):
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    request = dict(TRAINING_RUN_CREATE_REQUEST)
+    request["training_config"] = dict(TRAINING_RUN_CREATE_REQUEST["training_config"])
+    request["training_config"]["peft_method"] = "rslora"
+
+    response = client.post("/api/v1/training-runs", json=request, headers=h)
+
+    assert response.status_code == 201
+    assert response.json()["training_config"]["peft_method"] == "rslora"
+
+
 def test_get_training_run_returns_404_when_missing(client, admin_token):
     response = client.get(
         "/api/v1/training-runs/run-doesnotexist", headers=auth_header(admin_token)

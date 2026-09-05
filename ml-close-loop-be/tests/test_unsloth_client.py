@@ -52,7 +52,15 @@ def test_map_training_config_lora_respects_load_in_4bit_flag():
     assert result["load_in_4bit"] is True
 
 
-@pytest.mark.parametrize("method", ["dora", "qdora", "none", "rslora"])
+def test_map_training_config_rslora_sets_flag():
+    result = _map_training_config({"peft_method": "rslora"}, "m")
+    assert result["training_type"] == "LoRA/QLoRA"
+    assert result["use_lora"] is True
+    assert result["load_in_4bit"] is False
+    assert result["use_rslora"] is True
+
+
+@pytest.mark.parametrize("method", ["dora", "qdora", "none"])
 def test_map_training_config_rejects_unsupported(method):
     with pytest.raises(ValueError):
         _map_training_config({"peft_method": method}, "m")

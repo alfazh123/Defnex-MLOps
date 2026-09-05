@@ -36,6 +36,16 @@ TRAINING_RUN_CREATE_REQUEST = {
 }
 
 
+VALID_RECORD = {
+    "id": "r1",
+    "messages": [
+        {"role": "user", "content": "What is the capital of France?"},
+        {"role": "assistant", "content": " ".join(f"word{i}" for i in range(25))},
+    ],
+    "metadata": {"source_dataset": "no_robots", "source_id": "sq-1"},
+}
+
+
 def _mark_processed(client, dataset_id="no_robots", version=1):
     with Session(client.engine) as db:
         row = db.scalar(
@@ -53,6 +63,14 @@ def _registered_model_version(client, admin_token):
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    _mark_processed(client)
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
+    )
+    assert report.status_code == 201
+    assert report.json()["gate_decision"] == "PASS"
     client.post("/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h)
     with Session(client.engine) as db:
         process_next_job(db, MockTrainingRunner())
@@ -186,6 +204,14 @@ def test_create_training_run_returns_201_with_training_run_shape(client, admin_t
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    _mark_processed(client)
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
+    )
+    assert report.status_code == 201
+    assert report.json()["gate_decision"] == "PASS"
 
     resp = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
@@ -251,7 +277,11 @@ def test_validation_report_returns_report_shape(client, admin_token):
     )
     _mark_processed(client)
 
-    resp = client.post("/api/v1/datasets/no_robots/versions/1/validate", headers=h)
+    resp = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
+    )
 
     assert resp.status_code == 201
     data = resp.json()
@@ -264,11 +294,16 @@ def test_validation_report_returns_report_shape(client, admin_token):
         "status_counts",
         "warnings_summary",
         "dataset_statistics",
+        "per_record_errors",
+        "content_hash",
         "gate_decision",
         "gate_reason",
     }
     assert data["dataset_id"] == "no_robots"
-    assert data["status_counts"] == {"VALID": 0, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert data["status_counts"] == {"VALID": 1, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert data["record_count"] == 1
+    assert isinstance(data["content_hash"], str)
+    assert data["per_record_errors"] == [[]]
     assert data["gate_decision"] == "PASS"
     assert isinstance(data["run_at"], str)
 

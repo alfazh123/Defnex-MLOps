@@ -26,6 +26,17 @@ from tests.conftest import auth_header
 DATASET_ID = "no_robots"
 MODEL_ID = "qwen-sft-domain-x"
 
+GOOD_ANSWER = " ".join(f"word{i}" for i in range(25))
+
+VALID_RECORD = {
+    "id": "r1",
+    "messages": [
+        {"role": "user", "content": "Apa itu quantum computing?"},
+        {"role": "assistant", "content": GOOD_ANSWER},
+    ],
+    "metadata": {"source_dataset": DATASET_ID, "source_id": "sq-1"},
+}
+
 DATASET_CREATE_REQUEST = {
     "source_type": "huggingface",
     "source_dataset": "HuggingFaceH4/no_robots",
@@ -73,12 +84,17 @@ def _run_lifecycle(client, admin_token, serving_backend=None, training_request=N
 
     # --- Validation ------------------------------------------------------------------------
     response = client.post(
-        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate", headers=h
+        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
     )
     assert response.status_code == 201
     report = response.json()
     assert report["dataset_id"] == DATASET_ID
     assert report["dataset_version"] == 1
+    assert report["record_count"] == 1
+    assert report["status_counts"]["VALID"] == 1
+    assert report["per_record_errors"] == [[]]
     assert report["gate_decision"] == "PASS"
 
     latest = client.get(
@@ -319,6 +335,13 @@ def test_lifecycle_training_failure_path(client, admin_token):
         headers=h,
     )
     _mark_processed(client, DATASET_ID, 1)
+    report = client.post(
+        f"/api/v1/datasets/{DATASET_ID}/versions/1/validate",
+        json={"records": [VALID_RECORD]},
+        headers=h,
+    )
+    assert report.status_code == 201
+    assert report.json()["gate_decision"] == "PASS"
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     )
@@ -394,6 +417,13 @@ def test_lifecycle_sequential_multi_version(client, admin_token):
             headers=h,
         )
         _mark_processed(client, DATASET_ID, dataset_version)
+        report = client.post(
+            f"/api/v1/datasets/{DATASET_ID}/versions/{dataset_version}/validate",
+            json={"records": [VALID_RECORD]},
+            headers=h,
+        )
+        assert report.status_code == 201
+        assert report.json()["gate_decision"] == "PASS"
         request = dict(TRAINING_RUN_CREATE_REQUEST)
         request["dataset_version"] = dataset_version
         created = client.post("/api/v1/training-runs", json=request, headers=h)

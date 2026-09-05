@@ -354,6 +354,27 @@ def test_alias_returns_404_when_model_never_deployed(client, admin_token):
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    validate_resp = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={
+            "records": [
+                {
+                    "id": "r1",
+                    "messages": [
+                        {"role": "user", "content": "What is the capital of France?"},
+                        {
+                            "role": "assistant",
+                            "content": " ".join(f"word{i}" for i in range(25)),
+                        },
+                    ],
+                    "metadata": {"source_dataset": "no_robots", "source_id": "r1"},
+                }
+            ]
+        },
+        headers=h,
+    )
+    assert validate_resp.status_code == 201
+    assert validate_resp.json()["gate_decision"] == "PASS"
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()

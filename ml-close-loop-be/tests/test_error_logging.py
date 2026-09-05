@@ -85,6 +85,33 @@ class TestTrainingErrorLogging:
             },
             headers=h,
         )
+        report = client.post(
+            "/api/v1/datasets/no_robots/versions/1/validate",
+            json={
+                "records": [
+                    {
+                        "id": "r1",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": "What is the capital of France?",
+                            },
+                            {
+                                "role": "assistant",
+                                "content": " ".join(f"word{i}" for i in range(25)),
+                            },
+                        ],
+                        "metadata": {
+                            "source_dataset": "no_robots",
+                            "source_id": "sq-1",
+                        },
+                    }
+                ]
+            },
+            headers=h,
+        )
+        assert report.status_code == 201
+        assert report.json()["gate_decision"] == "PASS"
 
         with patch("app.api.training.unsloth_client._get_client") as mock_get:
             with caplog.at_level(logging.ERROR, logger="app.api.training"):

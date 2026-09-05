@@ -1,5 +1,7 @@
 """Tests for pagination on list endpoints."""
 
+from sqlalchemy.orm import Session
+
 from tests.conftest import auth_header
 
 DATASET_CREATE = {
@@ -24,9 +26,43 @@ def _seed_users_via_client(client, admin_token):
 
 
 def _create_training_run(client, h, dataset_id="no_robots", dataset_version=1):
+    from sqlalchemy import select
+
+    from app.models.dataset import DatasetVersion
+
     client.post(
         f"/api/v1/datasets/{dataset_id}/versions", json=DATASET_CREATE, headers=h
     )
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == 1,
+            )
+        )
+        row.status = "PROCESSED"
+        session.commit()
+    report = client.post(
+        f"/api/v1/datasets/{dataset_id}/versions/1/validate",
+        json={
+            "records": [
+                {
+                    "id": "r1",
+                    "messages": [
+                        {"role": "user", "content": "What is the capital of France?"},
+                        {
+                            "role": "assistant",
+                            "content": " ".join(f"word{i}" for i in range(25)),
+                        },
+                    ],
+                    "metadata": {"source_dataset": dataset_id, "source_id": "sq-1"},
+                }
+            ]
+        },
+        headers=h,
+    )
+    assert report.status_code == 201, report.text
+    assert report.json()["gate_decision"] == "PASS"
     return client.post(
         "/api/v1/training-runs",
         json={

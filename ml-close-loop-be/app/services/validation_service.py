@@ -1,3 +1,5 @@
+import hashlib
+import json
 import re
 import statistics
 from datetime import datetime, timezone
@@ -131,6 +133,9 @@ def validate_dataset_version(
     """
 
     run_at = datetime.now(timezone.utc)
+    content_hash = hashlib.sha256(
+        json.dumps(records, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
 
     per_record_errors = [_hard_errors_for_record(record) for record in records]
 
@@ -197,6 +202,7 @@ def validate_dataset_version(
         rule_set_version=rule_set_version,
         run_at=run_at,
         record_count=len(records),
+        content_hash=content_hash,
         status_counts={
             "VALID": valid_count,
             "INVALID": invalid_count,
@@ -211,6 +217,7 @@ def validate_dataset_version(
                 "overlaps_found": leakage_overlaps,
             },
         },
+        per_record_errors=per_record_errors,
         gate_decision=gate_decision,
         gate_reason=gate_reason,
     )
@@ -224,7 +231,9 @@ def list_validation_reports(
     db: Session, dataset_version: DatasetVersionModel
 ) -> list[ValidationReportModel]:
     return sorted(
-        dataset_version.validation_reports, key=lambda r: r.run_at, reverse=True
+        dataset_version.validation_reports,
+        key=lambda r: (r.run_at, r.id),
+        reverse=True,
     )
 
 
@@ -244,9 +253,11 @@ def to_schema(report: ValidationReportModel) -> ValidationReport:
         rule_set_version=report.rule_set_version,
         run_at=report.run_at,
         record_count=report.record_count,
+        content_hash=report.content_hash,
         status_counts=ValidationStatusCounts(**report.status_counts),
         warnings_summary=report.warnings_summary,
         dataset_statistics=report.dataset_statistics,
+        per_record_errors=report.per_record_errors,
         gate_decision=report.gate_decision,
         gate_reason=report.gate_reason,
     )

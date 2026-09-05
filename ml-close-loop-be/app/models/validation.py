@@ -22,9 +22,11 @@ class ValidationReport(Base):
     rule_set_version: Mapped[str] = mapped_column(String)
     run_at: Mapped[datetime] = mapped_column()
     record_count: Mapped[int] = mapped_column()
+    content_hash: Mapped[str] = mapped_column(String, default="")
     status_counts: Mapped[dict] = mapped_column(JSON)
     warnings_summary: Mapped[dict] = mapped_column(JSON, default=dict)
     dataset_statistics: Mapped[dict] = mapped_column(JSON, default=dict)
+    per_record_errors: Mapped[list] = mapped_column(JSON, default=list)
     gate_decision: Mapped[str] = mapped_column(String)
     gate_reason: Mapped[str] = mapped_column(String)
 

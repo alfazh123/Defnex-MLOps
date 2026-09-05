@@ -28,10 +28,45 @@ TRAINING_RUN_CREATE_REQUEST = {
 
 
 def _create_run(client, admin_token):
+    from sqlalchemy import select
+
+    from app.models.dataset import DatasetVersion
+
     h = auth_header(admin_token)
     client.post(
         "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
     )
+    from sqlalchemy.orm import Session
+
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == "no_robots",
+                DatasetVersion.version == 1,
+            )
+        )
+        row.status = "PROCESSED"
+        session.commit()
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={
+            "records": [
+                {
+                    "id": "r1",
+                    "messages": [
+                        {"role": "user", "content": "What is the capital of France?"},
+                        {
+                            "role": "assistant",
+                            "content": " ".join(f"word{i}" for i in range(25)),
+                        },
+                    ],
+                    "metadata": {"source_dataset": "no_robots", "source_id": "sq-1"},
+                }
+            ]
+        },
+        headers=h,
+    )
+    assert report.status_code == 201, report.text
     created = client.post(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()

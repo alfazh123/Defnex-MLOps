@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
@@ -7,16 +6,10 @@ from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.common import ErrorResponse
-from app.schemas.validation import ValidationReport
+from app.schemas.validation import ValidateDatasetVersionRequest, ValidationReport
 from app.services import dataset_service, validation_service
 
 router = APIRouter(tags=["Validation"])
-
-
-class ValidateDatasetVersionRequest(BaseModel):
-    """Optional body for POST .../validate (openapi.yaml)."""
-
-    rule_set_version: str | None = None
 
 
 def _get_dataset_version_or_404(db: Session, dataset_id: str, version: int):
@@ -34,7 +27,7 @@ def _get_dataset_version_or_404(db: Session, dataset_id: str, version: int):
     "/datasets/{dataset_id}/versions/{version}/validate",
     response_model=ValidationReport,
     status_code=201,
-    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    responses={404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
 )
 def validate_dataset_version(
     dataset_id: str,
@@ -44,22 +37,26 @@ def validate_dataset_version(
     _admin: User = Depends(require_admin),
 ) -> ValidationReport:
     dataset_version = _get_dataset_version_or_404(db, dataset_id, version)
-    if dataset_version.status != "PROCESSED":
+
+    records = request.records if request is not None else []
+    if not records:
         raise APIError(
-            409,
-            "VALIDATION_INCOMPLETE",
-            "Dataset version has not completed processing yet.",
+            422,
+            "VALIDATION_RECORDS_REQUIRED",
+            "Running validation requires at least one dataset record — a report over "
+            "empty content must never be able to open the training gate.",
         )
 
     kwargs = {}
     if request is not None and request.rule_set_version is not None:
         kwargs["rule_set_version"] = request.rule_set_version
 
-    # No intake/normalization pipeline persists actual record content anywhere in this
-    # codebase yet (see validation_service module docstring + progress.txt US-005/US-006
-    # notes) - `records` is an empty list until a future story adds that storage.
     report = validation_service.validate_dataset_version(
-        db, dataset_version, records=[], **kwargs
+        db,
+        dataset_version,
+        records=records,
+        eval_records=request.eval_records if request is not None else [],
+        **kwargs,
     )
     return validation_service.to_schema(report)
 

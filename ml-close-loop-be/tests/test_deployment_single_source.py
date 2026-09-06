@@ -32,6 +32,20 @@ from tests.test_deployment_api import _promoted_model_version
 CONFLICT_MESSAGE = "another version of this model is already DEPLOYED"
 
 
+@pytest.fixture(autouse=True)
+def _disable_promotion_gates(monkeypatch):
+    """These tests exercise deployment mechanics, not the #43 eval gate."""
+    from app.config import settings
+
+    for name in (
+        "eval_gate_require_eval_set_reference",
+        "eval_gate_require_qualitative_majority",
+        "eval_gate_require_no_general_regression",
+        "eval_gate_require_eval_loss_not_worse",
+    ):
+        monkeypatch.setattr(settings, name, False)
+
+
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------

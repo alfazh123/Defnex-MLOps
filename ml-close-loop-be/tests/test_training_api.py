@@ -377,3 +377,48 @@ def test_create_training_run_uses_latest_report_for_gate(client, admin_token):
     assert response.json()["error"]["code"] == "VALIDATION_FAILED"
     listing = client.get("/api/v1/training-runs", headers=h).json()
     assert listing["total"] == 0
+
+
+def test_create_training_run_blocked_by_stored_eval_set_leakage(client, admin_token):
+    """Training is blocked when the stored eval set's content leaks into the validated
+    training records (issue #43): the eval set is real storage, not an inline request list."""
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/datasets/no_robots/versions", json=DATASET_CREATE_REQUEST, headers=h
+    )
+    _mark_processed(client)
+    created = client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={
+            "records": [
+                {"messages": [{"role": "user", "content": "pertanyaan rahasia"}]}
+            ]
+        },
+        headers=h,
+    )
+    assert created.status_code == 201
+
+    leaked = _valid_record(user="pertanyaan rahasia")
+    report = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={
+            "records": [leaked],
+            "eval_set_id": "domain-benchmark",
+            "eval_set_version": created.json()["version"],
+        },
+        headers=h,
+    )
+    assert report.status_code == 201, report.text
+    assert report.json()["gate_decision"] == "FAIL"
+    assert report.json()["dataset_statistics"]["leakage_check"]["checked_against"] == [
+        "domain-benchmark@1"
+    ]
+
+    response = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "VALIDATION_FAILED"
+    listing = client.get("/api/v1/training-runs", headers=h).json()
+    assert listing["total"] == 0

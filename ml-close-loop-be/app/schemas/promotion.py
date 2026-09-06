@@ -34,5 +34,7 @@ class DecisionRecord(BaseModel):
     decided_by: str | None = None
     decided_at: datetime
     evidence_snapshot: EvaluationObject | None = None
+    eval_set_id: str | None = None
+    eval_set_version: int | None = None
     rationale: str
     rollback_of_version: int | None = None

@@ -38,6 +38,17 @@ def _mark_processed(client, dataset_id="no_robots", version=1):
         session.commit()
 
 
+def _create_eval_set(client, admin_token, eval_set_id="domain-benchmark", records=None):
+    """Create eval set version 1 and return its id/version."""
+    resp = client.post(
+        f"/api/v1/eval-sets/{eval_set_id}/versions",
+        json={"records": records or []},
+        headers=auth_header(admin_token),
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["version"]
+
+
 def test_validate_returns_404_when_dataset_version_missing(client, admin_token):
     response = client.post(
         "/api/v1/datasets/no_robots/versions/1/validate",
@@ -273,6 +284,80 @@ def test_validate_rejects_invalid_body(client, admin_token):
     )
 
     assert response.status_code == 422
+
+
+def test_validate_references_stored_eval_set_and_reports_leakage(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    _mark_processed(client)
+    eval_version = _create_eval_set(
+        client,
+        admin_token,
+        records=[{"messages": [{"role": "user", "content": "pertanyaan rahasia"}]}],
+    )
+
+    leaked = _valid_record("r1", user="pertanyaan rahasia")
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={
+            "records": [leaked],
+            "eval_set_id": "domain-benchmark",
+            "eval_set_version": eval_version,
+        },
+        headers=h,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert "H8_leakage" in body["per_record_errors"][0]
+    assert body["gate_decision"] == "FAIL"
+    assert body["dataset_statistics"]["leakage_check"]["checked_against"] == [
+        "domain-benchmark@1"
+    ]
+    assert body["dataset_statistics"]["leakage_check"]["overlaps_found"] == 1
+
+
+def test_validate_returns_404_for_missing_eval_set(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    _mark_processed(client)
+
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [_valid_record()], "eval_set_id": "nope"},
+        headers=h,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "EVAL_SET_NOT_FOUND"
+
+
+def test_validate_uses_latest_eval_set_version_by_default(client, admin_token):
+    h = auth_header(admin_token)
+    client.post("/api/v1/datasets/no_robots/versions", json=CREATE_REQUEST, headers=h)
+    _mark_processed(client)
+    _create_eval_set(client, admin_token, records=[])
+    second = client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={"records": [{"messages": [{"role": "user", "content": "rahasia-2"}]}]},
+        headers=h,
+    )
+    assert second.status_code == 201
+    assert second.json()["version"] == 2
+
+    leaked = _valid_record("r1", user="rahasia-2")
+    response = client.post(
+        "/api/v1/datasets/no_robots/versions/1/validate",
+        json={"records": [leaked], "eval_set_id": "domain-benchmark"},
+        headers=h,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["gate_decision"] == "FAIL"
+    assert body["dataset_statistics"]["leakage_check"]["checked_against"] == [
+        "domain-benchmark@2"
+    ]
 
 
 def test_list_validation_reports_returns_404_when_missing(client, admin_token):

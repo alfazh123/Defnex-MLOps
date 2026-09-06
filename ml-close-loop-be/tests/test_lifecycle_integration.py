@@ -23,6 +23,24 @@ from app.workers.mock_runner import MockTrainingRunner
 from app.workers.training_worker import process_next_job
 from tests.conftest import auth_header
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _disable_promotion_gates(monkeypatch):
+    """This test covers the closed loop's plumbing, not the #43 eval gate
+    (gate criteria are covered by tests/test_promotion_gate.py)."""
+    from app.config import settings
+
+    for name in (
+        "eval_gate_require_eval_set_reference",
+        "eval_gate_require_qualitative_majority",
+        "eval_gate_require_no_general_regression",
+        "eval_gate_require_eval_loss_not_worse",
+    ):
+        monkeypatch.setattr(settings, name, False)
+
+
 DATASET_ID = "no_robots"
 MODEL_ID = "qwen-sft-domain-x"
 

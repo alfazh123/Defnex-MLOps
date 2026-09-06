@@ -1,0 +1,24 @@
+ml-close-loop-be/README.md
+  s_0f6821ed0e22fe::t_d9731c27c4f701 181-189
+ml-close-loop-be/app/schemas/training.py
+  s_0f6821ed0e22fe::t_39d1fab3374ae1 15-20
+  s_0f6821ed0e22fe::t_ca47e8276be878 48-49
+ml-close-loop-be/tests/test_training_api.py
+  s_0f6821ed0e22fe::t_18f7d26fc85cef 124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "5d67bca03d100f87f59226d44afffbcd5bc33e53",
+  "prompts": {},
+  "sessions": {
+    "s_0f6821ed0e22fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ccc5bff-edd2-459d-b456-37fe93cbb5d2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

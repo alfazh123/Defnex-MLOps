@@ -35,6 +35,13 @@ class ServingError(Exception):
     never raise (see `VLLMServingBackend.unload`)."""
 
 
+class InferenceError(Exception):
+    """The serving backend could not produce a generation for a loaded adapter (issue #41):
+    unreachable backend, HTTP error from vLLM, or a malformed/empty completion response.
+    Raised by `generate`; callers (the inference endpoint, the deploy-time smoke test) treat
+    it as "this adapter cannot serve traffic right now"."""
+
+
 class ServingBackend(Protocol):
     def deploy(self, model_version: ModelVersion) -> None:
         """Make `model_version`'s artifact serve traffic. Raises `ServingError` on failure
@@ -45,6 +52,12 @@ class ServingBackend(Protocol):
         """Stop serving `model_version`'s artifact. Idempotent and non-raising: a backend that
         cannot unload (already unloaded, unreachable, ...) must log rather than block the
         deploy that retires this version."""
+        ...
+
+    def generate(self, prompt: str, model_id: str, version: int) -> str:
+        """Generate a completion for `prompt` from the adapter `{model_id}-v{version}` that
+        must already be loaded. Returns the generated text; raises `InferenceError` on
+        upstream failure or a malformed/empty completion (issue #41)."""
         ...
 
 
@@ -70,6 +83,11 @@ class MockServingBackend:
     def unload(self, model_version: ModelVersion) -> None:
         self.unloaded.append((model_version.model_id, model_version.version))
         self.events.append(("unload", (model_version.model_id, model_version.version)))
+
+    def generate(self, prompt: str, model_id: str, version: int) -> str:
+        """Canned, non-empty generation so the deploy-time smoke test (issue #41) passes in
+        tests and no-GPU local dev the same way a real vLLM adapter would."""
+        return f"mock generation for {model_id}-v{version}"
 
 
 def _lora_name(model_version: ModelVersion) -> str:
@@ -204,6 +222,46 @@ class VLLMServingBackend:
             model_id=model_version.model_id,
             version=model_version.version,
         )
+
+    def generate(self, prompt: str, model_id: str, version: int) -> str:
+        adapter_name = f"{model_id}-v{version}"
+        try:
+            data = request_sync_with_retry(
+                self._client,
+                "POST",
+                f"{self.base_url}/v1/completions",
+                json={
+                    "model": adapter_name,
+                    "prompt": prompt,
+                    "max_tokens": settings.inference_max_tokens,
+                },
+                headers=self._headers(),
+                context=adapter_name,
+            )
+        except httpx.HTTPStatusError as exc:
+            raise InferenceError(
+                f"vLLM rejected generation for {adapter_name}: "
+                f"HTTP {exc.response.status_code} {exc.response.text[:200]}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise InferenceError(
+                f"vLLM unreachable at {self.base_url} while generating for {adapter_name}: {exc}"
+            ) from exc
+        choices = data.get("choices") or []
+        text = str(choices[0]["text"]) if choices and "text" in choices[0] else ""
+        if not text:
+            raise InferenceError(
+                f"vLLM returned no completion text for {adapter_name} "
+                f"(choices: {choices!r})"
+            )
+        logger.info(
+            "vllm_generation",
+            model_id=model_id,
+            version=version,
+            adapter_name=adapter_name,
+            output_chars=len(text),
+        )
+        return text
 
 
 _backend: ServingBackend | None = None

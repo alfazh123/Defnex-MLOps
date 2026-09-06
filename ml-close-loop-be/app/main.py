@@ -17,6 +17,7 @@ from app.api.eval_sets import router as eval_sets_router
 from app.api.health import router as health_router
 from app.db.session import engine
 from app.limiter import limiter
+from app.api.inference import router as inference_router
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
@@ -25,6 +26,7 @@ from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
+from app.services.deployment_service import SmokeTestError
 from app.services.serving import ServingError
 
 logger = structlog.get_logger(__name__)
@@ -94,6 +96,7 @@ v1_router.include_router(training_router)
 v1_router.include_router(models_router)
 v1_router.include_router(promotion_router)
 v1_router.include_router(deployment_router)
+v1_router.include_router(inference_router)
 
 app.include_router(v1_router)
 
@@ -138,6 +141,23 @@ async def serving_error_handler(request: Request, exc: ServingError) -> JSONResp
     return JSONResponse(
         status_code=502,
         content={"error": {"code": "DEPLOY_FAILED", "message": str(exc)}},
+    )
+
+
+@app.exception_handler(SmokeTestError)
+async def smoke_test_error_handler(
+    request: Request, exc: SmokeTestError
+) -> JSONResponse:
+    """The just-loaded adapter failed the deploy-time smoke test (issue #41). The deploy aborted
+    *before* the pointer moved, so the alias still points at the old (still-serving) version and
+    the failure is already recorded as a warning log line. The 502 is a clean "upstream serving
+    could not prove the adapter generates" - the transaction stays uncommitted by the caller."""
+    logger.error(
+        "smoke_test_error", method=request.method, path=request.url.path, error=str(exc)
+    )
+    return JSONResponse(
+        status_code=502,
+        content={"error": {"code": "SMOKE_TEST_FAILED", "message": str(exc)}},
     )
 
 

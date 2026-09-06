@@ -25,6 +25,7 @@ from app.models.model import Model, ModelVersion
 from app.schemas.promotion import RollbackRequest
 from app.services import deployment_service, promotion_service
 from app.services.serving import (
+    InferenceError,
     MockServingBackend,
     ServingError,
     VLLMServingBackend,
@@ -60,6 +61,17 @@ def _disable_promotion_gates(monkeypatch):
         "eval_gate_require_eval_loss_not_worse",
     ):
         monkeypatch.setattr(settings, name, False)
+
+
+@pytest.fixture(autouse=True)
+def _no_smoke(monkeypatch):
+    """This suite asserts the load/unload *wire format*, not the deploy-time smoke test
+    (issue #41, covered by tests/test_smoke_test.py). The handlers here answer only
+    load/unload - they don't serve `/v1/completions` - so without disabling the gate the
+    deploy-level tests below would fail their smoke run before the wire assertions."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "inference_smoke_enabled", False)
 
 
 def _client_for(handler) -> httpx.Client:
@@ -177,6 +189,68 @@ def test_deploy_json_uses_verbatim_non_file_uri(db_session):
     deployment_service.deploy(db_session, v1, backend=backend)
     db_session.commit()
     assert v1.status == "DEPLOYED"
+
+
+def test_generate_payload_reaches_vllm_completions_endpoint():
+    from app.config import settings
+
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200, json={"choices": [{"text": "Paris."}]})
+
+    backend = VLLMServingBackend(
+        base_url="http://vllm:8000",
+        api_key="secret-key",
+        client=_client_for(handler),
+    )
+
+    output = backend.generate("What is the capital of France?", "m-gen", 3)
+
+    assert output == "Paris."
+    assert len(requests) == 1
+    assert requests[0].url == "http://vllm:8000/v1/completions"
+    assert requests[0].headers["Authorization"] == "Bearer secret-key"
+    assert json.loads(requests[0].content) == {
+        "model": "m-gen-v3",
+        "prompt": "What is the capital of France?",
+        "max_tokens": settings.inference_max_tokens,
+    }
+
+
+def test_generate_http_error_retries_then_raises_inference_error(db_session):
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(500, json={"error": "OOM"})
+
+    backend = VLLMServingBackend(client=_client_for(handler))
+
+    with pytest.raises(InferenceError, match="vLLM rejected generation"):
+        backend.generate("hello", "m-fail-gen", 1)
+
+    assert calls["n"] == 3  # retries exhausted (sleep disabled by fixture)
+
+
+def test_generate_unreachable_raises_inference_error(db_session):
+    def handler(request):
+        raise httpx.ConnectError("vllm down")
+
+    backend = VLLMServingBackend(client=_client_for(handler))
+
+    with pytest.raises(InferenceError, match="vLLM unreachable"):
+        backend.generate("hello", "m-conn-gen", 1)
+
+
+def test_generate_empty_completion_raises_inference_error(db_session):
+    backend = VLLMServingBackend(
+        client=_client_for(lambda request: httpx.Response(200, json={"choices": []}))
+    )
+
+    with pytest.raises(InferenceError, match="no completion text"):
+        backend.generate("hello", "m-empty-gen", 1)
 
 
 # ---------------------------------------------------------------------------

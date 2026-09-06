@@ -1,0 +1,26 @@
+ml-close-loop-be/tests/test_vllm_serving.py
+  s_6fb3ce5b4135e2::t_594dbd6947ed93 251-258
+  s_6fb3ce5b4135e2::t_18e2f1654704ce 287-292
+ml-close-loop-be/.env.example
+  s_6fb3ce5b4135e2::t_e25057e5255c4e 39-42
+ml-close-loop-be/app/services/serving.py
+  s_6fb3ce5b4135e2::t_343828edd7baf7 63,67-68,72
+ml-close-loop-be/docker-compose.yml
+  s_6fb3ce5b4135e2::t_69d50801aeb111 51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b14a7e0622da5b8a7e2cee95f9f700ab10b62101",
+  "prompts": {},
+  "sessions": {
+    "s_6fb3ce5b4135e2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8bddac9effeYRpXF1FO8LcC0i",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

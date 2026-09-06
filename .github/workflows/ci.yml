@@ -2,15 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
 
 env:
   PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"
 
 jobs:
   lint:
@@ -60,3 +59,21 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit
       - run: pip-audit --desc
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml-close-loop-fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: ml-close-loop-fe/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck

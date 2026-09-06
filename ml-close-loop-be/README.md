@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 31 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 27 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -30,7 +30,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
   GPU profile in docker-compose; a mock backend keeps tests and no-GPU dev green
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
-- pytest coverage gate 80% (currently 97%, 380 tests)
+- pytest-cov coverage gate `--cov-fail-under=80` (currently 392 tests, 97% coverage)
 
 ## Quickstart — Docker
 
@@ -41,9 +41,9 @@ curl http://localhost:8000/api/v1/health
 ```
 
 Services:
-- `backend` — FastAPI on `:8000` (auto-reloads via uvicorn)
-- `worker` — stdlib background processor (inbox directory, no broker required)
-- `unsloth-studio` — Unsloth GPU image on `:8888`
+- `backend` — FastAPI on `:8000`; `docker-entrypoint.sh` runs Alembic migrations then uvicorn (auto-reload)
+- `worker` — `docker-worker-entrypoint.sh` runs `python -m app.workers.training_worker` (the single training-run executor)
+- `unsloth-studio` — **optional**, Unsloth GPU image on `:8888` (NVIDIA GPU); commented out in `docker-compose.yml` — uncomment to enable
 
 ## GPU stack — vLLM serving (issue #40)
 
@@ -96,10 +96,24 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
+## Workers
+
+Training execution is single-sourced (US-032) to one module:
+
+- `app/workers/training_worker.py` — training queue poller backed by a swappable
+  `TrainingRunner`. Runs under `python -m app.workers.training_worker`, which is
+  what the compose `worker` service (`docker-worker-entrypoint.sh`) executes. It
+  processes `PENDING` training runs to completion and is the only caller of
+  `model_service.register_model_version`.
+
+For clarity, `app/worker.py` is an unrelated stdlib **inbox/outbox file
+poller** (job-dispatch stub, no broker). No service in `docker-compose.yml` runs
+it.
+
 ## Tests & Quality
 
 ```bash
-.venv/bin/pytest tests/ -q          # 380 tests, 97% coverage
+.venv/bin/pytest tests/ -q          # 392 tests, 97% coverage (threshold --cov-fail-under=80)
 ruff check .                        # lint
 ruff format --check .               # format check
 ```
@@ -178,23 +192,34 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./data/app.db` | SQLAlchemy connection string |
+| `DEPLOYMENT_ENVIRONMENT` | `default` | Deployment environment label (deployment records) |
 | `UNSLOTH_STUDIO_URL` | `http://localhost:8888` | Unsloth Studio base URL |
 | `UNSLOTH_API_KEY` | *(empty)* | Unsloth auth key |
 | `UNSLOTH_DEFAULT_MODEL` | `unsloth/Qwen3-0.6B` | Default training model |
+| `UNSLOTH_MODELS` | *(comma-separated list)* | Available models offered by the API |
 | `SERVING_BACKEND` | `mock` | `mock` (no GPU) or `vllm` (real vLLM serving) |
 | `VLLM_URL` | `http://localhost:8001` | vLLM server base URL (host port of the `serving` service) |
 | `VLLM_API_KEY` | *(empty)* | Optional bearer token for vLLM |
 | `VLLM_TIMEOUT_SECONDS` | `60` | Timeout for vLLM load/unload calls |
 | `VLLM_MODEL_NAME` | `unsloth/Qwen3-0.6B` | Base model vLLM serves (`serving` service flag) |
 | `VLLM_SERVED_MODEL_NAME` | `defnex-model` | `--served-model-name` for inference requests |
+| `VLLM_MAX_LORAS` | `4` | Concurrent adapter slots (`--max-loras`); must be ≥2 since deploy loads the new adapter before unloading the superseded one |
 | `VLLM_MAX_LORA_RANK` | `64` | `--max-lora-rank` for runtime LoRA |
 | `JWT_SECRET` | `dev-secret-change-in-production` | JWT signing secret (**change in prod**) |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
 | `JWT_EXPIRE_MINUTES` | `1440` (24h) | Access token lifetime |
+| `JWT_REFRESH_EXPIRE_MINUTES` | `10080` (7d) | Refresh token lifetime |
 | `DB_POOL_SIZE` | `5` | Connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | Max overflow connections |
+| `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a connection |
+| `DB_POOL_RECYCLE` | `1800` | Seconds before a connection is recycled |
+| `CORS_ORIGINS` | `http://localhost:3000,...` | Comma-separated allowed browser origins |
 | `MAX_REQUEST_BODY_SIZE` | `1048576` (1MB) | Max body in bytes |
 | `GPU_LOCK_FILE` | `data/gpu.lock` | Lock file serializing training across workers (must be on a shared filesystem) |
 | `GPU_LOCK_TIMEOUT` | `300` | Seconds a worker waits for the GPU lock before skipping the poll |
+| `EVAL_GATE_REQUIRE_EVAL_SET_REFERENCE` | `true` | Promotion requires a recorded eval-set reference |
+| `EVAL_GATE_REQUIRE_QUALITATIVE_MAJORITY` | `true` | Promotion requires a qualitative majority win on the eval set |
+| `EVAL_GATE_REQUIRE_NO_GENERAL_REGRESSION` | `true` | Promotion blocked on general-domain regressions |
+| `EVAL_GATE_REQUIRE_EVAL_LOSS_NOT_WORSE` | `true` | Promotion blocked on eval-loss regression |
 | `LOG_LEVEL` | `INFO` | Structured log level |
 | `DEBUG` | `false` | Debug mode (verbose logging) |

@@ -1,87 +1,39 @@
-# Welcome to React Router!
+# DEFNEX MLOps — Frontend
 
-A modern, production-ready template for building full-stack React applications using React Router.
+React Router 8 + TypeScript dashboard for the DEFNEX closed-loop MLOps platform.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+The app talks to the FastAPI backend in [`ml-close-loop-be/`](../ml-close-loop-be/)
+(see its [README](../ml-close-loop-be/README.md) for API docs, auth, and setup).
 
-## Features
+## Current routes
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- `/` — home/dashboard
+- `/chat` — chat page
 
-## Getting Started
+## Stack
 
-### Installation
+React 19 · React Router 8 · TypeScript · Tailwind CSS · shadcn/ui + Base UI
 
-Install the dependencies:
+## Requirements
 
-```bash
-npm install
-```
+- Node.js ≥ 20 (the `Dockerfile` uses Node 24)
+- [pnpm](https://pnpm.io/)
 
-### Development
-
-Start the development server with HMR:
+## Commands
 
 ```bash
-npm run dev
+pnpm install              # install dependencies (use --frozen-lockfile in CI)
+pnpm run dev              # dev server with HMR, http://localhost:3000
+pnpm run typecheck        # react-router typegen + tsc
+pnpm run build            # production build (react-router build)
+pnpm run start            # serve the production build
 ```
 
-Your application will be available at `http://localhost:5173`.
+## Development
 
-## Building for Production
-
-Create a production build:
+Start the backend first (`ml-close-loop-be/`, see its README quickstart), then:
 
 ```bash
-npm run build
+pnpm install
+pnpm run dev
 ```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.

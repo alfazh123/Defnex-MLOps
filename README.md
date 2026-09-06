@@ -1,5 +1,7 @@
 # DEFNEX MLOps — Closed-Loop Platform
 
+[![CI](https://github.com/alfazh123/Defnex-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/alfazh123/Defnex-MLOps/actions/workflows/ci.yml)
+
 An orchestration backend and frontend for the DEFNEX closed-loop MLOps pipeline:
 **Dataset → Validation → Training → Evaluation → Model Registry → Promotion → Deployment**,
 integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the training/evaluation engine.
@@ -15,7 +17,7 @@ integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the t
                      │  REST API (JSON)
 ┌────────────────────▼─────────────────────────────────┐
 │                  FastAPI Backend  (:8000)            │
-│  23 routes · JWT auth (admin/user) · /api/v1/        │
+│  27 routes · JWT auth (admin/user) · /api/v1/       │
 │  ┌────────────────────┐  ┌────────────────────────┐  │
 │  │  SQLite + Alembic  │  │  structlog · slowapi   │  │
 │  └────────────────────┘  └────────────────────────┘  │
@@ -26,8 +28,13 @@ integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the t
 │           GPU training · evaluation · model mgmt     │
 └──────────────────────────────────────────────────────┘
 
-Docker Compose also includes a lightweight worker service (stdlib-only,
-polls a shared inbox directory for job dispatch, no external broker).
+Docker Compose also runs a `worker` service (`./docker-worker-entrypoint.sh`)
+that executes `python -m app.workers.training_worker` — the single
+training-run executor (US-032); it processes `PENDING` runs and is the only
+caller of `register_model_version`. `ml-close-loop-be/app/worker.py` is a
+separate stdlib inbox/outbox file-polling stub that no service runs.
+`unsloth-studio` is commented out in `docker-compose.yml` and only enabled on
+GPU hosts.
 ```
 
 ## Repository Layout
@@ -56,8 +63,8 @@ docker compose up --build
 Services:
 - **Backend** — http://localhost:8000
 - **Swagger docs** — http://localhost:8000/docs
-- **Unsloth Studio** — http://localhost:8888 (requires NVIDIA GPU)
-- **Worker** — background job processor (inbox directory)
+- **Unsloth Studio** — http://localhost:8888, **optional** (NVIDIA GPU). Commented out in `docker-compose.yml`; uncomment to enable
+- **Worker** — runs the training worker (`python -m app.workers.training_worker` via `docker-worker-entrypoint.sh`), the single training-run executor
 
 ## Quickstart — Local Backend (no Docker)
 
@@ -95,7 +102,7 @@ All endpoints live under the **`/api/v1/`** prefix. Legacy paths (`/auth/login`,
 | Users | `GET /api/v1/users` (paginated, admin), `DELETE /api/v1/users/{id}` (admin) |
 | Datasets | `GET /api/v1/datasets` (paginated, filtered), `POST .../versions`, `GET`, `POST .../validate`, validation reports |
 | Training | `POST /api/v1/training-runs`, `GET` (paginated, filtered), `GET .../{id}`, `GET .../progress` (SSE) |
-| Models | `GET /api/v1/models`, `GET .../available`, version detail, evaluation, decisions, rollback, deploy |
+| Models | `GET /api/v1/models`, `GET .../available`, version detail, evaluation, decisions, rollback, deploy, alias resolution (`GET .../deployment/{alias}`) |
 
 Interactive docs: http://localhost:8000/docs (Swagger) · `/redoc` (ReDoc)
 
@@ -118,14 +125,14 @@ Static spec: [`ml-close-loop-be/openapi.yaml`](ml-close-loop-be/openapi.yaml)
 
 See [`ml-close-loop-be/.env.example`](ml-close-loop-be/.env.example) for all variables with defaults.
 
-Key groups: `DATABASE_URL`, `UNSLOTH_*`, `JWT_*`, `DB_POOL_*`, `MAX_REQUEST_BODY_SIZE`, `LOG_LEVEL`.
+Key groups: `DATABASE_URL`, `DEPLOYMENT_ENVIRONMENT`, `UNSLOTH_*`, `JWT_*`, `DB_POOL_*`, `CORS_ORIGINS`, `GPU_LOCK_*`, `EVAL_GATE_*`, `MAX_REQUEST_BODY_SIZE`, `LOG_LEVEL`, `DEBUG`.
 
 ## Testing & Quality
 
 From `ml-close-loop-be/`:
 
 ```bash
-.venv/bin/pytest tests/ -q       # 200 tests, 94%+ coverage
+.venv/bin/pytest tests/ -q       # 392 tests, ~97% coverage (CI enforces --cov-fail-under=80)
 ruff check .                     # lint
 ruff format --check .            # format check
 ```

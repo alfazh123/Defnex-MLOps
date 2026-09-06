@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import httpx
@@ -9,10 +8,15 @@ import structlog
 from app.config import settings
 from app.schemas.training import SUPPORTED_PEFT_METHODS
 
-logger = structlog.get_logger(__name__)
+# Retry policy lives in app/services/http_retry.py (issue #40); the _MAX_RETRIES/_RETRY_BACKOFF
+# aliases exist only because tests reference unsloth_client._MAX_RETRIES / _RETRY_BACKOFF.
+from app.services.http_retry import (  # noqa: E402
+    MAX_RETRIES as _MAX_RETRIES,  # noqa: F401 - re-exported for tests
+    RETRY_BACKOFF as _RETRY_BACKOFF,  # noqa: F401 - re-exported for tests
+    request_with_retry,
+)
 
-_MAX_RETRIES = 3
-_RETRY_BACKOFF = [1.0, 2.0, 4.0]
+logger = structlog.get_logger(__name__)
 
 _UNSLOTH_URL = settings.unsloth_studio_url
 _UNSLOTH_KEY = settings.unsloth_api_key
@@ -137,56 +141,18 @@ async def _request_with_retry(
     context: str = "",
 ) -> dict[str, Any]:
     client = await _get_client()
-    last_exc: Exception | None = None
-    for attempt in range(_MAX_RETRIES):
-        try:
-            resp = await client.request(
-                method, url, json=json, params=params, headers=_headers()
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code < 500:
-                body_preview = exc.response.text[:500] if exc.response else ""
-                logger.error(
-                    "unsloth_api_error",
-                    endpoint=url,
-                    status_code=exc.response.status_code,
-                    response_body=body_preview,
-                    context=context,
-                )
-                raise
-            last_exc = exc
-        except httpx.RequestError as exc:
-            last_exc = exc
-
-        if attempt < _MAX_RETRIES - 1:
-            delay = _RETRY_BACKOFF[attempt]
-            logger.warning(
-                "unsloth_api_retry",
-                endpoint=url,
-                attempt=attempt + 1,
-                delay=delay,
-                context=context,
-            )
-            await asyncio.sleep(delay)
-
-    body_preview = ""
-    if isinstance(last_exc, httpx.HTTPStatusError) and last_exc.response:
-        body_preview = last_exc.response.text[:500]
-    logger.error(
-        "unsloth_api_error",
-        endpoint=url,
-        status_code=(
-            last_exc.response.status_code
-            if isinstance(last_exc, httpx.HTTPStatusError)
-            else None
-        ),
-        response_body=body_preview,
+    return await request_with_retry(
+        client,
+        method,
+        url,
+        json=json,
+        params=params,
+        headers=_headers(),
         context=context,
-        retries_exhausted=True,
+        dest=logger,
+        error_event="unsloth_api_error",
+        retry_event="unsloth_api_retry",
     )
-    raise last_exc  # type: ignore[misc]
 
 
 async def start_training(

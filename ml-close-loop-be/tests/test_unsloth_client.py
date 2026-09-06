@@ -119,7 +119,7 @@ def test_request_with_retry_retries_5xx_raises_on_last_failure():
     mock_request = AsyncMock(side_effect=responses)
     with (
         patch.object(httpx.AsyncClient, "request", mock_request),
-        patch("app.services.unsloth_client.asyncio.sleep", new=AsyncMock()),
+        patch("app.services.http_retry.asyncio.sleep", new=AsyncMock()),
     ):
         with pytest.raises(httpx.HTTPStatusError):
             asyncio.run(_request_with_retry("GET", "http://x/api", context="c"))
@@ -138,7 +138,7 @@ def test_request_with_retry_retries_5xx_then_succeeds():
     mock_request = AsyncMock(side_effect=responses)
     with (
         patch.object(httpx.AsyncClient, "request", mock_request),
-        patch("app.services.unsloth_client.asyncio.sleep", new=AsyncMock()),
+        patch("app.services.http_retry.asyncio.sleep", new=AsyncMock()),
     ):
         result = asyncio.run(_request_with_retry("GET", "http://x/api", context="c"))
     assert result == {"ok": True}
@@ -155,7 +155,7 @@ def test_request_with_retry_raises_immediately_on_4xx():
     )
     with (
         patch.object(httpx.AsyncClient, "request", mock_request),
-        patch("app.services.unsloth_client.asyncio.sleep", new=AsyncMock()),
+        patch("app.services.http_retry.asyncio.sleep", new=AsyncMock()),
     ):
         with pytest.raises(httpx.HTTPStatusError):
             asyncio.run(_request_with_retry("GET", "http://x/api", context="c"))
@@ -168,7 +168,7 @@ def test_request_with_retry_retries_on_connection_error_then_raises():
     )
     with (
         patch.object(httpx.AsyncClient, "request", mock_request),
-        patch("app.services.unsloth_client.asyncio.sleep", new=AsyncMock()),
+        patch("app.services.http_retry.asyncio.sleep", new=AsyncMock()),
     ):
         with pytest.raises(httpx.RequestError):
             asyncio.run(_request_with_retry("GET", "http://x/api", context="c"))

@@ -26,6 +26,8 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 - Structured logging (structlog, JSON)
 - Graceful shutdown (SIGTERM → drain in-flight requests → close DB)
 - Retry with exponential backoff on Unsloth API failures
+- vLLM serving backend (issue #40): runtime LoRA adapter load/unload over the vLLM API,
+  GPU profile in docker-compose; a mock backend keeps tests and no-GPU dev green
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
 - pytest-cov coverage gate `--cov-fail-under=80` (currently 392 tests, 97% coverage)
@@ -42,6 +44,34 @@ Services:
 - `backend` — FastAPI on `:8000`; `docker-entrypoint.sh` runs Alembic migrations then uvicorn (auto-reload)
 - `worker` — `docker-worker-entrypoint.sh` runs `python -m app.workers.training_worker` (the single training-run executor)
 - `unsloth-studio` — **optional**, Unsloth GPU image on `:8888` (NVIDIA GPU); commented out in `docker-compose.yml` — uncomment to enable
+
+## GPU stack — vLLM serving (issue #40)
+
+The `serving` service is a real [vLLM](https://docs.vllm.ai) server (NVIDIA GPU) that serves
+fine-tuned LoRA adapters without restarting: adversarially-pushed versions are loaded with the
+vLLM runtime API (`/v1/load_lora_adapter`), superseded ones unloaded (`/v1/unload_lora_adapter`).
+
+```bash
+# In .env: SERVING_BACKEND=vllm (the serving container is only started with the gpu profile)
+docker compose --profile gpu up --build
+```
+
+Try it without a GPU first: keep `SERVING_BACKEND=mock` (the default) — the backend then uses
+`MockServingBackend` and the full deploy/rollback lifecycle runs with no serving container at
+all.
+
+Serving details:
+
+- Launch flags required for runtime LoRA work are already set in `docker-compose.yml`:
+  `--enable-lora --max-lora-rank N` plus the env var `VLLM_ALLOW_RUNTIME_LORA_UPDATING=true`.
+  Without `--enable-lora` (or with that env var unset) `load_lora_adapter` fails at runtime.
+- Adapter artifacts must be reachable from the serving container: the worker writes them under
+  `./data`, which `serving` mounts at `/data`, so a `lora_path` like `/data/adapters/...`
+  (a `file:///data/...` artifact URI) resolves inside vLLM.
+- Inside the compose network the backend reaches vLLM at `http://serving:8000`
+  (`VLLM_URL` override); on bare-metal runs point `VLLM_URL` at `http://localhost:8001`
+- If `SERVING_BACKEND=vllm` but `serving` is not running, `POST .../deploy` fails with
+  `502 DEPLOY_FAILED` and the DB stays untouched (the load runs before any mutation).
 
 ## Quickstart — Local
 
@@ -145,6 +175,7 @@ across hosts), coordination must move outside this module.
 | `422` | validation error | Password too weak, missing fields, unsupported `peft_method`, etc. |
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many login/register requests (see headers) |
 | `413` | `REQUEST_TOO_LARGE` | Body exceeds `MAX_REQUEST_BODY_SIZE` |
+| `502` | `DEPLOY_FAILED` | Serving backend could not load the adapter (vLLM unreachable/rejected the load) |
 
 `training_config.peft_method` menerima `lora`, `qlora`, dan `rslora`. Nilai `dora`,
 `qdora`, dan `none` (Full Finetuning) ditolak dengan `422` beserta pesan yang
@@ -166,6 +197,14 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `UNSLOTH_API_KEY` | *(empty)* | Unsloth auth key |
 | `UNSLOTH_DEFAULT_MODEL` | `unsloth/Qwen3-0.6B` | Default training model |
 | `UNSLOTH_MODELS` | *(comma-separated list)* | Available models offered by the API |
+| `SERVING_BACKEND` | `mock` | `mock` (no GPU) or `vllm` (real vLLM serving) |
+| `VLLM_URL` | `http://localhost:8001` | vLLM server base URL (host port of the `serving` service) |
+| `VLLM_API_KEY` | *(empty)* | Optional bearer token for vLLM |
+| `VLLM_TIMEOUT_SECONDS` | `60` | Timeout for vLLM load/unload calls |
+| `VLLM_MODEL_NAME` | `unsloth/Qwen3-0.6B` | Base model vLLM serves (`serving` service flag) |
+| `VLLM_SERVED_MODEL_NAME` | `defnex-model` | `--served-model-name` for inference requests |
+| `VLLM_MAX_LORAS` | `4` | Concurrent adapter slots (`--max-loras`); must be ≥2 since deploy loads the new adapter before unloading the superseded one |
+| `VLLM_MAX_LORA_RANK` | `64` | `--max-lora-rank` for runtime LoRA |
 | `JWT_SECRET` | `dev-secret-change-in-production` | JWT signing secret (**change in prod**) |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
 | `JWT_EXPIRE_MINUTES` | `1440` (24h) | Access token lifetime |

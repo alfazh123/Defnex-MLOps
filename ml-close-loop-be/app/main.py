@@ -25,6 +25,7 @@ from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
+from app.services.serving import ServingError
 
 logger = structlog.get_logger(__name__)
 
@@ -125,6 +126,19 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         logger.warning("http_exception", **log_kwargs)
 
     return JSONResponse(status_code=exc.status_code, content=content)
+
+
+@app.exception_handler(ServingError)
+async def serving_error_handler(request: Request, exc: ServingError) -> JSONResponse:
+    """The serving backend could not load the adapter being deployed (issue #40). The deploy
+    transaction never started, so 502 is a clean "upstream serving rejected/refused the load"."""
+    logger.error(
+        "serving_error", method=request.method, path=request.url.path, error=str(exc)
+    )
+    return JSONResponse(
+        status_code=502,
+        content={"error": {"code": "DEPLOY_FAILED", "message": str(exc)}},
+    )
 
 
 @app.exception_handler(RateLimitExceeded)

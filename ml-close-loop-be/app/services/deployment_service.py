@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,7 +10,9 @@ from app.config import settings
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
-from app.services.serving import MockServingBackend, ServingBackend
+from app.services.serving import ServingBackend, get_serving_backend
+
+logger = structlog.get_logger(__name__)
 
 # Single source of truth for "which version is production": ModelVersion.status == "DEPLOYED".
 # The `deployments` table is append-only pointer *history* - the deployed_at audit trail for the
@@ -76,6 +79,14 @@ def deploy(
     history. Two genuinely concurrent deploys race on the partial unique index
     `uq_model_versions_one_deployed`: exactly one commits, and the loser's IntegrityError is
     re-raised as a clear ValueError (mapped to 409 by the router) instead of silently succeeding.
+
+    Ordering vs. the serving backend (issue #40): `backend.deploy(model_version)` runs *before*
+    any DB mutation, so a failed load leaves the registry untouched - the previous version
+    stays DEPLOYED in the DB and keeps serving. Only after the new adapter is loaded is the
+    previous version retired via `backend.unload` (best-effort: a failed unload is logged, not
+    raised) and then retired in the DB. If the deploy then loses the race on the partial unique
+    index, its own freshly-loaded adapter is unloaded again so the winner's adapter is the only
+    one left resident in vLLM.
     """
 
     # Queried rather than read off `model_version.model.versions`: that collection is loaded once
@@ -88,7 +99,34 @@ def deploy(
             ModelVersion.id != model_version.id,
         )
     ).first()
+
+    # Identity snapshot taken before any flush: if the deploy below loses the race and "this
+    # call's" flush fails, SQLAlchemy expires the attributes of `model_version`, and re-reading
+    # them (e.g. in the cleanup `unload` below) would lazy-load against the dead transaction and
+    # raise PendingRollbackError instead of the conflict. The cleanup therefore unloads a detached
+    # snapshot built from these captured values instead of the live ORM object.
+    model_id = model_version.model_id
+    version = model_version.version
+
+    # A real backend (VLLMServingBackend) is created once per process and reused; the default
+    # (mock) is what pre-#40 callers got from `backend or MockServingBackend()`.
+    backend = backend or get_serving_backend()
+
+    backend.deploy(model_version)
+
     if previous is not None:
+        # Best-effort: unload failure must not block the retire - the newly loaded `model_version`
+        # is the one that now serves. `ServingBackend.unload` is defined to not raise, but a
+        # Protocol implementation could; never let it roll the deploy back.
+        try:
+            backend.unload(previous)
+        except Exception:  # noqa: BLE001 - see comment above
+            logger.warning(
+                "serving_unload_failed",
+                model_id=previous.model_id,
+                version=previous.version,
+                exc_info=True,
+            )
         previous.status = "RETIRED"
         # Flush the retire on its own before marking `model_version` DEPLOYED: SQLAlchemy would
         # otherwise batch both status UPDATEs into one statement, and SQLite/Postgres evaluate the
@@ -96,8 +134,6 @@ def deploy(
         # now DEPLOYED (target)" state would trip the index even though the committed end state is
         # legal. Each UPDATE must therefore hit the table when at most one DEPLOYED row exists.
         db.flush()
-
-    (backend or MockServingBackend()).deploy(model_version)
 
     model_version.status = "DEPLOYED"
     deployment = Deployment(
@@ -114,6 +150,25 @@ def deploy(
     except IntegrityError as exc:
         # A concurrent deploy committed first; the partial unique index rejects a second DEPLOYED
         # version for this model_id. Surface it as a domain conflict, not a raw IntegrityError.
+        # We lost the race, so the adapter this call loaded must not stay resident - the winner's
+        # adapter is the one the serving backend should keep.
+        logger.warning(
+            "deploy_conflict_cleanup_unload",
+            model_id=model_id,
+            version=version,
+        )
+        # Detached snapshot: `model_version`'s attributes were expired by the failed flush above,
+        # so reading them (even just for `backend.unload`'s lora_name) would lazy-load against the
+        # dead transaction and raise PendingRollbackError, masking this very conflict.
+        try:
+            backend.unload(ModelVersion(model_id=model_id, version=version))
+        except Exception:  # noqa: BLE001 - cleanup must never mask the real conflict
+            logger.warning(
+                "deploy_conflict_cleanup_unload_failed",
+                model_id=model_id,
+                version=version,
+                exc_info=True,
+            )
         raise ValueError(_DEPLOYED_CONFLICT_MESSAGE) from exc
     return deployment, previous
 

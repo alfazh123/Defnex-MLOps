@@ -4,6 +4,11 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      # Pydantic-settings reads VLLM_URL over env. Inside the compose network the vLLM
+      # `serving` container is reachable as `serving:8000` (the host-localhost default in
+      # .env.example is correct for bare-bones local runs). Inert while SERVING_BACKEND=mock.
+      VLLM_URL: http://serving:8000
     volumes:
       - ./app:/app/app
       - ./data:/app/data
@@ -19,18 +24,44 @@ services:
     depends_on:
       - backend
 
-  # Optional: only start when GPU is available
-  # unsloth-studio:
-  #   image: unsloth/unsloth
-  #   ports:
-  #     - "8888:8888"
-  #   env_file: .env
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: 1
-  #             capabilities: [gpu]
-  #   volumes:
-  #     - ./data:/data
+  # The real model-serving stack (issue #40). GPU-only: excluded from `docker compose up`
+  # unless the `gpu` profile is explicitly enabled. vLLM serves the base model and loads
+  # per-version LoRA adapters at runtime (load/unload over the vLLM runtime API, no restart).
+  # Runtime LoRA updates require `VLLM_ALLOW_RUNTIME_LORA_UPDATING=true` and `--enable-lora`.
+  serving:
+    image: vllm/vllm-openai:latest
+    profiles: ["gpu"]
+    env_file: .env
+    environment:
+      VLLM_ALLOW_RUNTIME_LORA_UPDATING: "true"
+    ports:
+      # host port defaults to 8001 (matches VLLM_URL in .env.example); requires the backend
+      # to run with SERVING_BACKEND=vllm to be used.
+      - "${VLLM_SERVING_PORT:-8001}:8000"
+    volumes:
+      # Adapter artifacts written by the training worker live under ./data; vLLM mounts them
+      # at /data so `lora_path` URIs (file:///data/...) resolve inside the serving container.
+      - ./data:/data
+    command:
+      - --model
+      - ${VLLM_MODEL_NAME:-unsloth/Qwen3-0.6B}
+      - --served-model-name
+      - ${VLLM_SERVED_MODEL_NAME:-defnex-model}
+      - --enable-lora
+      - --max-loras
+      - ${VLLM_MAX_LORAS:-4}
+      - --max-lora-rank
+      - ${VLLM_MAX_LORA_RANK:-64}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 120s

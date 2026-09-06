@@ -60,12 +60,16 @@ class MockServingBackend:
     def __init__(self) -> None:
         self.deployed: list[tuple[str, int]] = []
         self.unloaded: list[tuple[str, int]] = []
+        self.events: list[tuple[str, tuple[str, int]]] = []
 
     def deploy(self, model_version: ModelVersion) -> None:
         self.deployed.append((model_version.model_id, model_version.version))
+        # Interleaved with `unload` events so tests can assert load-before-unload ordering.
+        self.events.append(("load", (model_version.model_id, model_version.version)))
 
     def unload(self, model_version: ModelVersion) -> None:
         self.unloaded.append((model_version.model_id, model_version.version))
+        self.events.append(("unload", (model_version.model_id, model_version.version)))
 
 
 def _lora_name(model_version: ModelVersion) -> str:

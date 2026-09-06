@@ -48,6 +48,8 @@ services:
       - --served-model-name
       - ${VLLM_SERVED_MODEL_NAME:-defnex-model}
       - --enable-lora
+      - --max-loras
+      - ${VLLM_MAX_LORAS:-4}
       - --max-lora-rank
       - ${VLLM_MAX_LORA_RANK:-64}
     deploy:

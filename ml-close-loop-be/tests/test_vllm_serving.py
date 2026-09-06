@@ -248,8 +248,14 @@ def test_supersede_loads_new_then_unloads_previous(db_session):
     deployment_service.deploy(db_session, v2, backend=backend)
     db_session.commit()
 
-    assert backend.deployed == [("m-sup", 1), ("m-sup", 2)]
-    assert backend.unloaded == [("m-sup", 1)]
+    # asserts on the interleaved event log, not on per-type lists: a regression that swapped
+    # the order (unload v1 before loading v2) would keep `deployed`/`unloaded` identical but
+    # change the event order.
+    assert backend.events == [
+        ("load", ("m-sup", 1)),
+        ("load", ("m-sup", 2)),
+        ("unload", ("m-sup", 1)),
+    ]
     assert v1.status == "RETIRED"
     assert v2.status == "DEPLOYED"
 
@@ -278,9 +284,12 @@ def test_rollback_unloads_the_superseded_version(db_session, monkeypatch):
     )
     db_session.commit()
 
-    # the rollback is a deploy of v1 whose previous version (v2) is unloaded
-    assert backend.deployed == [("m-rb", 1)]
-    assert backend.unloaded == [("m-rb", 2)]
+    # the rollback is a deploy of v1 whose previous version (v2) is unloaded - v1 must be
+    # loaded before v2 is unloaded (asserted via the interleaved event log)
+    assert backend.events == [
+        ("load", ("m-rb", 1)),
+        ("unload", ("m-rb", 2)),
+    ]
     assert v1.status == "DEPLOYED"
     assert v2.status == "RETIRED"
 

@@ -40,6 +40,9 @@ class ModelVersion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     model_id: Mapped[str] = mapped_column(ForeignKey("models.model_id"), index=True)
     version: Mapped[int] = mapped_column()
+    # Stable version name following `{model_id}-{base_model_slug}-v{N}` (issue #38). Stored
+    # on the row AND exposed via ModelRegistryRecord; also names the immutable artifact dir.
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="REGISTERED")
 
     training_run_id: Mapped[str] = mapped_column(
@@ -50,6 +53,11 @@ class ModelVersion(Base):
     dataset_validation_report_ref: Mapped[str | None] = mapped_column(
         String, nullable=True
     )
+    # Issue #38 lineage: backend git commit the run started from, plus the wall-clock bounds
+    # of the training execution. Sourced from the producing training_run (single source of truth).
+    git_commit: Mapped[str | None] = mapped_column(String, nullable=True)
+    training_started_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    training_completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     artifacts: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
     eval_loss_trend: Mapped[dict | None] = mapped_column(JSON, nullable=True)

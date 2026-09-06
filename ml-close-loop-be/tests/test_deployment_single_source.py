@@ -396,7 +396,7 @@ def test_alias_returns_404_when_model_never_deployed(client, admin_token):
         run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, run)
         training_service.complete_training_run(
-            db, run, artifact_uri=MockTrainingRunner().run(run)
+            db, run, artifact_uri=MockTrainingRunner().run(db, run)
         )
         model_service.register_model_version(db, run)
         db.commit()

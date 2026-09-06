@@ -6,3 +6,5 @@ __pycache__/
 .env
 data/*.db
 data/*.lock
+# Issue #38: immutable per-version model artifacts (configurable via ARTIFACT_STORAGE_DIR)
+data/artifacts/

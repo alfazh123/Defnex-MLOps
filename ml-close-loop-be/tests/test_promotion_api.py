@@ -97,7 +97,7 @@ def _evaluated_model_version(
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, training_run)
-        artifact_uri = MockTrainingRunner().run(training_run)
+        artifact_uri = MockTrainingRunner().run(db, training_run)
         training_service.complete_training_run(
             db, training_run, artifact_uri=artifact_uri
         )
@@ -201,7 +201,7 @@ def test_create_decision_returns_409_when_not_evaluated(client, admin_token):
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, training_run)
-        artifact_uri = MockTrainingRunner().run(training_run)
+        artifact_uri = MockTrainingRunner().run(db, training_run)
         training_service.complete_training_run(
             db, training_run, artifact_uri=artifact_uri
         )

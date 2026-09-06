@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+import re
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -91,7 +92,21 @@ class TrainingRunCreateRequest(BaseModel):
 
     dataset_id: str
     dataset_version: int
+    # `model_id` becomes part of the immutable version name `{model_id}-{base_model}-v{N}`
+    # (issue #38) and a filesystem directory, so it is restricted to path- and URL-safe
+    # characters rather than any free string.
     model_id: str
+
+    @field_validator("model_id", mode="before")
+    @classmethod
+    def _validate_model_id(cls, v: object) -> object:
+        if isinstance(v, str) and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", v):
+            raise ValueError(
+                "model_id must match [A-Za-z0-9][A-Za-z0-9._-]* "
+                "(it is embedded in the immutable version name and artifact path)"
+            )
+        return v
+
     base_model: str
     training_config: TrainingConfig
     triggered_by: str | None = None

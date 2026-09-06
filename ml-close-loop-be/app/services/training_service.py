@@ -81,7 +81,40 @@ def claim_training_run(db: Session, training_run: TrainingRun) -> bool:
     if result.rowcount != 1:
         return False
     training_run.status = "RUNNING"
+    training_run.started_at = datetime.now(timezone.utc)
     return True
+
+
+def update_training_progress(
+    db: Session,
+    training_run: TrainingRun,
+    *,
+    epoch: int | None = None,
+    current_step: int | None = None,
+    train_loss: float | None = None,
+    eval_loss: float | None = None,
+) -> TrainingRun:
+    """Overwrite the live progress fields on a RUNNING training run (issue #38).
+
+    Called by the training runner on each progress event; the caller is responsible for
+    committing so `GET /training-runs/{id}` observes non-NULL values while still RUNNING.
+    """
+
+    if training_run.status != "RUNNING":
+        raise ValueError(
+            f"Cannot record training progress for run {training_run.training_run_id} "
+            f"in status {training_run.status} (must be RUNNING)"
+        )
+    if epoch is not None:
+        training_run.current_epoch = epoch
+    if current_step is not None:
+        training_run.current_step = current_step
+    if train_loss is not None:
+        training_run.train_loss = train_loss
+    if eval_loss is not None:
+        training_run.eval_loss = eval_loss
+    db.flush()
+    return training_run
 
 
 def complete_training_run(
@@ -91,6 +124,7 @@ def complete_training_run(
 
     _transition(training_run, "COMPLETED")
     training_run.artifact_uri = artifact_uri
+    training_run.finished_at = datetime.now(timezone.utc)
     db.flush()
     return training_run
 
@@ -99,10 +133,14 @@ def fail_training_run(
     db: Session, training_run: TrainingRun, error_message: str
 ) -> TrainingRun:
     """RUNNING -> FAILED, recording the error (PRD §9's "error information ketika gagal")."""
-
     _transition(training_run, "FAILED")
     training_run.error_message = error_message
+    training_run.finished_at = datetime.now(timezone.utc)
     db.flush()
+    # ponytail: ORM object sometimes reverts dirty attrs in-memory after flush
+    # under concurrent session use (subprocess watchdog thread). A forced refresh
+    # ensures the returned object's in-memory state matches the committed DB row.
+    db.refresh(training_run)
     return training_run
 
 

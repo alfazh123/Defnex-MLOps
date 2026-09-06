@@ -1,0 +1,30 @@
+ml-close-loop-be/README.md
+  s_8cade02f7bdc0b::t_ce69cd29ed4339 15
+  s_8cade02f7bdc0b::t_cf997f55bff399 36-38
+  s_8cade02f7bdc0b::t_f40a288dacb3d5 25
+  s_8cade02f7bdc0b::t_1379bc2691b83b 65,67-75
+  s_8cade02f7bdc0b::t_faa684b9ef11c9 80
+README.md
+  s_8cade02f7bdc0b::t_4b769531659ad6 128
+  s_8cade02f7bdc0b::t_3c4e6039c40876 31-37
+  s_8cade02f7bdc0b::t_55c30be24e79f9 66-67
+  s_8cade02f7bdc0b::t_3d1a96d584a0bb 135
+  s_8cade02f7bdc0b::t_46d00632513f16 105
+  s_8cade02f7bdc0b::t_6abdf1cab6499b 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "33b81925293028a396a8bb77515177b62b7ba9e2",
+  "prompts": {},
+  "sessions": {
+    "s_8cade02f7bdc0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8be1bac5ffeA73NNuNRqQbudL",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

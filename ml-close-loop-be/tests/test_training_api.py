@@ -121,6 +121,7 @@ def test_create_training_run_rejects_unservable_peft_method(
     assert response.status_code == 422
     detail = response.json()["detail"][0]["msg"]
     assert method in detail
+    assert "permanently rejected" in detail
     assert "vLLM serving path" in detail
     with Session(client.engine) as db:
         count = db.scalar(select(func.count()).select_from(TrainingRun))

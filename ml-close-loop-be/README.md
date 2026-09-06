@@ -178,12 +178,15 @@ across hosts), coordination must move outside this module.
 | `502` | `DEPLOY_FAILED` | Serving backend could not load the adapter (vLLM unreachable/rejected the load) |
 
 `training_config.peft_method` menerima `lora`, `qlora`, dan `rslora`. Nilai `dora`,
-`qdora`, dan `none` (Full Finetuning) ditolak dengan `422` beserta pesan yang
-menyebut nilai dan alasannya, karena jalur serving vLLM saat ini tidak dapat
-melayani varian weight-decomposed dan full finetune — nilai tersebut tidak lagi
-diterima lalu dipetakan diam-diam ke LoRA biasa. `qlora` mengaktifkan kuantisasi
-4-bit (`load_in_4bit: true`) dan `rslora` mengaktifkan `use_rslora` pada payload
-pelatihan, sehingga tidak identik dengan `lora`.
+`qdora`, dan `none` (Full Finetuning) ditolak **permanen** dengan `422` beserta pesan
+yang menyebut nilai dan alasannya — ini keputusan governance final (issue #44,
+menuntaskan penolakan sementara yang dibuka issue #34), bukan batasan sementara
+yang bergantung pada infrastruktur serving saat ini: jalur serving proyek ini
+memang hanya untuk vLLM, yang tidak bisa melayani varian weight-decomposed
+maupun full finetune. Nilai-nilai itu tidak lagi diterima lalu dipetakan diam-diam
+ke LoRA biasa. `qlora` mengaktifkan kuantisasi 4-bit (`load_in_4bit: true`) dan
+`rslora` mengaktifkan `use_rslora` pada payload pelatihan, sehingga tidak identik
+dengan `lora`.
 
 ## Environment Variables
 

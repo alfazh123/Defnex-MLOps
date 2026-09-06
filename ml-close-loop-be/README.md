@@ -81,6 +81,31 @@ alembic revision --autogenerate -m "description"
 alembic upgrade head
 ```
 
+## Training concurrency & GPU lock
+
+Training runs are executed exclusively by `app.workers.training_worker`
+(`python -m app.workers.training_worker`). To guarantee that only one training
+runs at a time across worker processes:
+
+1. **GPU lock** (`app.workers.gpu_lock`) — the worker holds an exclusive
+   `flock()` on `data/gpu.lock` (set `GPU_LOCK_FILE`) for the whole
+   claim → train → persist block. A `flock` is released by the kernel when the
+   owning process exits by *any* path — success, exception, SIGTERM, even
+   SIGKILL — so a crashed worker never leaves a permanently stuck lock.
+2. **Atomic claim** (`training_service.claim_training_run`) — a compare-and-set
+   flips `PENDING → RUNNING` at the SQL level (`UPDATE ... WHERE status='PENDING'`),
+   so two workers that both picked the same row can never both win, on SQLite or
+   Postgres. Losing the claim returns `None` and the worker skips the poll.
+3. **Lock timeout** (set `GPU_LOCK_TIMEOUT`) — if a worker cannot acquire the
+   lock within the timeout it skips the poll entirely; the run stays `PENDING`
+   and is retried on the next iteration. A busy GPU never fails or loses a run.
+
+Scope caveat (documented in `app/workers/gpu_lock.py`): `flock` only
+serializes processes that open the **same lock file on the same host**. In the
+Docker deployment every worker mounts `./data:/app/data` so the lock file is
+shared. If workers ever run on different hosts (or train on hardware shared
+across hosts), coordination must move outside this module.
+
 ## Error Codes
 
 | Status | Code | Meaning |
@@ -121,5 +146,7 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `DB_POOL_SIZE` | `5` | Connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | Max overflow connections |
 | `MAX_REQUEST_BODY_SIZE` | `1048576` (1MB) | Max body in bytes |
+| `GPU_LOCK_FILE` | `data/gpu.lock` | Lock file serializing training across workers (must be on a shared filesystem) |
+| `GPU_LOCK_TIMEOUT` | `300` | Seconds a worker waits for the GPU lock before skipping the poll |
 | `LOG_LEVEL` | `INFO` | Structured log level |
 | `DEBUG` | `false` | Debug mode (verbose logging) |

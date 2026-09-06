@@ -4,9 +4,11 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.session import SessionLocal
 from app.models.training import TrainingRun
 from app.services import model_service, training_service
+from app.workers.gpu_lock import gpu_lock
 
 
 class TrainingRunner(Protocol):
@@ -19,9 +21,19 @@ class TrainingRunner(Protocol):
         ...
 
 
-def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
-    """One worker iteration (PRD §10 steps 1-8): pick the oldest PENDING run, run it, persist
-    the outcome. Returns the processed run, or None if the queue is empty.
+def process_next_job(
+    db: Session,
+    runner: TrainingRunner,
+    *,
+    lock_file: str | None = None,
+    lock_timeout: float | None = None,
+) -> TrainingRun | None:
+    """One worker iteration (PRD §10 steps 1-8): pick the oldest PENDING run, claim it
+    atomically, run it under the exclusive GPU lock, persist the outcome.
+
+    Returns the processed run, or None if the queue is empty or the claim was lost
+    to a concurrent worker. A lock-queue timeout does not fail or lose the run: the
+    worker simply skips this poll and the run stays PENDING for the next iteration.
     """
 
     training_run = db.scalar(
@@ -29,25 +41,32 @@ def process_next_job(db: Session, runner: TrainingRunner) -> TrainingRun | None:
         .where(TrainingRun.status == "PENDING")
         .order_by(TrainingRun.created_at)
     )
-    # ponytail: no FOR UPDATE / SKIP LOCKED on the claim query. Safe today because exactly one
-    # worker runs (docker-compose spawns a single process; GPU is shared and serial anyway).
-    # Two worker processes would both select the same PENDING run and run it twice; the
-    # row-locked claim lands with the GPU lock in issue #33.
     if training_run is None:
         return None
 
-    training_service.start_training_run(db, training_run)
     try:
-        artifact_uri = runner.run(training_run)
-    except Exception as exc:
-        training_service.fail_training_run(db, training_run, error_message=str(exc))
-    else:
-        training_service.complete_training_run(
-            db, training_run, artifact_uri=artifact_uri
-        )
-        # The internal Register call openapi.yaml documents as running on COMPLETED — without it
-        # nothing in a running system ever creates a ModelVersion, so the loop never closes.
-        model_service.register_model_version(db, training_run)
+        with gpu_lock(
+            lock_file or settings.gpu_lock_file,
+            lock_timeout if lock_timeout is not None else settings.gpu_lock_timeout,
+        ):
+            if not training_service.claim_training_run(db, training_run):
+                return None
+            try:
+                artifact_uri = runner.run(training_run)
+            except Exception as exc:
+                training_service.fail_training_run(
+                    db, training_run, error_message=str(exc)
+                )
+            else:
+                training_service.complete_training_run(
+                    db, training_run, artifact_uri=artifact_uri
+                )
+                # The internal Register call openapi.yaml documents as running on
+                # COMPLETED — without it nothing in a running system ever creates a
+                # ModelVersion, so the loop never closes.
+                model_service.register_model_version(db, training_run)
+    except TimeoutError:
+        return None
     return training_run
 
 

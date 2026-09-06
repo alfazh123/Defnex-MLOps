@@ -1,0 +1,133 @@
+ml-close-loop-be/app/api/promotion.py
+  s_38f9d3bc0e0341::t_c266a6f603d706 31-32
+ml-close-loop-be/app/models/validation.py
+  s_38f9d3bc0e0341::t_0a000b9b91b91b 30
+ml-close-loop-be/app/config.py
+  s_38f9d3bc0e0341::t_38c9fb529df6dd 45-52
+ml-close-loop-be/tests/test_contract.py
+  s_38f9d3bc0e0341::t_f013a7290aa341 278
+  s_38f9d3bc0e0341::t_500875a1f71c52 279,329-344,346-367,400
+  s_38f9d3bc0e0341::t_507e250c2357c8 345
+  s_38f9d3bc0e0341::t_aa3f038bd03495 393-394,399
+  s_38f9d3bc0e0341::t_3ddc048d150197 84-89,91-94,96-97,103,117
+  s_38f9d3bc0e0341::t_97f4bc41af6f25 98,110,121,317,324,368,439
+ml-close-loop-be/app/schemas/promotion.py
+  s_38f9d3bc0e0341::t_3b6e51e9c5fa16 37-38
+ml-close-loop-be/tests/test_deployment_service.py
+  s_38f9d3bc0e0341::t_6be4f1bcd2768a 23-37
+  s_38f9d3bc0e0341::t_b869dcb0793df8 1-2
+ml-close-loop-be/app/services/eval_set_service.py
+  s_38f9d3bc0e0341::t_6c349f7eb1ea6e 83
+  s_38f9d3bc0e0341::t_d71e5d2a36c6e4 1-82,84-140
+ml-close-loop-be/tests/test_eval_set_api.py
+  s_38f9d3bc0e0341::t_ad86f9d6e3133f 1-7,9-95,97-187
+  s_38f9d3bc0e0341::t_55f8d01f89ca76 8
+  s_38f9d3bc0e0341::t_740559ffb7d784 96
+  s_38f9d3bc0e0341::t_f4a00cf523ba60 188
+ml-close-loop-be/tests/test_training_api.py
+  s_38f9d3bc0e0341::t_a6def9689c2cff 380-424
+ml-close-loop-be/tests/test_deployment_api.py
+  s_38f9d3bc0e0341::t_cbcdc848fa19d3 3-4,7-21
+  s_5509ebe4c5edd4::t_13b2f51cc529d1 22
+ml-close-loop-be/app/models/promotion.py
+  s_38f9d3bc0e0341::t_10f39a30f85f7d 27-30
+ml-close-loop-be/app/services/model_service.py
+  s_38f9d3bc0e0341::t_eadc6972c83d80 162-163
+  s_38f9d3bc0e0341::t_c50ba8d5a11bc7 114-118
+ml-close-loop-be/tests/test_model_service.py
+  s_38f9d3bc0e0341::t_92407699081969 140-141
+  s_38f9d3bc0e0341::t_cfcebb0a77b945 115-131
+  s_38f9d3bc0e0341::t_24fa3803c1cef0 142
+ml-close-loop-be/app/models/__init__.py
+  s_38f9d3bc0e0341::t_c71d2105a2a7d6 14-15
+  s_38f9d3bc0e0341::t_6b98955774b034 3
+ml-close-loop-be/app/schemas/model.py
+  s_38f9d3bc0e0341::t_3cb2c6ca84d509 50,52-57
+  s_38f9d3bc0e0341::t_e6b6eb7e6555af 94-95
+ml-close-loop-be/tests/test_deployment_single_source.py
+  s_38f9d3bc0e0341::t_044660b5f9f89c 35-48
+ml-close-loop-be/tests/test_promotion_gate.py
+  s_38f9d3bc0e0341::t_0360317f6366fc 1-88
+ml-close-loop-be/tests/test_promotion_service.py
+  s_38f9d3bc0e0341::t_83df3e13f195eb 204-221
+  s_38f9d3bc0e0341::t_1f7b05d3ac8d54 274-304
+  s_38f9d3bc0e0341::t_fdd92e10dae6ac 52-53
+  s_38f9d3bc0e0341::t_bf6960f59b6bc1 222-224
+ml-close-loop-be/app/services/promotion_service.py
+  s_38f9d3bc0e0341::t_c15cddad4824ed 6,22-81,87-91,100-106,114-115
+  s_38f9d3bc0e0341::t_1406db2b04d196 178
+  s_38f9d3bc0e0341::t_42a0e45f36d61e 177
+ml-close-loop-be/app/models/model.py
+  s_38f9d3bc0e0341::t_4d2474ae1315c9 61-65
+ml-close-loop-be/app/schemas/validation.py
+  s_38f9d3bc0e0341::t_985f7fe44c79ff 25-28,34-35
+  s_38f9d3bc0e0341::t_1bc4bad4cab052 51
+ml-close-loop-be/README.md
+  s_38f9d3bc0e0341::t_132cc5f96047fc 15,18-23
+  s_38f9d3bc0e0341::t_297a83bd45d989 72
+  s_38f9d3bc0e0341::t_03d18124658f00 98,100-102
+  s_38f9d3bc0e0341::t_cf05294ab33bee 31
+ml-close-loop-be/alembic/versions/8b3c5144cda6_add_eval_set_storage_and_eval_set_reference_fields.py
+  s_38f9d3bc0e0341::t_13fcfe74347e1f 1-71
+ml-close-loop-be/app/services/validation_service.py
+  s_38f9d3bc0e0341::t_6458673f9f1470 116
+  s_38f9d3bc0e0341::t_43046b76ea830e 228
+  s_38f9d3bc0e0341::t_84499a417fd271 131-135
+  s_38f9d3bc0e0341::t_5fda65aa1e8c3a 219-223
+  s_38f9d3bc0e0341::t_9db7372d3a2371 269
+ml-close-loop-be/tests/test_validation_api.py
+  s_38f9d3bc0e0341::t_e51bf174b40669 289-362
+  s_38f9d3bc0e0341::t_475fc62bbb9352 41-51
+ml-close-loop-be/tests/test_eval_set_service.py
+  s_38f9d3bc0e0341::t_06b81c5cf1e8a2 1-67
+  s_38f9d3bc0e0341::t_fda6a75523e861 68-70
+ml-close-loop-be/app/main.py
+  s_38f9d3bc0e0341::t_a8adc4bb171bab 66
+  s_38f9d3bc0e0341::t_81d2c69bcf40c5 16
+  s_38f9d3bc0e0341::t_37bf7cb68a42cb 90
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_38f9d3bc0e0341::t_40c3fa04ac26d3 26-42
+  s_38f9d3bc0e0341::t_5cd12050512888 43
+ml-close-loop-be/app/api/eval_sets.py
+  s_38f9d3bc0e0341::t_9c56b0cc9e6f50 35
+  s_38f9d3bc0e0341::t_47618c5c9dfac3 1-8,10-11,13-34,36-83
+  s_38f9d3bc0e0341::t_13fa12f87fdc32 9
+  s_38f9d3bc0e0341::t_8fb8de3d91f4d2 12
+ml-close-loop-be/app/api/validation.py
+  s_38f9d3bc0e0341::t_b17ca6e7219901 10
+  s_38f9d3bc0e0341::t_50c4c63db5707e 57-64,70
+  s_38f9d3bc0e0341::t_69aec4b5b2fd0e 54-56,65-69,71-82,87-88
+ml-close-loop-be/app/schemas/eval_set.py
+  s_38f9d3bc0e0341::t_5147fc4b7d3cc1 1-28
+ml-close-loop-be/tests/test_promotion_api.py
+  s_38f9d3bc0e0341::t_161f34eb344fc6 1-3
+  s_38f9d3bc0e0341::t_7a79f2214e940d 67-84,108-115,117,123-125,127-128,137-139
+ml-close-loop-be/app/models/eval_set.py
+  s_38f9d3bc0e0341::t_143e80f1b4da7f 1-42
+ml-close-loop-be/openapi.yaml
+  s_38f9d3bc0e0341::t_c948c18ef353e4 297,354-510,561-562,597,691,1261-1268,1306-1307,1432,1486,1488,1520-1529,1547,1595,1597,1599,1637-1703,1740,1743-1752,1767-1770,1772-1776,1865-1874,2064,2304,2382-2384,2388-2390,2394-2403,2405-2406,2408-2427,2472-2474,2496-2502,2519,2524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "f74e485cc41025eafa0ca7d5202a973925c9d478",
+  "prompts": {},
+  "sessions": {
+    "s_38f9d3bc0e0341": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8bdb4cf0ffexyTZAgtyE2z73A",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_5509ebe4c5edd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "60d3582a-3f45-475d-a26f-8d7cff39c74d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

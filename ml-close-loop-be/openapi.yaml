@@ -1073,6 +1073,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 'Bad Gateway - the vLLM serving backend could not load or unload the
+            adapter (issue #40): `DEPLOY_FAILED`. The deployment pointer is unchanged because the
+            load runs before any DB mutation.'
         '422':
           description: Validation Error
           content:
@@ -1124,6 +1132,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 'Bad Gateway - the vLLM serving backend could not load the adapter (issue
+            #40): `DEPLOY_FAILED`. The deployment pointer is unchanged because the load runs
+            before any DB mutation.'
         '422':
           description: Validation Error
           content:

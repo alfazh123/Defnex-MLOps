@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +19,14 @@ class Settings(BaseSettings):
     unsloth_models: str = (
         "unsloth/Qwen3-0.6B,unsloth/Qwen3.8-27B,unsloth/Qwen2.5-7B-Instruct"
     )
+
+    # Serving (issue #40)
+    # `mock` uses MockServingBackend (tests / no-GPU local dev); `vllm` uses the real
+    # VLLMServingBackend against `vllm_url`. docker-compose's GPU serving profile starts vLLM.
+    serving_backend: Literal["mock", "vllm"] = "mock"
+    vllm_url: str = "http://localhost:8001"
+    vllm_api_key: str = ""
+    vllm_timeout_seconds: float = 60.0
 
     # Auth (Phase 9)
     jwt_secret: str = "dev-secret-change-in-production"

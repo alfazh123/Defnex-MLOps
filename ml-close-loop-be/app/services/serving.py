@@ -1,27 +1,223 @@
+"""Serving boundary for deployed model artifacts (issue #40).
+
+The `ServingBackend` Protocol is the only thing callers depend on -
+`deployment_service.deploy` invokes `deploy`/`unload` and never touches the concrete
+implementation. Two implementations exist:
+
+- `MockServingBackend` records calls only, used for tests and local dev without a GPU
+  (the default via `settings.serving_backend == "mock"`, matching the pre-#40 contract).
+- `VLLMServingBackend` talks to a real vLLM Server / vLLM Runtime via its HTTP API:
+  `POST /v1/load_lora_adapter` to make an adapter serve traffic and
+  `POST /v1/unload_lora_adapter` to stop serving it (runtime LoRA load/unload, no service
+  restart). Enabled with `settings.serving_backend == "vllm"`.
+
+`serving.py` replaces the pre-#40 placeholder with a stateful backend that is built once per
+process (`get_serving_backend`) so a real HTTP client is not recreated per call.
+"""
+
+from __future__ import annotations
+
 from typing import Protocol
 
+import httpx
+import structlog
+
+from app.config import settings
 from app.models.model import ModelVersion
+from app.services.http_retry import request_sync_with_retry
+
+logger = structlog.get_logger(__name__)
+
+
+class ServingError(Exception):
+    """The serving backend failed to load the requested model artifact. Raised by `deploy`
+    only for the *load* of the version being deployed; unload failures are best-effort and
+    never raise (see `VLLMServingBackend.unload`)."""
 
 
 class ServingBackend(Protocol):
     def deploy(self, model_version: ModelVersion) -> None:
-        """Make `model_version`'s artifact serve traffic."""
+        """Make `model_version`'s artifact serve traffic. Raises `ServingError` on failure
+        (e.g. unreachable backend, adapter load rejected, or no adapter artifact)."""
+        ...
+
+    def unload(self, model_version: ModelVersion) -> None:
+        """Stop serving `model_version`'s artifact. Idempotent and non-raising: a backend that
+        cannot unload (already unloaded, unreachable, ...) must log rather than block the
+        deploy that retires this version."""
         ...
 
 
 class MockServingBackend:
-    """Placeholder serving backend. The concrete deployment/serving stack is explicitly TBD
-    (PRD §15/§26, mlops-architecture.md §3 Decision 3) - vLLM vs llama.cpp is undecided and the
-    VM/GPU environment is unconfirmed, so nothing here may assume either. Callers depend only on
-    `ServingBackend.deploy()`, so a real backend can replace this without touching them - same
-    placeholder-behind-a-Protocol shape as `artifact_storage.LocalFilesystemArtifactStorage`.
+    """Placeholder serving backend for tests and no-GPU local dev. The pre-#40 docstring kept
+    "the concrete stack is TBD"; issue #40 decides that stack is vLLM and adds
+    `VLLMServingBackend` for production, leaving this mock behind for the test suite.
 
-    Records its calls so tests (and the end-to-end lifecycle test) can assert the deploy path
-    reached the serving boundary.
+    Records its calls so tests (and the end-to-end lifecycle test) can assert the deploy and
+    unload paths reached the serving boundary.
     """
 
     def __init__(self) -> None:
         self.deployed: list[tuple[str, int]] = []
+        self.unloaded: list[tuple[str, int]] = []
 
     def deploy(self, model_version: ModelVersion) -> None:
         self.deployed.append((model_version.model_id, model_version.version))
+
+    def unload(self, model_version: ModelVersion) -> None:
+        self.unloaded.append((model_version.model_id, model_version.version))
+
+
+def _lora_name(model_version: ModelVersion) -> str:
+    """Deterministic adapter identity for the vLLM LoRA registry. Matches the versioning
+    adapter convention (`{project}-{base_model}-v{N}`) collapsed to what the registry already
+    keys everything on (model_id + version) so a deploy/rollback always targets the exact
+    version it means."""
+    return f"{model_version.model_id}-v{model_version.version}"
+
+
+def _adapter_path(model_version: ModelVersion) -> str:
+    """Local filesystem path of the adapter artifact to load, from `model_version.artifacts`
+    (`{"type": "adapter", "uri": "file:///..."}`, app/schemas/model.py Artifact /
+    model-artifact-versioning-lineage.md §8). A `file://` URI is converted to the path vLLM
+    mounts; any other URI/tag is used verbatim (e.g. a Hugging Face repo id)."""
+    for artifact in model_version.artifacts or []:
+        if artifact.get("type") == "adapter":
+            uri = artifact["uri"]
+            return uri[len("file://") :] if uri.startswith("file://") else uri
+    raise ServingError(
+        f"model {model_version.model_id} v{model_version.version} has no 'adapter' "
+        "artifact to load (artifacts: "
+        f"{[a.get('type') for a in model_version.artifacts or []]})"
+    )
+
+
+def _auth_header(api_key: str) -> dict[str, str]:
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+class VLLMServingBackend:
+    """Real serving backend backed by a vLLM Server (OpenAI-compatible runtime API).
+
+    `deploy` loads the model version's adapter at runtime (`/v1/load_lora_adapter`,
+    requires vLLM launched with `--enable-lora` and `VLLM_ALLOW_RUNTIME_LORA_UPDATING=true`);
+    `unload` removes it (`/v1/unload_lora_adapter`). Both go through the shared HTTP retry
+    policy (retries on 5xx/connection errors, never on 4xx). Load failure raises
+    `ServingError` so the DB transaction that retires the previous version is never started;
+    unload failure is logged and swallowed (the newly deployed version already serves).
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float | None = None,
+        client: httpx.Client | None = None,
+    ) -> None:
+        self.base_url = (base_url or settings.vllm_url).rstrip("/")
+        self.api_key = api_key if api_key is not None else settings.vllm_api_key
+        self._client = client or httpx.Client(
+            timeout=httpx.Timeout(timeout or settings.vllm_timeout_seconds)
+        )
+
+    def _headers(self) -> dict[str, str]:
+        return _auth_header(self.api_key)
+
+    def deploy(self, model_version: ModelVersion) -> None:
+        adapter_name = _lora_name(model_version)
+        adapter_path = _adapter_path(model_version)
+        try:
+            request_sync_with_retry(
+                self._client,
+                "POST",
+                f"{self.base_url}/v1/load_lora_adapter",
+                json={"lora_name": adapter_name, "lora_path": adapter_path},
+                headers=self._headers(),
+                context=adapter_name,
+            )
+        except httpx.HTTPStatusError as exc:
+            raise ServingError(
+                f"vLLM rejected adapter load {adapter_name} ({adapter_path}): "
+                f"HTTP {exc.response.status_code} {exc.response.text[:200]}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise ServingError(
+                f"vLLM unreachable at {self.base_url} while loading {adapter_name}: {exc}"
+            ) from exc
+        logger.info(
+            "vllm_adapter_loaded",
+            lora_name=adapter_name,
+            lora_path=adapter_path,
+            model_id=model_version.model_id,
+            version=model_version.version,
+        )
+
+    def unload(self, model_version: ModelVersion) -> None:
+        adapter_name = _lora_name(model_version)
+        try:
+            request_sync_with_retry(
+                self._client,
+                "POST",
+                f"{self.base_url}/v1/unload_lora_adapter",
+                json={"lora_name": adapter_name},
+                headers=self._headers(),
+                context=adapter_name,
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                logger.warning(
+                    "vllm_adapter_not_loaded",
+                    lora_name=adapter_name,
+                    model_id=model_version.model_id,
+                    version=model_version.version,
+                )
+                return
+            logger.warning(
+                "vllm_unload_failed",
+                lora_name=adapter_name,
+                status_code=exc.response.status_code,
+                response_body=exc.response.text[:200],
+                model_id=model_version.model_id,
+                version=model_version.version,
+            )
+            return
+        except httpx.RequestError as exc:
+            logger.warning(
+                "vllm_unload_unreachable",
+                lora_name=adapter_name,
+                base_url=self.base_url,
+                error=str(exc),
+                model_id=model_version.model_id,
+                version=model_version.version,
+            )
+            return
+        logger.info(
+            "vllm_adapter_unloaded",
+            lora_name=adapter_name,
+            model_id=model_version.model_id,
+            version=model_version.version,
+        )
+
+
+_backend: ServingBackend | None = None
+
+
+def get_serving_backend() -> ServingBackend:
+    """The process-wide serving backend, created once and reused.
+
+    Issue #40: the mock was previously instantiated fresh per call via
+    `(backend or MockServingBackend())` in `deployment_service.deploy`, so the real vLLM HTTP
+    client would have been rebuilt (and its connection dropped) on every deploy/rollback. A
+    singleton fixes that while keeping the default (`settings.serving_backend == "mock"`)
+    identical to pre-#40 behavior for tests and no-GPU local dev.
+    """
+    global _backend
+    if _backend is None:
+        if settings.serving_backend == "vllm":
+            _backend = VLLMServingBackend()
+        else:
+            _backend = MockServingBackend()
+    return _backend

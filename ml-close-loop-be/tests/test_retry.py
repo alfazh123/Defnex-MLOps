@@ -52,7 +52,7 @@ def test_retries_then_succeeds_on_3rd_attempt():
     mock_client = _make_mock_client(responses)
 
     with patch.object(unsloth_client, "_get_client", return_value=mock_client):
-        with patch("app.services.unsloth_client.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.services.http_retry.asyncio.sleep", new_callable=AsyncMock):
             result = asyncio.run(unsloth_client.start_training("run-1", "model", {}))
 
     assert result == {"job_id": "j1"}
@@ -63,7 +63,7 @@ def test_raises_after_max_retries_exhausted():
     mock_client = _make_mock_client(_always_return(_mock_response(503)))
 
     with patch.object(unsloth_client, "_get_client", return_value=mock_client):
-        with patch("app.services.unsloth_client.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.services.http_retry.asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(httpx.HTTPStatusError):
                 asyncio.run(unsloth_client.get_training_status("run-2"))
 
@@ -79,7 +79,7 @@ def test_exponential_backoff_delays():
     mock_client = _make_mock_client(_always_return(_mock_response(500)))
 
     with patch.object(unsloth_client, "_get_client", return_value=mock_client):
-        with patch("app.services.unsloth_client.asyncio.sleep", side_effect=fake_sleep):
+        with patch("app.services.http_retry.asyncio.sleep", side_effect=fake_sleep):
             with pytest.raises(httpx.HTTPStatusError):
                 asyncio.run(unsloth_client.stop_training("run-3"))
 
@@ -117,7 +117,7 @@ def test_retries_on_timeout_then_succeeds():
     )
 
     with patch.object(unsloth_client, "_get_client", return_value=mock_client):
-        with patch("app.services.unsloth_client.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.services.http_retry.asyncio.sleep", new_callable=AsyncMock):
             result = asyncio.run(unsloth_client.start_training("run-6", "model", {}))
 
     assert result == {"status": "ok"}
@@ -134,7 +134,7 @@ def test_retries_on_read_error_then_succeeds():
     )
 
     with patch.object(unsloth_client, "_get_client", return_value=mock_client):
-        with patch("app.services.unsloth_client.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.services.http_retry.asyncio.sleep", new_callable=AsyncMock):
             result = asyncio.run(unsloth_client.get_training_status("run-7"))
 
     assert result == {"status": "done"}

@@ -111,6 +111,11 @@ def submit_evaluation(
     three signal fields are present (model-promotion-approval-workflow.md §2) - partial data does
     not qualify. Caller (API layer) is responsible for the 409 "not editable" guard."""
 
+    if update.eval_set_id is not None:
+        model_version.eval_set_id = update.eval_set_id
+    if update.eval_set_version is not None:
+        model_version.eval_set_version = update.eval_set_version
+
     if update.eval_loss_trend is not None:
         model_version.eval_loss_trend = update.eval_loss_trend.model_dump()
     if update.qualitative_comparison is not None:
@@ -154,6 +159,8 @@ def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
         created_at=model_version.created_at,
         created_by=model_version.created_by,
         evaluation=get_evaluation(model_version),
+        eval_set_id=model_version.eval_set_id,
+        eval_set_version=model_version.eval_set_version,
         artifacts=model_version.artifacts,
         promotion_decision_ref=model_version.promotion_decision_ref,
         previous_model_id=model_version.previous_model_id,

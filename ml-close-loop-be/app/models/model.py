@@ -58,6 +58,11 @@ class ModelVersion(Base):
         JSON, nullable=True
     )
 
+    # The golden/eval set this version's evaluation was measured against
+    # (model-promotion-approval-workflow.md §13, issue #43).
+    eval_set_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    eval_set_version: Mapped[int | None] = mapped_column(nullable=True)
+
     created_at: Mapped[datetime] = mapped_column()
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
 

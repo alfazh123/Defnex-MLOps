@@ -112,6 +112,23 @@ def test_submit_evaluation_partial_stays_registered(db_session):
     assert evaluation.general_domain_regression_check is None
 
 
+def test_submit_evaluation_persists_eval_set_reference(db_session):
+    training_run = _completed_training_run(db_session)
+    model_version = model_service.register_model_version(db_session, training_run)
+
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(eval_set_id="domain-benchmark", eval_set_version=2),
+    )
+
+    assert model_version.eval_set_id == "domain-benchmark"
+    assert model_version.eval_set_version == 2
+    record = model_service.to_schema(model_version)
+    assert record.eval_set_id == "domain-benchmark"
+    assert record.eval_set_version == 2
+
+
 def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
     training_run = _completed_training_run(db_session)
     model_version = model_service.register_model_version(db_session, training_run)
@@ -120,7 +137,9 @@ def test_submit_evaluation_all_three_transitions_to_evaluated(db_session):
         db_session,
         model_version,
         EvaluationUpdateRequest(
-            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84)
+            eval_set_id="domain-benchmark",
+            eval_set_version=1,
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84),
         ),
     )
     model_service.submit_evaluation(

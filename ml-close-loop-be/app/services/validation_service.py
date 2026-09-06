@@ -113,6 +113,7 @@ def validate_dataset_version(
     dataset_version: DatasetVersionModel,
     records: list[dict],
     eval_records: list[dict] | None = None,
+    eval_set_ref: str | None = None,
     rule_set_version: str = DEFAULT_RULE_SET_VERSION,
 ) -> ValidationReportModel:
     """Run the WBS 2.2 hard-error rule set (H1-H9) against `records` and persist a report.
@@ -127,9 +128,11 @@ def validate_dataset_version(
     story adds those rules with real, non-invented thresholds.
 
     `eval_records` represents already-known eval-set content (e.g. the curated benchmark set) to
-    check leakage (H8) against. There is no eval-set storage in this system yet (no story creates
-    one), so it defaults to None and leakage detection reports zero overlaps - the check itself is
-    fully implemented, it simply has nothing to compare against until that storage exists.
+    check leakage (H8) against; `eval_set_ref` is a human-readable label of the stored eval set
+    that supplied that content (issue #43), e.g. "domain-benchmark@2" - it is what the report's
+    `leakage_check.checked_against` records. The records themselves are persisted on the report so
+    the eval set can later be kept disjoint from already-validated training data, and so a report
+    never claims PASS over content it cannot reproduce.
     """
 
     run_at = datetime.now(timezone.utc)
@@ -213,11 +216,16 @@ def validate_dataset_version(
             "length_distribution_words": length_distribution_words,
             "duplicate_count": duplicate_count,
             "leakage_check": {
-                "checked_against": ["eval/benchmark"] if eval_records else [],
+                "checked_against": [
+                    eval_set_ref or ("eval/benchmark" if eval_records else "")
+                ]
+                if eval_set_ref or eval_records
+                else [],
                 "overlaps_found": leakage_overlaps,
             },
         },
         per_record_errors=per_record_errors,
+        records=records,
         gate_decision=gate_decision,
         gate_reason=gate_reason,
     )
@@ -258,6 +266,7 @@ def to_schema(report: ValidationReportModel) -> ValidationReport:
         warnings_summary=report.warnings_summary,
         dataset_statistics=report.dataset_statistics,
         per_record_errors=report.per_record_errors,
+        records=report.records,
         gate_decision=report.gate_decision,
         gate_reason=report.gate_reason,
     )

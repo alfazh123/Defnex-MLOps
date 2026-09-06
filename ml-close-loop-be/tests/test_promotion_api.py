@@ -1,3 +1,6 @@
+"""Promotion decision API tests (issue #43). `_evaluated_model_version` and
+`_promoted_model_version` are importable by sibling tests (e.g. the promotion gate tests)."""
+
 from sqlalchemy.orm import Session
 
 from tests.conftest import auth_header
@@ -61,8 +64,24 @@ def _pass_validation(client, admin_token):
     assert report.json()["gate_decision"] == "PASS"
 
 
-def _evaluated_model_version(client, admin_token):
-    """Drive a training run to COMPLETED, register it, and submit all 3 evaluation signals."""
+def _evaluated_model_version(
+    client,
+    admin_token,
+    *,
+    eval_set_id="domain-benchmark",
+    eval_set_version=1,
+    wins=13,
+    losses=5,
+    regressions_found=None,
+    this_version_eval_loss=0.84,
+    previous_version_eval_loss=None,
+):
+    """Drive a training run to COMPLETED, register it, and submit all 3 evaluation signals.
+
+    Defaults reference a stored eval set with majority-wins, no regressions, and no eval-loss
+    regression so a PROMOTED decision clears the eval gate (issue #43). Pass `eval_set_id=None`
+    or change the signal values to exercise gate-blocking paths.
+    """
     from app.services import model_service, training_service
     from app.workers.mock_runner import MockTrainingRunner
 
@@ -86,20 +105,27 @@ def _evaluated_model_version(client, admin_token):
         db.commit()
         model_id, version = model_version.model_id, model_version.version
 
+    eval_ref = {}
+    if eval_set_id is not None:
+        eval_ref = {"eval_set_id": eval_set_id, "eval_set_version": eval_set_version}
+
+    loss_trend = {"this_version_eval_loss": this_version_eval_loss}
+    if previous_version_eval_loss is not None:
+        loss_trend["previous_version_eval_loss"] = previous_version_eval_loss
+
     url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
-    client.post(
-        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
-    )
+    client.post(url, json={"eval_loss_trend": loss_trend, **eval_ref}, headers=h)
     client.post(
         url,
         json={
             "qualitative_comparison": {
                 "question_table_version": 1,
-                "wins": 13,
-                "losses": 5,
-                "ties": 2,
+                "wins": wins,
+                "losses": losses,
+                "ties": 20 - wins - losses,
                 "total": 20,
-            }
+            },
+            **eval_ref,
         },
         headers=h,
     )
@@ -108,8 +134,9 @@ def _evaluated_model_version(client, admin_token):
         json={
             "general_domain_regression_check": {
                 "checked": True,
-                "regressions_found": [],
-            }
+                "regressions_found": regressions_found or [],
+            },
+            **eval_ref,
         },
         headers=h,
     )

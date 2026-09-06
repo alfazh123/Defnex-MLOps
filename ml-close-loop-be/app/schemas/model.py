@@ -47,8 +47,14 @@ class EvaluationObject(BaseModel):
 
 class EvaluationUpdateRequest(BaseModel):
     """Partial evaluation payload (openapi.yaml EvaluationUpdateRequest) - any subset of the
-    three signal fields may be submitted; the backend merges onto the existing record."""
+    three signal fields may be submitted; the backend merges onto the existing record.
 
+    `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals were
+    measured against (issue #43); they are stored once, on the model version, and may be
+    (re)submitted alongside any signal."""
+
+    eval_set_id: str | None = None
+    eval_set_version: int | None = None
     eval_loss_trend: EvalLossTrend | None = None
     qualitative_comparison: QualitativeComparison | None = None
     general_domain_regression_check: GeneralDomainRegressionCheck | None = None
@@ -85,6 +91,8 @@ class ModelRegistryRecord(BaseModel):
     created_at: datetime
     created_by: str | None = None
     evaluation: EvaluationObject | None = None
+    eval_set_id: str | None = None
+    eval_set_version: int | None = None
     artifacts: list[Artifact]
     promotion_decision_ref: str | None = None
     previous_model_id: str | None = None

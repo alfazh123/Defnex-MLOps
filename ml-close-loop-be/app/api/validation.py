@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.validation import ValidateDatasetVersionRequest, ValidationReport
-from app.services import dataset_service, validation_service
+from app.services import dataset_service, eval_set_service, validation_service
 
 router = APIRouter(tags=["Validation"])
 
@@ -51,11 +51,41 @@ def validate_dataset_version(
     if request is not None and request.rule_set_version is not None:
         kwargs["rule_set_version"] = request.rule_set_version
 
+    eval_records = request.eval_records if request is not None else []
+    eval_set_ref = None
+    if request is not None and request.eval_set_id is not None:
+        if request.eval_set_version is not None:
+            eval_set = eval_set_service.get_eval_set_version(
+                db, request.eval_set_id, request.eval_set_version
+            )
+        else:
+            eval_set = eval_set_service.get_latest_eval_set_version(
+                db, request.eval_set_id
+            )
+        if eval_set is None:
+            raise APIError(
+                404,
+                "EVAL_SET_NOT_FOUND",
+                f'eval_set_id "{request.eval_set_id}" version '
+                f"{request.eval_set_version or 'latest'} not found",
+            )
+        if not eval_set.records:
+            raise APIError(
+                409,
+                "EVAL_SET_EMPTY",
+                f'eval_set_id "{request.eval_set_id}" version {eval_set.version} '
+                "has no records; an empty eval set must never make an H8 leakage check "
+                "look clean.",
+            )
+        eval_records = eval_set.records
+        eval_set_ref = f"{eval_set.eval_set_id}@{eval_set.version}"
+
     report = validation_service.validate_dataset_version(
         db,
         dataset_version,
         records=records,
-        eval_records=request.eval_records if request is not None else [],
+        eval_records=eval_records,
+        eval_set_ref=eval_set_ref,
         **kwargs,
     )
     return validation_service.to_schema(report)

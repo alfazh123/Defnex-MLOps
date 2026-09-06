@@ -81,30 +81,44 @@ def _registered_model_version(client, admin_token):
 def _evaluated_model_version(client, admin_token):
     model_id, version = _registered_model_version(client, admin_token)
     h = auth_header(admin_token)
+    resp = client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={"records": [{"messages": [{"role": "user", "content": "eval-probe-1"}]}]},
+        headers=h,
+    )
+    assert resp.status_code == 201, resp.text
     url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
+    eval_ref = {
+        "eval_set_id": "domain-benchmark",
+        "eval_set_version": resp.json()["version"],
+    }
     client.post(
-        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
+        url,
+        json={**eval_ref, "eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        headers=h,
     )
     client.post(
         url,
         json={
+            **eval_ref,
             "qualitative_comparison": {
                 "question_table_version": 1,
                 "wins": 13,
                 "losses": 5,
                 "ties": 2,
                 "total": 20,
-            }
+            },
         },
         headers=h,
     )
     client.post(
         url,
         json={
+            **eval_ref,
             "general_domain_regression_check": {
                 "checked": True,
                 "regressions_found": [],
-            }
+            },
         },
         headers=h,
     )
@@ -261,6 +275,8 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
         "created_at",
         "created_by",
         "evaluation",
+        "eval_set_id",
+        "eval_set_version",
         "artifacts",
         "promotion_decision_ref",
         "previous_model_id",
@@ -298,14 +314,56 @@ def test_validation_report_returns_report_shape(client, admin_token):
         "content_hash",
         "gate_decision",
         "gate_reason",
+        "records",
     }
     assert data["dataset_id"] == "no_robots"
     assert data["status_counts"] == {"VALID": 1, "INVALID": 0, "NEEDS_REVIEW": 0}
     assert data["record_count"] == 1
     assert isinstance(data["content_hash"], str)
     assert data["per_record_errors"] == [[]]
+    assert data["records"] == [VALID_RECORD]
     assert data["gate_decision"] == "PASS"
     assert isinstance(data["run_at"], str)
+
+
+def test_eval_set_version_endpoints_return_shapes(client, admin_token):
+    h = auth_header(admin_token)
+    record = {"messages": [{"role": "user", "content": "eval-probe-1"}]}
+
+    created = client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={"records": [record]},
+        headers=h,
+    )
+    assert created.status_code == 201
+    data = created.json()
+    assert set(data) == {
+        "eval_set_id",
+        "version",
+        "record_count",
+        "records",
+        "created_at",
+        "created_by",
+    }
+    assert data["eval_set_id"] == "domain-benchmark"
+    assert data["version"] == 1
+    assert data["record_count"] == 1
+    assert data["records"] == [record]
+    assert isinstance(data["created_at"], str)
+
+    summary = client.get("/api/v1/eval-sets", headers=h)
+    assert summary.status_code == 200
+    assert summary.json() == [
+        {"eval_set_id": "domain-benchmark", "latest_version": 1, "version_count": 1}
+    ]
+
+    versions = client.get("/api/v1/eval-sets/domain-benchmark/versions", headers=h)
+    assert versions.status_code == 200
+    assert [v["version"] for v in versions.json()] == [1]
+
+    single = client.get("/api/v1/eval-sets/domain-benchmark/versions/1", headers=h)
+    assert single.status_code == 200
+    assert single.json()["records"] == [record]
 
 
 def test_promotion_decision_returns_decision_shape(client, admin_token):
@@ -332,10 +390,14 @@ def test_promotion_decision_returns_decision_shape(client, admin_token):
         "decided_by",
         "decided_at",
         "evidence_snapshot",
+        "eval_set_id",
+        "eval_set_version",
         "rationale",
         "rollback_of_version",
     }
     assert data["decision"] == "PROMOTED"
+    assert data["eval_set_id"] == "domain-benchmark"
+    assert data["eval_set_version"] == 1
     assert isinstance(data["evidence_snapshot"], dict)
     assert data["rollback_of_version"] is None
     assert isinstance(data["decided_at"], str)
@@ -374,6 +436,7 @@ def test_error_response_always_has_error_envelope(client, admin_token):
             {"decision": "PROMOTED", "rationale": "n/a"},
         ),
         ("GET", "/api/v1/models/missing/deployment", None),
+        ("GET", "/api/v1/eval-sets/missing/versions", None),
     ]
 
     for method, path, body in cases:

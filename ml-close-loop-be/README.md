@@ -12,9 +12,15 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 23 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 31 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
+- Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
+  disjoint from validated training data both ways (H8 leakage, `409 EVAL_SET_OVERLAP`)
+- Promotion gate: a `PROMOTED` decision requires a recorded eval-set reference,
+  a qualitative majority win, no general-domain regressions, and no eval-loss
+  regression (human decision on the threshold; each check is an env toggle, all
+  on by default, `409 PROMOTION_GATE_BLOCKED` when blocked)
 - Rate limiting (5/min login, 3/min register) with `X-RateLimit-*` headers
 - Request body size limit (1MB default, configurable)
 - Structured logging (structlog, JSON)
@@ -24,7 +30,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
   GPU profile in docker-compose; a mock backend keeps tests and no-GPU dev green
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
-- pytest-cov (94%+ coverage, 200 tests)
+- pytest coverage gate 80% (currently 97%, 380 tests)
 
 ## Quickstart — Docker
 
@@ -93,7 +99,7 @@ uv run uvicorn app.main:app --reload
 ## Tests & Quality
 
 ```bash
-.venv/bin/pytest tests/ -q          # 200 tests, 94%+ coverage
+.venv/bin/pytest tests/ -q          # 380 tests, 97% coverage
 ruff check .                        # lint
 ruff format --check .               # format check
 ```
@@ -111,6 +117,31 @@ alembic revision --autogenerate -m "description"
 alembic upgrade head
 ```
 
+## Training concurrency & GPU lock
+
+Training runs are executed exclusively by `app.workers.training_worker`
+(`python -m app.workers.training_worker`). To guarantee that only one training
+runs at a time across worker processes:
+
+1. **GPU lock** (`app.workers.gpu_lock`) — the worker holds an exclusive
+   `flock()` on `data/gpu.lock` (set `GPU_LOCK_FILE`) for the whole
+   claim → train → persist block. A `flock` is released by the kernel when the
+   owning process exits by *any* path — success, exception, SIGTERM, even
+   SIGKILL — so a crashed worker never leaves a permanently stuck lock.
+2. **Atomic claim** (`training_service.claim_training_run`) — a compare-and-set
+   flips `PENDING → RUNNING` at the SQL level (`UPDATE ... WHERE status='PENDING'`),
+   so two workers that both picked the same row can never both win, on SQLite or
+   Postgres. Losing the claim returns `None` and the worker skips the poll.
+3. **Lock timeout** (set `GPU_LOCK_TIMEOUT`) — if a worker cannot acquire the
+   lock within the timeout it skips the poll entirely; the run stays `PENDING`
+   and is retried on the next iteration. A busy GPU never fails or loses a run.
+
+Scope caveat (documented in `app/workers/gpu_lock.py`): `flock` only
+serializes processes that open the **same lock file on the same host**. In the
+Docker deployment every worker mounts `./data:/app/data` so the lock file is
+shared. If workers ever run on different hosts (or train on hardware shared
+across hosts), coordination must move outside this module.
+
 ## Error Codes
 
 | Status | Code | Meaning |
@@ -119,7 +150,11 @@ alembic upgrade head
 | `401` | `MISSING_TOKEN` | No `Authorization: Bearer` header |
 | `401` | `INVALID_REFRESH_TOKEN` | Expired or invalid refresh token |
 | `404` | `MODEL_NOT_FOUND` | Model ID does not exist |
+| `404` | `EVAL_SET_NOT_FOUND` | `eval_set_id` (or version) does not exist |
 | `409` | `USERNAME_TAKEN` | Register with existing username |
+| `409` | `EVAL_SET_OVERLAP` | Eval-set record duplicates already-validated training content (H8) |
+| `409` | `EVAL_SET_EMPTY` | Validate/train against an eval set that has no versions |
+| `409` | `PROMOTION_GATE_BLOCKED` | `PROMOTED` decision failed the eval gate (missing eval-set ref, no majority win, regressions found, or eval-loss worse) |
 | `409` | `VALIDATION_REQUIRED` | No validation report yet for this dataset version |
 | `409` | `VALIDATION_FAILED` | Latest validation gate decision is FAIL or has no valid records |
 | `422` | `VALIDATION_RECORDS_REQUIRED` | Validate body missing or `records` empty |
@@ -159,5 +194,7 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `DB_POOL_SIZE` | `5` | Connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | Max overflow connections |
 | `MAX_REQUEST_BODY_SIZE` | `1048576` (1MB) | Max body in bytes |
+| `GPU_LOCK_FILE` | `data/gpu.lock` | Lock file serializing training across workers (must be on a shared filesystem) |
+| `GPU_LOCK_TIMEOUT` | `300` | Seconds a worker waits for the GPU lock before skipping the poll |
 | `LOG_LEVEL` | `INFO` | Structured log level |
 | `DEBUG` | `false` | Debug mode (verbose logging) |

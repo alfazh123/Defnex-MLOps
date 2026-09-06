@@ -48,9 +48,25 @@ class Settings(BaseSettings):
     # Request size limit
     max_request_body_size: int = 1_048_576  # 1MB
 
+    # GPU training lock (issue #33): serializes training across worker processes.
+    # `gpu_lock_file` must live on a filesystem all workers share (the ./data volume
+    # in docker-compose); flock only guarantees exclusivity among processes that open
+    # the same file on the same host.
+    gpu_lock_file: str = "data/gpu.lock"
+    # Seconds a worker waits for the GPU lock before skipping the poll (run stays PENDING).
+    gpu_lock_timeout: int = 300
+
     # Logging
     debug: bool = False
     log_level: str = "INFO"
+
+    # Promotion eval gate (issue #43, model-promotion-approval-workflow.md §6).
+    # All criteria are boolean toggles with documented, non-invented defaults; promote
+    # still requires a human trigger (no automatic promotion on numeric thresholds).
+    eval_gate_require_eval_set_reference: bool = True
+    eval_gate_require_qualitative_majority: bool = True
+    eval_gate_require_no_general_regression: bool = True
+    eval_gate_require_eval_loss_not_worse: bool = True
 
 
 settings = Settings()

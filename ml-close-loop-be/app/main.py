@@ -13,6 +13,7 @@ from starlette.responses import RedirectResponse, Response
 from app.api.auth import router as auth_router
 from app.api.datasets import router as datasets_router
 from app.api.deployment import router as deployment_router
+from app.api.eval_sets import router as eval_sets_router
 from app.api.health import router as health_router
 from app.db.session import engine
 from app.limiter import limiter
@@ -63,6 +64,7 @@ class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
         "/auth",
         "/users",
         "/datasets",
+        "/eval-sets",
         "/training-runs",
         "/models",
     )
@@ -86,6 +88,7 @@ v1_router.include_router(health_router)
 v1_router.include_router(auth_router)
 v1_router.include_router(users_router)
 v1_router.include_router(datasets_router)
+v1_router.include_router(eval_sets_router)
 v1_router.include_router(validation_router)
 v1_router.include_router(training_router)
 v1_router.include_router(models_router)

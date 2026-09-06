@@ -1,0 +1,46 @@
+ml-close-loop-be/app/workers/gpu_lock.py
+  s_d33bca10d4488a::t_e61e9c0f2a0e34 36
+  s_d33bca10d4488a::t_c1d7160fa5da63 1-35,37-45
+ml-close-loop-be/app/services/training_service.py
+  s_d33bca10d4488a::t_6932fa17ae73e7 4
+  s_d33bca10d4488a::t_033ad80d878e5b 62-78,80-86
+  s_d33bca10d4488a::t_3419c15729429d 79
+ml-close-loop-be/app/workers/training_worker.py
+  s_d33bca10d4488a::t_3e0d15739d1155 7,11,24-36,48-69
+ml-close-loop-be/.env.example
+  s_d33bca10d4488a::t_ad21bc8facb7eb 48-57
+ml-close-loop-be/.gitignore
+  s_d33bca10d4488a::t_9d40e2a39218cf 8
+ml-close-loop-be/README.md
+  s_d33bca10d4488a::t_38c1951beda793 84-108
+  s_d33bca10d4488a::t_31c018adc1b980 149-150
+ml-close-loop-be/app/config.py
+  s_d33bca10d4488a::t_3d59ebbc99a33d 41-48
+ml-close-loop-be/tests/test_training_worker.py
+  s_d33bca10d4488a::t_c9fff20638586c 1-8,12,21-36,39-41,47-51,76-77,80,84,92,96,106,112-114,119,123,129,133,140,143-145,155-159,163-164,172,178,184-232,240,248-252,254-256,259-271
+  s_d33bca10d4488a::t_ca3ab6165431f7 233-239,241-247,253,257-258
+  s_d33bca10d4488a::t_1273667919d8fc 272-273,282,285
+ml-close-loop-be/tests/test_gpu_lock.py
+  s_d33bca10d4488a::t_33f8874db36623 69
+  s_d33bca10d4488a::t_553ceb0da41bbd 74-78
+  s_d33bca10d4488a::t_b1d2d1d2af6f6e 2-68,70-73,79-85
+  s_d33bca10d4488a::t_821a63918db066 1
+ml-close-loop-be/tests/test_training_service.py
+  s_d33bca10d4488a::t_e1fcaffda7517f 106-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "06026e69ad35b8dbccab2ec68dacd4277441f327",
+  "prompts": {},
+  "sessions": {
+    "s_d33bca10d4488a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8e03f0fcffek5HdFCAIpK3rC7",
+        "model": "big-pickle"
+      },
+      "human_author": "Maulana Anjari Anggorokasih <maulana17anjari@gmail.com>"
+    }
+  }
+}

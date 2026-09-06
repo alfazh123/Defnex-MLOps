@@ -1,0 +1,60 @@
+ml-close-loop-be/tests/test_vllm_serving.py
+  s_6fb3ce5b4135e2::t_0a7b394431e724 324
+  s_6fb3ce5b4135e2::t_15b46096e687c1 332-348,360-371,373-374
+  s_6fb3ce5b4135e2::t_30dbf87e87a7ef 1-161,163-323,325-331,349-359,372,375-431
+  s_6fb3ce5b4135e2::t_a2ee0166aeff24 162
+ml-close-loop-be/app/services/deployment_service.py
+  s_6fb3ce5b4135e2::t_89710289acc436 118-129
+  s_6fb3ce5b4135e2::t_8c9c8be2a0022b 157-158,160-162,164,168-169
+  s_6fb3ce5b4135e2::t_9095c112507660 4,13-15
+  s_6fb3ce5b4135e2::t_5daf5052c3625c 103-110
+  s_6fb3ce5b4135e2::t_a6e768cea8e84e 82-89,102,111-116,153-156,159,163,165-167,170-171
+ml-close-loop-be/tests/test_retry.py
+  s_6fb3ce5b4135e2::t_b12f960a1531c8 55,66,82,120,137
+ml-close-loop-be/app/config.py
+  s_6fb3ce5b4135e2::t_3463d02e56e0ca 1-2
+  s_6fb3ce5b4135e2::t_9be3f0b8cf311b 23-30
+ml-close-loop-be/tests/test_unsloth_client.py
+  s_6fb3ce5b4135e2::t_138569df018c69 122,141,158,171
+ml-close-loop-be/app/services/serving.py
+  s_6fb3ce5b4135e2::t_91c894d21803e7 1-19,22-25,27-35,40-47,52-57,62,66-223
+ml-close-loop-be/docker-compose.yml
+  s_6fb3ce5b4135e2::t_5f0933fb36879a 7-11,27-65
+ml-close-loop-be/app/services/unsloth_client.py
+  s_6fb3ce5b4135e2::t_aec8bce79c2d65 11-17,19
+  s_6fb3ce5b4135e2::t_8d886dba218b65 152-154
+  s_6fb3ce5b4135e2::t_25a175d179c4e4 144-150
+ml-close-loop-be/README.md
+  s_6fb3ce5b4135e2::t_f42d182cc77dbe 23-24
+  s_6fb3ce5b4135e2::t_c59f60ace6cf82 149-155
+  s_6fb3ce5b4135e2::t_3fcea8ab01c5db 129
+  s_6fb3ce5b4135e2::t_50bd99df0efa05 42-69
+ml-close-loop-be/.env.example
+  s_6fb3ce5b4135e2::t_96c11f5307fd99 21-40
+ml-close-loop-be/app/main.py
+  s_6fb3ce5b4135e2::t_94a47c7a9d2141 27
+  s_6fb3ce5b4135e2::t_3be0b43ecdc728 128-138
+  s_6fb3ce5b4135e2::t_fe198620eba0eb 139-140
+ml-close-loop-be/app/services/http_retry.py
+  s_6fb3ce5b4135e2::t_2f8373edc00796 30-32,44-45,63-65,77-84,92-93,101-108,121-123,135-142,150-151,159-166
+  s_6fb3ce5b4135e2::t_d2341c0d1685c7 1-29,33-43,46-62,66-76,85-91,94-100,109-120,124-134,143-149,152-158,167
+ml-close-loop-be/openapi.yaml
+  s_6fb3ce5b4135e2::t_b4fe002332598e 1076-1083
+  s_6fb3ce5b4135e2::t_400e3b38ee9009 1135-1142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "a661aa13c264a8a264f0e5242013146cc86a6c47",
+  "prompts": {},
+  "sessions": {
+    "s_6fb3ce5b4135e2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8bddac9effeYRpXF1FO8LcC0i",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

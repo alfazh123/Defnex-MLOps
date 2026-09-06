@@ -1,0 +1,78 @@
+ml-close-loop-be/app/schemas/inference.py
+  s_b6a6c6fa8964bb::t_3bae465c04b89c 1-25
+  s_b6a6c6fa8964bb::t_db647362efd2a9 26-27
+ml-close-loop-be/openapi.yaml
+  s_b6a6c6fa8964bb::t_3841405a1bddfa 1324-1331,1337-1370,1373-1394
+  s_b6a6c6fa8964bb::t_650d5cc5eb7c7e 1332-1336
+  s_b6a6c6fa8964bb::t_4c4bb96b7e45d6 1371-1372
+  s_b6a6c6fa8964bb::t_74f94541446154 1889-1925
+ml-close-loop-be/app/api/inference.py
+  s_b6a6c6fa8964bb::t_b83aafe9c0ac7e 2,8,45-62
+  s_b6a6c6fa8964bb::t_d13e1eda197c40 12
+  s_b6a6c6fa8964bb::t_7cae0902790869 1,3-7,9-11,13-44,63-73
+ml-close-loop-be/.env.example
+  s_b6a6c6fa8964bb::t_e1d017c4622300 45-57
+ml-close-loop-be/tests/test_smoke_test.py
+  s_b6a6c6fa8964bb::t_068a595915ac58 22-25
+  s_b6a6c6fa8964bb::t_ec5d8dea9a86b0 119-131
+  s_b6a6c6fa8964bb::t_746a9fcb2c79d0 178
+  s_b6a6c6fa8964bb::t_c5353a2e5d16c6 1-21,26-118,132-177,179-181,183,185-205
+  s_b6a6c6fa8964bb::t_fdf2a263587dd2 184
+  s_b6a6c6fa8964bb::t_02007c9f14f497 182
+ml-close-loop-be/tests/test_inference.py
+  s_b6a6c6fa8964bb::t_cb7494b4b7f4f3 1-92,94-244
+  s_b6a6c6fa8964bb::t_a9aab2164a814d 93
+  s_b6a6c6fa8964bb::t_0db7f6bfa134d0 245-246
+ml-close-loop-be/app/services/deployment_service.py
+  s_b6a6c6fa8964bb::t_f5f17182932b89 34-40
+  s_b6a6c6fa8964bb::t_0e3b9c5634a2d8 124-131
+  s_b6a6c6fa8964bb::t_0eafef1abf1c24 191-258
+ml-close-loop-be/README.md
+  s_b6a6c6fa8964bb::t_be8ae3cddda626 221-222
+  s_b6a6c6fa8964bb::t_bf0b2da32d24b9 102-103
+  s_b6a6c6fa8964bb::t_e0bbb21bfc50f9 205
+  s_b6a6c6fa8964bb::t_d187f56a4ef867 15
+  s_b6a6c6fa8964bb::t_58c2f35a12e6cb 31-38
+  s_b6a6c6fa8964bb::t_a5e8933fed79c7 84-101,104-114
+  s_b6a6c6fa8964bb::t_50dab784e1edee 155
+  s_b6a6c6fa8964bb::t_360c8057f00c32 207-208
+  s_b6a6c6fa8964bb::t_8cffc4a461bd69 41
+  s_b6a6c6fa8964bb::t_03431a592e3dbe 213
+  s_b6a6c6fa8964bb::t_7cf0ce2431e287 252-255
+ml-close-loop-be/app/services/inference_service.py
+  s_b6a6c6fa8964bb::t_f43ca0e3ef90c1 1-54
+ml-close-loop-be/app/config.py
+  s_b6a6c6fa8964bb::t_d6940decbcf4e4 31-42
+README.md
+  s_b6a6c6fa8964bb::t_56047c56028022 20
+ml-close-loop-be/app/services/serving.py
+  s_b6a6c6fa8964bb::t_d976024bf4e1ac 38-44
+  s_b6a6c6fa8964bb::t_a22be6aa77df00 57-62
+  s_b6a6c6fa8964bb::t_301c2aafbe008f 87-91
+  s_b6a6c6fa8964bb::t_59fb33fe9b7ae1 226-265
+ml-close-loop-be/app/main.py
+  s_b6a6c6fa8964bb::t_23b944cf5ef6fa 20,29
+  s_b6a6c6fa8964bb::t_f419b0eccad95f 99
+  s_b6a6c6fa8964bb::t_e540769468bcab 147-161
+  s_b6a6c6fa8964bb::t_90da6ec1c2aacd 162-163
+ml-close-loop-be/tests/test_vllm_serving.py
+  s_b6a6c6fa8964bb::t_7b61130df8eeb6 194-255
+  s_b6a6c6fa8964bb::t_9c1b37ce6d112f 28
+  s_b6a6c6fa8964bb::t_5f60c5a680ac3d 66-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7f903a7552171fc7ddfa98035b4987bf1a2f2df7",
+  "prompts": {},
+  "sessions": {
+    "s_b6a6c6fa8964bb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f89991ec8ffezibbrPxyUY3TBL",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

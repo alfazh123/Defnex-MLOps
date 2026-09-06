@@ -156,6 +156,40 @@ Docker deployment every worker mounts `./data:/app/data` so the lock file is
 shared. If workers ever run on different hosts (or train on hardware shared
 across hosts), coordination must move outside this module.
 
+## Cross-service GPU coordination (issue #39)
+
+The #33 lock only serializes *training* workers against each other — it knows
+nothing about the VRAM held by the running **serving** process (vLLM, #40). On a
+shared H100, training while serving would OOM mid-run or kill the serving
+process serving live traffic. Before training starts, the worker therefore runs a
+coordinated cycle (`app.workers.gpu_orchestrator`), **inside the same #33 GPU
+lock** — one serialization point, never a second coordination sequence:
+
+1. **Stop serving** (`ServingControl.stop`) — an explicit step, never assumed.
+2. **Verify VRAM free** (`VRAMReader`) — polled until at least
+   `VRAM_FREE_THRESHOLD_MB` MB are free, for at most `VRAM_CHECK_TIMEOUT`
+   seconds.
+3. **Train** (the normal `runner.run`).
+4. **Restart serving** (`ServingControl.start` + `ServingControl.health_check`)
+   — always runs in the cycle's `finally`, so it happens on the success path,
+   on a training exception, and on a SIGTERM mid-cycle.
+
+Failure modes (stops, never fails a run that could still run):
+
+- **Stop serving fails** → training does not start; serving is restarted and the
+  run stays `PENDING`, retried next poll.
+- **VRAM never free by deadline** → training does not start; serving is
+  restarted and the run stays `PENDING` with the reason logged (a busy GPU never
+  fails or loses a run, same invariant as the lock timeout).
+- **SIGTERM mid-cycle** → serving is restarted and the worker exits cleanly.
+
+This cycle only engages when `SERVING_CONTROL=shell` (default `mock`, i.e. the
+worker never touches serving — preserving the pre-#39 behavior for tests and
+no-GPU dev). With `shell`, `SERVING_STOP_CMD` / `SERVING_START_CMD` /
+`SERVING_HEALTH_CMD` are shell commands run with a per-command timeout
+(`SERVING_COMMAND_TIMEOUT`), and `VRAM_READER=nvidia_smi` reads real free memory
+via `nvidia-smi` (`mock` assumes the threshold is met).
+
 ## Error Codes
 
 | Status | Code | Meaning |
@@ -217,6 +251,15 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `MAX_REQUEST_BODY_SIZE` | `1048576` (1MB) | Max body in bytes |
 | `GPU_LOCK_FILE` | `data/gpu.lock` | Lock file serializing training across workers (must be on a shared filesystem) |
 | `GPU_LOCK_TIMEOUT` | `300` | Seconds a worker waits for the GPU lock before skipping the poll |
+| `SERVING_CONTROL` | `mock` | `mock` (serving never touched) or `shell` (stop/start/health commands below run around training) |
+| `SERVING_STOP_CMD` | *(empty)* | Shell command that stops serving (run before training) |
+| `SERVING_START_CMD` | *(empty)* | Shell command that restarts serving (run after training) |
+| `SERVING_HEALTH_CMD` | *(empty)* | Shell command returning 0 when serving is healthy again |
+| `SERVING_COMMAND_TIMEOUT` | `60` | Per-command timeout for the serving stop/start/health commands |
+| `VRAM_READER` | `mock` | `mock` (threshold assumed met) or `nvidia_smi` (real `nvidia-smi` read) |
+| `VRAM_FREE_THRESHOLD_MB` | `8192` | Free VRAM (MB) required before training starts |
+| `VRAM_CHECK_POLL` | `5` | Seconds between VRAM checks while waiting for free memory |
+| `VRAM_CHECK_TIMEOUT` | `300` | Seconds to wait for free VRAM before skipping the run (stays PENDING) |
 | `EVAL_GATE_REQUIRE_EVAL_SET_REFERENCE` | `true` | Promotion requires a recorded eval-set reference |
 | `EVAL_GATE_REQUIRE_QUALITATIVE_MAJORITY` | `true` | Promotion requires a qualitative majority win on the eval set |
 | `EVAL_GATE_REQUIRE_NO_GENERAL_REGRESSION` | `true` | Promotion blocked on general-domain regressions |

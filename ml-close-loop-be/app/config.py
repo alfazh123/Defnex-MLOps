@@ -56,6 +56,28 @@ class Settings(BaseSettings):
     # Seconds a worker waits for the GPU lock before skipping the poll (run stays PENDING).
     gpu_lock_timeout: int = 300
 
+    # Cross-service GPU coordination (issue #39): before training starts, the serving
+    # service is stopped and VRAM verified free, then restarted after training ends —
+    # all inside the same #33 GPU lock. `serving_control=mock` (default) disables all
+    # of this (the worker never touches serving, preserving pre-#39 behavior for tests
+    # and no-GPU dev); `serving_control=shell` runs the stop/start/health-check commands
+    # below against the real serving stack.
+    serving_control: Literal["mock", "shell"] = "mock"
+    serving_stop_cmd: str = ""
+    serving_start_cmd: str = ""
+    serving_health_cmd: str = ""
+    # Per-command timeout so a hung serving stop/start cannot stall the worker forever.
+    serving_command_timeout: float = 60.0
+
+    # VRAM verification: the worker waits until `vram_free_threshold_mb` MB are free,
+    # polling every `vram_check_poll` seconds, for at most `vram_check_timeout` seconds.
+    # `vram_reader=nvidia_smi` reads real free memory via `nvidia-smi`;
+    # `vram_reader=mock` (default) assumes the threshold is met so no GPU is touched.
+    vram_reader: Literal["mock", "nvidia_smi"] = "mock"
+    vram_free_threshold_mb: int = 8192
+    vram_check_poll: float = 5.0
+    vram_check_timeout: int = 300
+
     # Logging
     debug: bool = False
     log_level: str = "INFO"

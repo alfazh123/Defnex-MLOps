@@ -42,5 +42,13 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
 
+    # Promotion eval gate (issue #43, model-promotion-approval-workflow.md §6).
+    # All criteria are boolean toggles with documented, non-invented defaults; promote
+    # still requires a human trigger (no automatic promotion on numeric thresholds).
+    eval_gate_require_eval_set_reference: bool = True
+    eval_gate_require_qualitative_majority: bool = True
+    eval_gate_require_no_general_regression: bool = True
+    eval_gate_require_eval_loss_not_worse: bool = True
+
 
 settings = Settings()

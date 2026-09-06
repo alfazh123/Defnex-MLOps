@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.model import ModelVersion
 from app.models.promotion import PromotionDecision
 from app.schemas.promotion import DecisionCreateRequest, DecisionRecord, RollbackRequest
@@ -18,12 +19,76 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+class EvalGateBlocked(Exception):
+    """Raised when a PROMOTED decision fails the eval gate (issue #43).
+
+    Distinct from `ValueError` (transition not allowed) so the API layer can map it to
+    its own 409 code (`PROMOTION_GATE_BLOCKED`).
+    """
+
+
+def _gate_reasons(model_version: ModelVersion) -> list[str]:
+    """Documented, non-invented checks that a PROMOTED decision must clear before it can be
+    recorded (model-promotion-approval-workflow.md §6: "any signal negative or absent ->
+    default to not promoting"; §13 majority-win; §5 regressions; §11 eval-loss comparison).
+    Each toggle lives in Settings; gate criteria never turn into automatic promotion."""
+
+    reasons: list[str] = []
+    if settings.eval_gate_require_eval_set_reference and (
+        model_version.eval_set_id is None or model_version.eval_set_version is None
+    ):
+        reasons.append(
+            "this model version has no eval set reference recorded; promotion requires "
+            "evaluation against a stored golden/eval set"
+        )
+
+    qualitative = model_version.qualitative_comparison
+    if (
+        settings.eval_gate_require_qualitative_majority
+        and qualitative is not None
+        and qualitative.get("wins", 0) <= qualitative.get("losses", 0)
+    ):
+        reasons.append(
+            "qualitative comparison has no majority win "
+            f"(wins {qualitative.get('wins')} <= losses {qualitative.get('losses')})"
+        )
+
+    regression = model_version.general_domain_regression_check
+    if (
+        settings.eval_gate_require_no_general_regression
+        and regression is not None
+        and regression.get("regressions_found")
+    ):
+        reasons.append(
+            "general-domain regression check found "
+            f"{len(regression['regressions_found'])} regression(s)"
+        )
+
+    trend = model_version.eval_loss_trend
+    if (
+        settings.eval_gate_require_eval_loss_not_worse
+        and trend is not None
+        and (previous := trend.get("previous_version_eval_loss")) is not None
+        and trend["this_version_eval_loss"] > previous
+    ):
+        reasons.append(
+            "eval loss is worse than the previous version "
+            f"({trend['this_version_eval_loss']} > {previous})"
+        )
+
+    return reasons
+
+
 def create_decision(
     db: Session, model_version: ModelVersion, request: DecisionCreateRequest
 ) -> PromotionDecision:
     """Record a human promotion/rejection decision and transition the model version
     EVALUATED -> PROMOTED|REJECTED (model-promotion-approval-workflow.md §2/§7/§8). Human-triggered
-    only - no automatic promotion based on numeric thresholds (§10 Decision 1)."""
+    only - no automatic promotion based on numeric thresholds (§10 Decision 1).
+
+    A PROMOTED decision must also clear the eval gate (`EvalGateBlocked`); REJECTED is always
+    allowed - a rejection is a human call that needs no evidence that promotion would accept.
+    """
 
     allowed = _VALID_TRANSITIONS.get(model_version.status, set())
     if request.decision not in allowed:
@@ -32,6 +97,13 @@ def create_decision(
             f"version {model_version.version} in status {model_version.status!r} (must be EVALUATED)"
         )
 
+    if request.decision == "PROMOTED":
+        reasons = _gate_reasons(model_version)
+        if reasons:
+            raise EvalGateBlocked(
+                "Promotion blocked by the eval gate: " + "; ".join(reasons)
+            )
+
     decision = PromotionDecision(
         decision_id=f"decision-{uuid.uuid4().hex[:6]}",
         model_version_id=model_version.id,
@@ -39,6 +111,8 @@ def create_decision(
         decided_by=request.decided_by,
         decided_at=datetime.now(timezone.utc),
         evidence_snapshot=get_evaluation(model_version).model_dump(),
+        eval_set_id=model_version.eval_set_id,
+        eval_set_version=model_version.eval_set_version,
         rationale=request.rationale,
         rollback_of_version=None,
     )
@@ -100,6 +174,8 @@ def to_schema(decision: PromotionDecision) -> DecisionRecord:
         decided_by=decision.decided_by,
         decided_at=decision.decided_at,
         evidence_snapshot=decision.evidence_snapshot,
+        eval_set_id=decision.eval_set_id,
+        eval_set_version=decision.eval_set_version,
         rationale=decision.rationale,
         rollback_of_version=decision.rollback_of_version,
     )

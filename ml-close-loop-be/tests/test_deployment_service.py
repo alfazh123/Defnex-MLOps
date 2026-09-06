@@ -1,3 +1,5 @@
+import pytest
+
 from app.models.deployment import Deployment
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.schemas.model import (
@@ -16,6 +18,21 @@ from app.services import (
     training_service,
 )
 from app.services.serving import MockServingBackend
+
+
+@pytest.fixture(autouse=True)
+def _disable_promotion_gates(monkeypatch):
+    """These tests exercise deployment mechanics, not the #43 eval gate
+    (gate criteria are covered by tests/test_promotion_gate.py)."""
+    from app.config import settings
+
+    for name in (
+        "eval_gate_require_eval_set_reference",
+        "eval_gate_require_qualitative_majority",
+        "eval_gate_require_no_general_regression",
+        "eval_gate_require_eval_loss_not_worse",
+    ):
+        monkeypatch.setattr(settings, name, False)
 
 
 def _promoted_model_version(db_session, dataset_version=None):

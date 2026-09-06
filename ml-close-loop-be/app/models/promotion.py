@@ -24,6 +24,10 @@ class PromotionDecision(Base):
     decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
     decided_at: Mapped[datetime] = mapped_column()
     evidence_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Frozen eval-set reference the decision's evidence was measured against (issue #43) -
+    # null for ROLLBACK, like `evidence_snapshot`.
+    eval_set_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    eval_set_version: Mapped[int | None] = mapped_column(nullable=True)
     rationale: Mapped[str] = mapped_column(String)
     rollback_of_version: Mapped[int | None] = mapped_column(nullable=True)
 

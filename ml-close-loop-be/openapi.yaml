@@ -41,51 +41,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '429': &id002
-          description: Rate Limit Exceeded
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        example: RATE_LIMIT_EXCEEDED
-                      message:
-                        type: string
-                        example: Too many requests
-          headers:
-            X-RateLimit-Limit:
-              schema:
-                type: integer
-              description: Max requests in window
-            X-RateLimit-Remaining:
-              schema:
-                type: integer
-              description: Requests remaining
-            X-RateLimit-Reset:
-              schema:
-                type: integer
-              description: Epoch second when window resets
-        '413': &id001
-          description: Request Entity Too Large
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        example: REQUEST_TOO_LARGE
-                      message:
-                        type: string
-                        example: Request body exceeds 1MB limit
   /api/v1/auth/refresh:
     post:
       tags:
@@ -111,7 +66,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
   /api/v1/auth/register:
     post:
       tags:
@@ -137,8 +91,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '429': *id002
-        '413': *id001
   /api/v1/users:
     get:
       tags:
@@ -315,7 +267,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
     get:
       tags:
       - Datasets
@@ -343,8 +294,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DatasetVersion'
-                title: Response List Dataset Versions Api V1 Datasets  Dataset Id  Versions
-                  Get
+                title: Response List Dataset Versions Api V1 Datasets  Dataset Id  Versions Get
         '404':
           content:
             application/json:
@@ -389,6 +339,163 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DatasetVersion'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/eval-sets/{eval_set_id}/versions:
+    post:
+      tags:
+      - Eval Sets
+      summary: Create Eval Set Version
+      operationId: create_eval_set_version_api_v1_eval_sets__eval_set_id__versions_post
+      parameters:
+      - name: eval_set_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Set Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvalSetVersionCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalSetVersion'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Eval Sets
+      summary: List Eval Set Versions
+      operationId: list_eval_set_versions_api_v1_eval_sets__eval_set_id__versions_get
+      parameters:
+      - name: eval_set_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Set Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvalSetVersion'
+                title: Response List Eval Set Versions Api V1 Eval Sets  Eval Set Id  Versions Get
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/eval-sets:
+    get:
+      tags:
+      - Eval Sets
+      summary: List Eval Sets
+      operationId: list_eval_sets_api_v1_eval_sets_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvalSetSummary'
+                title: Response List Eval Sets Api V1 Eval Sets Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/eval-sets/{eval_set_id}/versions/{version}:
+    get:
+      tags:
+      - Eval Sets
+      summary: Get Eval Set Version
+      operationId: get_eval_set_version_api_v1_eval_sets__eval_set_id__versions__version__get
+      parameters:
+      - name: eval_set_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Eval Set Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalSetVersion'
         '404':
           content:
             application/json:
@@ -447,19 +554,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
-        '409':
+        '422':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: Conflict
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
+          description: Unprocessable Content
   /api/v1/datasets/{dataset_id}/versions/{version}/validation-reports:
     get:
       tags:
@@ -494,8 +594,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ValidationReport'
-                title: Response List Validation Reports Api V1 Datasets  Dataset Id  Versions  Version  Validation
-                  Reports Get
+                title: Response List Validation Reports Api V1 Datasets  Dataset Id  Versions  Version  Validation Reports Get
         '404':
           content:
             application/json:
@@ -557,12 +656,6 @@ paths:
       tags:
       - Training
       summary: Create Training Run
-      description: |-
-        Queues a training run in PENDING status and returns 201. Execution is owned by the
-        training worker: the run is transitioned to RUNNING only when the worker picks it up,
-        and to COMPLETED or FAILED (with an error_message) when it finishes or fails to start.
-        A failure to start training is never swallowed at request time; it surfaces as a FAILED
-        run with an explicit error_message.
       operationId: create_training_run_api_v1_training_runs_post
       parameters:
       - name: authorization
@@ -595,17 +688,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: "Conflict — the dataset version has no validation report
-            (VALIDATION_REQUIRED) or its latest report's gate_decision is FAIL
-            (VALIDATION_FAILED); a dataset version must have a validation report
-            with gate_decision PASS before a training run can be created."
+          description: Conflict
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
     get:
       tags:
       - Training
@@ -928,7 +1017,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
     get:
       tags:
       - Models
@@ -1028,7 +1116,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
   /api/v1/models/{model_id}/rollback:
     post:
       tags:
@@ -1079,7 +1166,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '413': *id001
   /api/v1/models/{model_id}/versions/{version}/deploy:
     post:
       tags:
@@ -1172,13 +1258,14 @@ paths:
     get:
       tags:
       - Deployment
-      summary: Resolve Deployment Alias
-      description: 'Resolve a named deployment alias (currently only `prod`) to the
-        currently DEPLOYED version, via the single resolution function
-        `deployment_service.resolve_alias`. 404 MODEL_NOT_FOUND if the model is
-        unknown; 404 DEPLOYMENT_NOT_FOUND (explicit - never a propagating None) if
-        the model has never been deployed; 422 UNKNOWN_DEPLOYMENT_ALIAS for any
-        alias other than `prod`.'
+      summary: Get Deployment By Alias
+      description: 'Resolve a deployment alias (currently only ``prod``) to the production version, via the
+
+        single resolution function `deployment_service.resolve_alias` (openapi.yaml DeploymentStatus
+
+        alias resolution). Unknown alias -> 422, model unknown -> 404 MODEL_NOT_FOUND, model never
+
+        deployed -> 404 DEPLOYMENT_NOT_FOUND (explicit - never a None that propagates).'
       operationId: get_deployment_by_alias_api_v1_models__model_id__deployment__alias__get
       parameters:
       - name: model_id
@@ -1213,11 +1300,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
         '422':
-          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Content
 components:
   schemas:
     Artifact:
@@ -1342,8 +1429,7 @@ components:
       - status
       - manifest
       title: DatasetVersion
-      description: A dataset version's manifest and current processing status (openapi.yaml
-        DatasetVersion).
+      description: A dataset version's manifest and current processing status (openapi.yaml DatasetVersion).
     DatasetVersionCreateRequest:
       properties:
         source_type:
@@ -1397,11 +1483,9 @@ components:
       - decision
       - rationale
       title: DecisionCreateRequest
-      description: 'Request body for POST .../decisions (openapi.yaml DecisionCreateRequest).
-        Restricted to
+      description: 'Request body for POST .../decisions (openapi.yaml DecisionCreateRequest). Restricted to
 
-        PROMOTED|REJECTED - ROLLBACK is only ever produced via POST /models/{model_id}/rollback
-        (US-017).'
+        PROMOTED|REJECTED - ROLLBACK is only ever produced via POST /models/{model_id}/rollback (US-017).'
     DecisionRecord:
       properties:
         decision_id:
@@ -1433,6 +1517,16 @@ components:
           anyOf:
           - $ref: '#/components/schemas/EvaluationObject'
           - type: 'null'
+        eval_set_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Set Id
+        eval_set_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Eval Set Version
         rationale:
           type: string
           title: Rationale
@@ -1450,8 +1544,7 @@ components:
       - decided_at
       - rationale
       title: DecisionRecord
-      description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
-        promotion, rejection, and
+      description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers promotion, rejection, and
 
         rollback with one schema.'
     DeployResult:
@@ -1499,35 +1592,11 @@ components:
       required:
       - model_id
       title: DeploymentStatus
-      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus).
-        A separate resource
+      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus), a separate resource
 
-        from any single version''s registry record. `status` has no full enum yet
-        - only "DEPLOYED"
+        from any single version''s registry record. `status` has no full enum yet - only "DEPLOYED"
 
-        is confirmed by any source document - and is null when nothing has ever been
-        deployed.
-
-        Single source of truth (issue #36): the production version is the ModelVersion
-        whose
-
-        `status == "DEPLOYED"` in the model registry; the `deployments` table is append-only
-        pointer
-
-        history contributing only `deployed_at`. A partial unique index
-        (`uq_model_versions_one_deployed`,
-
-        WHERE status = "DEPLOYED") makes two DEPLOYED versions for one `model_id` impossible at
-        the DB
-
-        level. Alias resolution (`GET /models/{model_id}/deployment/{alias}`, currently only
-        `prod`)
-
-        resolves the same DEPLOYED version through `deployment_service.resolve_alias` and
-        returns this
-
-        same schema; it 404s explicitly (`DEPLOYMENT_NOT_FOUND`) when nothing has ever been
-        deployed.'
+        is confirmed by any source document - and is null when nothing has ever been deployed.'
     ErrorDetail:
       properties:
         code:
@@ -1565,6 +1634,73 @@ components:
       required:
       - this_version_eval_loss
       title: EvalLossTrend
+    EvalSetSummary:
+      properties:
+        eval_set_id:
+          type: string
+          title: Eval Set Id
+        latest_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Version
+        version_count:
+          type: integer
+          title: Version Count
+          default: 0
+      type: object
+      required:
+      - eval_set_id
+      title: EvalSetSummary
+      description: Lightweight list-view entry for GET /eval-sets (openapi.yaml EvalSetSummary).
+    EvalSetVersion:
+      properties:
+        eval_set_id:
+          type: string
+          title: Eval Set Id
+        version:
+          type: integer
+          title: Version
+        record_count:
+          type: integer
+          title: Record Count
+        records:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Records
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        created_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By
+      type: object
+      required:
+      - eval_set_id
+      - version
+      - record_count
+      - records
+      - created_at
+      title: EvalSetVersion
+      description: A versioned eval set's record content (openapi.yaml EvalSetVersion).
+    EvalSetVersionCreateRequest:
+      properties:
+        records:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Records
+      type: object
+      required:
+      - records
+      title: EvalSetVersionCreateRequest
+      description: Request body for POST /eval-sets/{eval_set_id}/versions (openapi.yaml).
     EvaluationObject:
       properties:
         eval_loss_trend:
@@ -1601,10 +1737,19 @@ components:
       - evaluation
       - status
       title: EvaluationSubmitResponse
-      description: Inline response shape for POST .../evaluation (openapi.yaml, not
-        a named component).
+      description: Inline response shape for POST .../evaluation (openapi.yaml, not a named component).
     EvaluationUpdateRequest:
       properties:
+        eval_set_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Set Id
+        eval_set_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Eval Set Version
         eval_loss_trend:
           anyOf:
           - $ref: '#/components/schemas/EvalLossTrend'
@@ -1619,11 +1764,16 @@ components:
           - type: 'null'
       type: object
       title: EvaluationUpdateRequest
-      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest)
-        - any subset of the
+      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest) - any subset of the
 
-        three signal fields may be submitted; the backend merges onto the existing
-        record.'
+        three signal fields may be submitted; the backend merges onto the existing record.
+
+
+        `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals were
+
+        measured against (issue #43); they are stored once, on the model version, and may be
+
+        (re)submitted alongside any signal.'
     GeneralDomainRegressionCheck:
       properties:
         checked:
@@ -1712,6 +1862,16 @@ components:
           anyOf:
           - $ref: '#/components/schemas/EvaluationObject'
           - type: 'null'
+        eval_set_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Set Id
+        eval_set_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Eval Set Version
         artifacts:
           items:
             $ref: '#/components/schemas/Artifact'
@@ -1901,8 +2061,7 @@ components:
       - rollback_of_version
       - rationale
       title: RollbackRequest
-      description: Request body for POST /models/{model_id}/rollback (openapi.yaml
-        RollbackRequest).
+      description: Request body for POST /models/{model_id}/rollback (openapi.yaml RollbackRequest).
     TokenResponse:
       properties:
         access_token:
@@ -2142,8 +2301,7 @@ components:
       - training_config
       - created_at
       title: TrainingRun
-      description: A training run's stored record plus live status/progress (openapi.yaml
-        TrainingRun).
+      description: A training run's stored record plus live status/progress (openapi.yaml TrainingRun).
     TrainingRunCreateRequest:
       properties:
         dataset_id:
@@ -2221,18 +2379,52 @@ components:
           - type: 'null'
           title: Rule Set Version
         records:
-          items: {}
+          items:
+            additionalProperties: true
+            type: object
           type: array
           title: Records
-          default: []
         eval_records:
-          items: {}
+          items:
+            additionalProperties: true
+            type: object
           type: array
           title: Eval Records
           default: []
+        eval_set_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Set Id
+        eval_set_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Eval Set Version
       type: object
+      required:
+      - records
       title: ValidateDatasetVersionRequest
-      description: Optional body for POST .../validate (openapi.yaml).
+      description: 'Optional body for POST .../validate (openapi.yaml ValidateDatasetVersionRequest).
+
+
+        `records` is the actual record content to run the hard-error rules against — the
+
+        client supplies it because no intake/normalization pipeline persists record content
+
+        in this system yet (see progress.txt US-005/US-006). It is required and must be
+
+        non-empty so a validation report can never claim PASS over content that was never
+
+        examined; the report records a SHA-256 fingerprint of exactly what was checked.
+
+        `eval_records` is the legacy inline eval-set content for the H8 leakage check;
+
+        `eval_set_id`/`eval_set_version` reference a stored golden/eval set (issue #43) and
+
+        take precedence when both are supplied -- the stored eval set is the real comparison
+
+        surface for the H8 check.'
     ValidationError:
       properties:
         loc:
@@ -2277,6 +2469,9 @@ components:
         record_count:
           type: integer
           title: Record Count
+        content_hash:
+          type: string
+          title: Content Hash
         status_counts:
           $ref: '#/components/schemas/ValidationStatusCounts'
         warnings_summary:
@@ -2298,6 +2493,13 @@ components:
           type: array
           title: Per Record Errors
           default: []
+        records:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Records
+          default: []
         gate_decision:
           type: string
           enum:
@@ -2314,12 +2516,12 @@ components:
       - rule_set_version
       - run_at
       - record_count
+      - content_hash
       - status_counts
       - gate_decision
       - gate_reason
       title: ValidationReport
-      description: Dataset-level validation report (validation-rules.md §5/§7, openapi.yaml
-        ValidationReport).
+      description: Dataset-level validation report (validation-rules.md §5/§7, openapi.yaml ValidationReport).
     ValidationStatusCounts:
       properties:
         VALID:

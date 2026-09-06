@@ -22,12 +22,17 @@ class ValidateDatasetVersionRequest(BaseModel):
     in this system yet (see progress.txt US-005/US-006). It is required and must be
     non-empty so a validation report can never claim PASS over content that was never
     examined; the report records a SHA-256 fingerprint of exactly what was checked.
-    `eval_records` is the known eval-set content used for the H8 leakage check.
+    `eval_records` is the legacy inline eval-set content for the H8 leakage check;
+    `eval_set_id`/`eval_set_version` reference a stored golden/eval set (issue #43) and
+    take precedence when both are supplied -- the stored eval set is the real comparison
+    surface for the H8 check.
     """
 
     rule_set_version: str | None = None
     records: list[dict]
     eval_records: list[dict] = []
+    eval_set_id: str | None = None
+    eval_set_version: int | None = None
 
 
 class ValidationReport(BaseModel):
@@ -43,5 +48,6 @@ class ValidationReport(BaseModel):
     warnings_summary: dict[str, int] = {}
     dataset_statistics: dict = {}
     per_record_errors: list[list[str]] = []
+    records: list[dict] = []
     gate_decision: ValidationGateDecision
     gate_reason: str

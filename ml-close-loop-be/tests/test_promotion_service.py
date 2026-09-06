@@ -49,6 +49,8 @@ def _evaluated_model_version(db_session):
         db_session,
         model_version,
         EvaluationUpdateRequest(
+            eval_set_id="domain-benchmark",
+            eval_set_version=1,
             eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84),
             qualitative_comparison=QualitativeComparison(
                 question_table_version=1, wins=13, losses=5, ties=2, total=20
@@ -199,6 +201,30 @@ def test_to_schema_derives_model_id_and_version(db_session):
     assert schema.model_id == "qwen-sft-domain-x"
     assert schema.version == model_version.version
     assert schema.decision == "PROMOTED"
+    assert schema.eval_set_id == "domain-benchmark"
+    assert schema.eval_set_version == 1
+
+
+def test_create_decision_snapshots_eval_set_reference(db_session):
+    model_version = _evaluated_model_version(db_session)
+    model_version.eval_set_version = 99
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+
+    assert decision.eval_set_id == "domain-benchmark"
+    assert decision.eval_set_version == 99
+
+    schema = promotion_service.to_schema(decision)
+
+    assert schema.model_id == "qwen-sft-domain-x"
+    assert schema.version == model_version.version
+    assert schema.decision == "PROMOTED"
 
 
 def test_rollback_creates_decision_with_null_evidence(db_session):
@@ -245,3 +271,34 @@ def test_create_decision_rejects_already_promoted(db_session):
                 decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"
             ),
         )
+
+
+def test_promotion_blocked_when_gate_fails(db_session):
+    model_version = _evaluated_model_version(db_session)
+    model_version.qualitative_comparison = {"wins": 5, "losses": 13, "ties": 2}
+
+    with pytest.raises(promotion_service.EvalGateBlocked):
+        promotion_service.create_decision(
+            db_session,
+            model_version,
+            DecisionCreateRequest(
+                decision="PROMOTED", decided_by="reviewer-1", rationale="n/a"
+            ),
+        )
+
+
+def test_rejection_is_not_blocked_by_gate(db_session):
+    model_version = _evaluated_model_version(db_session)
+    model_version.eval_set_id = None
+    model_version.eval_set_version = None
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="REJECTED", decided_by="reviewer-1", rationale="n/a"
+        ),
+    )
+
+    assert decision.decision == "REJECTED"
+    assert model_version.status == "REJECTED"

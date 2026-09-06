@@ -1,6 +1,24 @@
 from sqlalchemy.orm import Session
 
+import pytest
+
 from tests.conftest import auth_header
+
+
+@pytest.fixture(autouse=True)
+def _disable_promotion_gates(monkeypatch):
+    """These tests exercise deployment mechanics, not the #43 eval gate
+    (gate criteria are covered by tests/test_promotion_gate.py)."""
+    from app.config import settings
+
+    for name in (
+        "eval_gate_require_eval_set_reference",
+        "eval_gate_require_qualitative_majority",
+        "eval_gate_require_no_general_regression",
+        "eval_gate_require_eval_loss_not_worse",
+    ):
+        monkeypatch.setattr(settings, name, False)
+
 
 DATASET_CREATE_REQUEST = {
     "source_type": "huggingface",

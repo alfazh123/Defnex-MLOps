@@ -28,6 +28,8 @@ def create_decision(
     model_version = get_model_version_or_404(db, model_id, version)
     try:
         decision = promotion_service.create_decision(db, model_version, request)
+    except promotion_service.EvalGateBlocked as exc:
+        raise APIError(409, "PROMOTION_GATE_BLOCKED", str(exc)) from exc
     except ValueError as exc:
         raise APIError(409, "DECISION_NOT_ALLOWED", str(exc)) from exc
     db.commit()

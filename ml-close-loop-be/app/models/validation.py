@@ -27,6 +27,7 @@ class ValidationReport(Base):
     warnings_summary: Mapped[dict] = mapped_column(JSON, default=dict)
     dataset_statistics: Mapped[dict] = mapped_column(JSON, default=dict)
     per_record_errors: Mapped[list] = mapped_column(JSON, default=list)
+    records: Mapped[list] = mapped_column(JSON, default=list)
     gate_decision: Mapped[str] = mapped_column(String)
     gate_reason: Mapped[str] = mapped_column(String)
 

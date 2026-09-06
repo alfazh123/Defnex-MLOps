@@ -103,6 +103,33 @@ def test_invalid_transitions_are_rejected(db_session, from_status, transition):
         action()
 
 
+def test_claim_training_run_claims_only_once(db_session):
+    """CAS claim (issue #33): the first worker flips PENDING -> RUNNING and wins; the same
+    call on an already claimed (or non-PENDING) run loses."""
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    assert training_run.status == "PENDING"
+
+    assert training_service.claim_training_run(db_session, training_run) is True
+    assert training_run.status == "RUNNING"
+
+    assert training_service.claim_training_run(db_session, training_run) is False
+
+
+def test_claim_training_run_looses_on_pending_mismatch(db_session):
+    """CAS must not claim a run that is no longer PENDING at the SQL level."""
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    training_run.status = "RUNNING"
+    db_session.flush()
+
+    assert training_service.claim_training_run(db_session, training_run) is False
+
+
 def _seed_training_runs(session, n):
     for idx in range(n):
         dv = dataset_service.create_dataset_version(

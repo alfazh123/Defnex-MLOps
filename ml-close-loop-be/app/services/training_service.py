@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.models.dataset import DatasetVersion as DatasetVersionModel
@@ -56,6 +57,31 @@ def start_training_run(db: Session, training_run: TrainingRun) -> TrainingRun:
     _transition(training_run, "RUNNING")
     db.flush()
     return training_run
+
+
+def claim_training_run(db: Session, training_run: TrainingRun) -> bool:
+    """Atomically claim a PENDING run for execution (issue #33).
+
+    Compare-and-set on the status column: only the caller that flips
+    PENDING -> RUNNING at the SQL level wins. Two worker processes that have
+    both selected the same PENDING row can then not both win; the loser gets
+    `False` and must not execute the runner. Works on SQLite (where
+    `SELECT ... FOR UPDATE` is a no-op) and on PostgreSQL.
+    """
+
+    result = db.execute(
+        update(TrainingRun)
+        .where(
+            TrainingRun.training_run_id == training_run.training_run_id,
+            TrainingRun.status == "PENDING",
+        )
+        .values(status="RUNNING")
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        return False
+    training_run.status = "RUNNING"
+    return True
 
 
 def complete_training_run(

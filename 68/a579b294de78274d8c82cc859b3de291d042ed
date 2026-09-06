@@ -1,0 +1,21 @@
+README.md
+  s_8cade02f7bdc0b::t_f0df79628a25f4 135
+ml-close-loop-be/README.md
+  s_8cade02f7bdc0b::t_e2d75d3f742284 25,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "68a579b294de78274d8c82cc859b3de291d042ed",
+  "prompts": {},
+  "sessions": {
+    "s_8cade02f7bdc0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8be1bac5ffeA73NNuNRqQbudL",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

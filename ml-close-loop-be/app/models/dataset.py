@@ -32,6 +32,13 @@ class DatasetVersion(Base):
     status: Mapped[str] = mapped_column(String, default="PENDING")
 
     # DatasetManifest fields (openapi.yaml DatasetManifest / dataset-lifecycle-and-schema.md §2)
+    # `source_type` (was request-only, never persisted, before issue #42) records where a
+    # version actually came from - "huggingface"/"file_upload" (external) or "feedback"
+    # (issue #42, curated from approved Feedback rows). Nullable for versions created before
+    # this column existed. `source_feedback_ids` is the traceable origin for the "feedback"
+    # case - the exact Feedback rows that became this version's records.
+    source_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_feedback_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     source_url_or_hf_id: Mapped[str | None] = mapped_column(String, nullable=True)
     source_commit_or_snapshot_date: Mapped[str | None] = mapped_column(
         String, nullable=True

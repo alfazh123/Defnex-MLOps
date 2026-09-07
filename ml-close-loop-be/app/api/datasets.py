@@ -18,6 +18,7 @@ from app.schemas.dataset import (
     DatasetVersion,
     DatasetVersionCreateRequest,
 )
+from app.schemas.feedback import FeedbackDatasetVersionRequest
 from app.services import dataset_service
 
 router = APIRouter(tags=["Datasets"])
@@ -73,6 +74,31 @@ def list_dataset_versions(
     if not versions:
         raise APIError(404, "DATASET_NOT_FOUND", f'dataset_id "{dataset_id}" not found')
     return [dataset_service.to_schema(v) for v in versions]
+
+
+@router.post(
+    "/datasets/{dataset_id}/versions/from-feedback",
+    response_model=DatasetVersion,
+    status_code=201,
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+def create_dataset_version_from_feedback(
+    dataset_id: str,
+    request: FeedbackDatasetVersionRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> DatasetVersion:
+    """Create a dataset version from curated, APPROVED feedback (issue #42) - closes the
+    loop from inference response -> feedback -> next training dataset."""
+    try:
+        version = dataset_service.create_dataset_version_from_feedback(
+            db, dataset_id, request.feedback_ids, request.source_format
+        )
+    except ValueError as exc:
+        if "not found" in str(exc):
+            raise APIError(404, "FEEDBACK_NOT_FOUND", str(exc)) from exc
+        raise APIError(409, "FEEDBACK_NOT_APPROVED", str(exc)) from exc
+    return dataset_service.to_schema(version)
 
 
 @router.get(

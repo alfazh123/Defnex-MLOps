@@ -1,10 +1,13 @@
+import tempfile
 import threading
 import time
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.base import Base
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
@@ -13,19 +16,36 @@ from app.workers.gpu_lock import gpu_lock
 from app.workers.training_worker import process_next_job
 
 
+@pytest.fixture(autouse=True)
+def _artifact_sandbox(tmp_path, monkeypatch):
+    """Keep immutable per-version artifacts (register_model_version finalizes the runner's
+    staging output) out of the repo's data/ dir — one fresh per-test temp dir, since the
+    same model/version names collide across tests (immutability is the point)."""
+    monkeypatch.setattr(settings, "artifact_storage_dir", str(tmp_path))
+
+
+def _staging_dir(training_run_id: str) -> str:
+    """A real staging directory, matching the runner contract (issue #38) — run() returns a
+    PATH to a dir holding the adapter, never a flat file uri."""
+    staging = Path(tempfile.mkdtemp(prefix="defnex-test-stage-"))
+    (staging / "adapter_model.safetensors").write_bytes(b"fake")
+    (staging / "adapter_config.json").write_text(f'{{"run": "{training_run_id}"}}')
+    return str(staging)
+
+
 class _StubRunner:
-    def __init__(self, artifact_uri=None, error=None):
-        self.artifact_uri = artifact_uri
+    def __init__(self, staging=None, error=None):
+        self.staging = staging
         self.error = error
         self.calls = []
         self._guard = threading.Lock()
 
-    def run(self, training_run):
+    def run(self, db, training_run):
         with self._guard:
             self.calls.append(training_run.training_run_id)
         if self.error:
             raise self.error
-        return self.artifact_uri
+        return self.staging or _staging_dir(training_run.training_run_id)
 
 
 class _StubRunnerBlocking(_StubRunner):
@@ -35,13 +55,13 @@ class _StubRunnerBlocking(_StubRunner):
         super().__init__(**kwargs)
         self.hold = hold
 
-    def run(self, training_run):
+    def run(self, db, training_run):
         with self._guard:
             self.calls.append(training_run.training_run_id)
         time.sleep(self.hold)
         if self.error:
             raise self.error
-        return self.artifact_uri
+        return self.staging or _staging_dir(training_run.training_run_id)
 
 
 @pytest.fixture
@@ -73,20 +93,35 @@ def _queued_training_run(db_session):
     )
 
 
+def _assert_finalized_immutable_artifact(run_or_uri):
+    """After a successful worker pass the artifact must be the finalized per-version path
+    `{base}/{model_id}/{name}/` (issue #38), not the raw staging dir."""
+    if isinstance(run_or_uri, str):
+        uri = run_or_uri
+    else:
+        uri = run_or_uri.artifact_uri
+    assert uri.startswith("file://"), uri
+    path = Path(uri.removeprefix("file://"))
+    assert path.is_dir()
+    assert (path / "adapter_model.safetensors").is_file()
+    return path
+
+
 def test_process_next_job_returns_none_when_queue_empty(db_session, lock_file):
     assert process_next_job(db_session, _StubRunner(), lock_file=lock_file) is None
 
 
 def test_process_next_job_completes_on_success(db_session, lock_file):
     training_run = _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunner()
 
     processed = process_next_job(db_session, runner, lock_file=lock_file)
 
     assert processed.training_run_id == training_run.training_run_id
     assert processed.status == "COMPLETED"
-    assert processed.artifact_uri == "file:///tmp/adapter"
     assert runner.calls == [training_run.training_run_id]
+    # the staged adapter was moved into the immutable per-version path
+    _assert_finalized_immutable_artifact(processed)
 
 
 def test_process_next_job_fails_on_runner_exception(db_session, lock_file):
@@ -109,9 +144,7 @@ def test_process_next_job_picks_oldest_pending_first(db_session, lock_file):
     second.created_at = first.created_at.replace(year=first.created_at.year + 1)
     db_session.flush()
 
-    processed = process_next_job(
-        db_session, _StubRunner(artifact_uri="uri"), lock_file=lock_file
-    )
+    processed = process_next_job(db_session, _StubRunner(), lock_file=lock_file)
 
     assert processed.training_run_id == first.training_run_id
 
@@ -140,9 +173,7 @@ def test_process_next_job_with_runner_error_records_message(db_session, lock_fil
 def test_process_next_job_registers_model_version_on_success(db_session, lock_file):
     training_run = _queued_training_run(db_session)
 
-    process_next_job(
-        db_session, _StubRunner(artifact_uri="file:///tmp/adapter"), lock_file=lock_file
-    )
+    process_next_job(db_session, _StubRunner(), lock_file=lock_file)
 
     from app.services import model_service
 
@@ -150,6 +181,8 @@ def test_process_next_job_registers_model_version_on_success(db_session, lock_fi
     assert model_version is not None
     assert model_version.status == "REGISTERED"
     assert model_version.training_run_id == training_run.training_run_id
+    # issue #38 naming + stored per-version name
+    assert model_version.name == "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1"
 
 
 def test_process_next_job_sequential_second_call_finds_no_pending_run(
@@ -158,7 +191,7 @@ def test_process_next_job_sequential_second_call_finds_no_pending_run(
     """Two process_next_job calls over one PENDING run: the first claims and runs it, the
     second finds an empty PENDING queue, so the runner executes once."""
     training_run = _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunner()
 
     first = process_next_job(db_session, runner, lock_file=lock_file)
     second = process_next_job(db_session, runner, lock_file=lock_file)
@@ -191,9 +224,7 @@ def test_runner_exception_releases_lock_and_next_job_still_runs(db_session, lock
     assert first.status == "FAILED"
 
     _queued_training_run(db_session)
-    second = process_next_job(
-        db_session, _StubRunner(artifact_uri="file:///tmp/adapter"), lock_file=lock_file
-    )
+    second = process_next_job(db_session, _StubRunner(), lock_file=lock_file)
     assert second.status == "COMPLETED"
 
 
@@ -201,7 +232,7 @@ def test_lock_timeout_leaves_run_pending_and_retries(db_session, lock_file):
     """Issue #33 edge case: when the GPU lock is held beyond the wait timeout, the run is
     not silently lost — it stays PENDING and the next poll executes it."""
     _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunner()
 
     with gpu_lock(lock_file, timeout=5.0):
         skipped = process_next_job(
@@ -224,7 +255,7 @@ def test_lock_timeout_does_not_fail_queued_run(db_session, lock_file):
     with gpu_lock(lock_file, timeout=5.0):
         skipped = process_next_job(
             db_session,
-            _StubRunner(artifact_uri="uri"),
+            _StubRunner(),
             lock_file=lock_file,
             lock_timeout=0.1,
         )
@@ -242,7 +273,7 @@ def test_concurrent_workers_run_single_pending_job_once(tmp_path):
     two connections; the claim is fenced by the compare-and-set AND the shared GPU lock."""
     db_path = str(tmp_path / "concurrent.db")
     lock = str(tmp_path / "gpu.lock")
-    runner = _StubRunnerBlocking(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunnerBlocking()
 
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"timeout": 30})
     Base.metadata.create_all(engine)

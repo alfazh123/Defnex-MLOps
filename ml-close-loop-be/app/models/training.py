@@ -21,6 +21,10 @@ class TrainingRun(Base):
     status: Mapped[str] = mapped_column(String, default="PENDING")
     triggered_by: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column()
+    # Issue #38: wall-clock bounds of the actual training execution, single source of truth
+    # for `ModelVersion.training_started_at`/`training_completed_at` at registration time.
+    started_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     current_epoch: Mapped[int | None] = mapped_column(nullable=True)
     current_step: Mapped[int | None] = mapped_column(nullable=True)

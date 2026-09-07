@@ -130,6 +130,61 @@ def test_claim_training_run_looses_on_pending_mismatch(db_session):
     assert training_service.claim_training_run(db_session, training_run) is False
 
 
+def test_claim_sets_started_at_and_completion_sets_finished_at(db_session):
+    """Issue #38: the run's start/end are recorded alongside the claim and completion, and
+    copied onto the registered model version."""
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    assert training_run.started_at is None
+
+    training_service.claim_training_run(db_session, training_run)
+    assert training_run.started_at is not None
+    assert training_run.finished_at is None
+
+    training_service.complete_training_run(db_session, training_run, artifact_uri="uri")
+    assert training_run.finished_at is not None
+    assert training_run.finished_at >= training_run.started_at
+
+
+def test_update_training_progress_rejects_non_running_run(db_session):
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+
+    with pytest.raises(ValueError):
+        training_service.update_training_progress(
+            db_session, training_run, current_step=1
+        )
+
+
+def test_update_training_progress_overwrites_fields_on_running_run(db_session):
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    training_service.claim_training_run(db_session, training_run)
+
+    training_service.update_training_progress(
+        db_session,
+        training_run,
+        epoch=1,
+        current_step=100,
+        train_loss=0.5,
+        eval_loss=0.45,
+    )
+    training_service.update_training_progress(
+        db_session, training_run, current_step=200, train_loss=0.4
+    )
+
+    assert training_run.current_epoch == 1
+    assert training_run.current_step == 200
+    assert training_run.train_loss == 0.4
+    assert training_run.eval_loss == 0.45
+
+
 def _seed_training_runs(session, n):
     for idx in range(n):
         dv = dataset_service.create_dataset_version(

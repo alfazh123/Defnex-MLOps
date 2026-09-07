@@ -1,24 +1,23 @@
+import tempfile
+from pathlib import Path
+
 from app.models.training import TrainingRun
-from app.services.artifact_storage import (
-    ArtifactStorage,
-    LocalFilesystemArtifactStorage,
-)
 
 
 class MockTrainingRunner:
     """Fake/stub `TrainingRunner` (PRD §20): drives a training run to COMPLETED with a fake
-    artifact, without requiring Unsloth or a GPU. Only depends on the `run()` shape defined by
-    `app.workers.training_worker.TrainingRunner`, so it's swappable for a real Unsloth-based
-    runner later without changing the worker or the API contract. Artifact writing goes through
-    `ArtifactStorage` (US-012) rather than the filesystem directly, so the storage backend is
-    swappable independently of the runner.
+    adapter, without requiring Unsloth or a GPU. TEST-ONLY — the production default is
+    `UnslothTrainingRunner` (issue #38). Matches the same `run()` shape, so it's swappable for
+    the real runner without changing the worker or the API contract: it writes a stub adapter
+    into a fresh staging directory and returns its path, which the worker finalizes into an
+    immutable per-version artifact exactly like the real runner's output.
     """
 
-    def __init__(self, storage: ArtifactStorage | None = None):
-        self._storage = storage or LocalFilesystemArtifactStorage()
+    def __init__(self):
+        pass
 
-    def run(self, training_run: TrainingRun) -> str:
-        return self._storage.store(
-            f"{training_run.training_run_id}.bin",
-            f"mock artifact for {training_run.training_run_id}",
-        )
+    def run(self, db, training_run: TrainingRun) -> str:
+        staging = Path(tempfile.mkdtemp(prefix="defnex-mock-"))
+        (staging / "adapter_model.safetensors").write_bytes(b"fake")
+        (staging / "adapter_config.json").write_text('{"mock": true}')
+        return str(staging)

@@ -12,12 +12,17 @@ from app.workers.gpu_lock import gpu_lock
 
 
 class TrainingRunner(Protocol):
-    """Executes a training run's actual work. Swappable (mock now, real Unsloth runner later)
-    without changing the worker or the API contract (PRD §9/§10, US-009's acceptance criteria).
+    """Executes a training run's actual work. Swappable (mock in tests, real Unsloth runner in
+    production — issue #38) without changing the worker or the API contract (PRD §9/§10,
+    US-009's acceptance criteria).
+
+    `run` returns a staging directory containing the trained output; the worker registers it
+    into an immutable per-version location.
     """
 
-    def run(self, training_run: TrainingRun) -> str:
-        """Run training for `training_run` and return the resulting artifact_uri, or raise."""
+    def run(self, db: Session, training_run: TrainingRun) -> str:
+        """Run training for `training_run`, streaming progress into `db`, and return a staging
+        directory with the trained output, or raise."""
         ...
 
 
@@ -52,19 +57,22 @@ def process_next_job(
             if not training_service.claim_training_run(db, training_run):
                 return None
             try:
-                artifact_uri = runner.run(training_run)
+                staging_dir = runner.run(db, training_run)
             except Exception as exc:
                 training_service.fail_training_run(
                     db, training_run, error_message=str(exc)
                 )
             else:
                 training_service.complete_training_run(
-                    db, training_run, artifact_uri=artifact_uri
+                    db, training_run, artifact_uri=staging_dir
                 )
                 # The internal Register call openapi.yaml documents as running on
                 # COMPLETED — without it nothing in a running system ever creates a
-                # ModelVersion, so the loop never closes.
-                model_service.register_model_version(db, training_run)
+                # ModelVersion, so the loop never closes. It also finalizes the staged
+                # training output into its immutable per-version artifact (issue #38).
+                model_service.register_model_version(
+                    db, training_run, staging_dir=staging_dir
+                )
     except TimeoutError:
         return None
     return training_run
@@ -87,7 +95,7 @@ def run_forever(runner: TrainingRunner, poll_interval: float = 5.0) -> None:
 
 
 if __name__ == "__main__":
-    from app.workers.mock_runner import MockTrainingRunner
+    from app.workers.unsloth_runner import UnslothTrainingRunner
 
-    # Mock runner until the VM/Unsloth environment exists (PRD §20); swap the runner here only.
-    run_forever(MockTrainingRunner())
+    # Real runner: spawns Unsloth training in a separate venv (issue #38). Mock is test-only.
+    run_forever(UnslothTrainingRunner())

@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     # Seconds a worker waits for the GPU lock before skipping the poll (run stays PENDING).
     gpu_lock_timeout: int = 300
 
+    # Model artifact storage (issue #38). Location where each trained version is kept in an
+    # immutable per-version directory. No longer a system temp dir — overridable via env.
+    artifact_storage_dir: str = "data/artifacts"
+
+    # Real Unsloth training runner (issue #38). The worker spawns a standalone Unsloth
+    # training script in a SEPARATE venv via subprocess (never in the app's own venv —
+    # serving and training venvs are kept apart per the project constraint). These knobs
+    # let deployment point at the training venv's interpreter and script.
+    training_python: str = "python3"
+    training_script_path: str = "app/training/run_training.py"
+    # Seconds before a runaway training subprocess is killed (run becomes FAILED, not stuck
+    # RUNNING). 0 disables the timeout.
+    training_timeout_seconds: int = 0
+
     # Logging
     debug: bool = False
     log_level: str = "INFO"

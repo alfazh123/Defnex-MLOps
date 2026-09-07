@@ -3,6 +3,7 @@ import pathlib
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import types
@@ -31,6 +32,22 @@ from app.workers.gpu_orchestrator import (
 from app.workers.training_worker import process_next_job
 
 
+@pytest.fixture(autouse=True)
+def _artifact_sandbox(tmp_path, monkeypatch):
+    """Keep immutable per-version artifacts (register_model_version finalizes the runner's
+    staging output) out of the repo's data/ dir — same convention as test_training_worker.py."""
+    monkeypatch.setattr(settings, "artifact_storage_dir", str(tmp_path))
+
+
+def _staging_dir(training_run_id: str) -> str:
+    """A real staging directory, matching the runner contract (issue #38) — run() returns a
+    PATH to a dir holding the adapter, never a flat file uri."""
+    staging = pathlib.Path(tempfile.mkdtemp(prefix="defnex-test-stage-"))
+    (staging / "adapter_model.safetensors").write_bytes(b"fake")
+    (staging / "adapter_config.json").write_text(f'{{"run": "{training_run_id}"}}')
+    return str(staging)
+
+
 class _StubRunner:
     def __init__(self, artifact_uri=None, error=None, hold=0.0):
         self.artifact_uri = artifact_uri
@@ -39,7 +56,7 @@ class _StubRunner:
         self.calls = []
         self._guard = threading.Lock()
 
-    def run(self, training_run):
+    def run(self, db, training_run):
         with self._guard:
             self.calls.append(training_run.training_run_id)
         if self.hold:
@@ -58,11 +75,11 @@ class _StreamRunner(_StubRunner):
         self._stream = stream
         self._stream_lock = stream_lock
 
-    def run(self, training_run):
+    def run(self, db, training_run):
         with self._stream_lock:
             self._stream.append(("train_start", training_run.training_run_id))
         try:
-            return super().run(training_run)
+            return super().run(db, training_run)
         finally:
             with self._stream_lock:
                 self._stream.append(("train_finish", training_run.training_run_id))
@@ -198,8 +215,8 @@ def test_cycle_stop_failure_raises_before_training_and_restarts():
 def test_process_next_job_full_service_cycle_order(db_session, lock_file):
     """Required: full worker cycle with stubbed serving control + VRAM. Asserts the
     stop -> verify-VRAM -> train -> start sequence happened in order."""
-    _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    queued = _queued_training_run(db_session)
+    runner = _StubRunner(artifact_uri=_staging_dir(queued.training_run_id))
     control = MockServingControl()
     vram = StubVRAMReader(free_mb=16_000)
     coordinator = _StubCoordinator(control, vram)
@@ -468,7 +485,7 @@ class Coordinator:
         return coordinator_factory()
 
 class SlowRunner:
-    def run(self, training_run):
+    def run(self, db, training_run):
         print("started", flush=True)
         time.sleep(30)
         return "file:///tmp/adapter"

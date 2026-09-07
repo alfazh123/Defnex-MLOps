@@ -1,5 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -67,6 +68,73 @@ class Settings(BaseSettings):
     gpu_lock_file: str = "data/gpu.lock"
     # Seconds a worker waits for the GPU lock before skipping the poll (run stays PENDING).
     gpu_lock_timeout: int = 300
+
+    # Cross-service GPU coordination (issue #39): before training starts, the serving
+    # service is stopped and VRAM verified free, then restarted after training ends —
+    # all inside the same #33 GPU lock. `serving_control=mock` (default) disables all
+    # of this (the worker never touches serving, preserving pre-#39 behavior for tests
+    # and no-GPU dev); `serving_control=shell` runs the stop/start/health-check commands
+    # below against the real serving stack.
+    serving_control: Literal["mock", "shell"] = "mock"
+    serving_stop_cmd: str = ""
+    serving_start_cmd: str = ""
+    serving_health_cmd: str = ""
+    # Per-command timeout so a hung serving stop/start cannot stall the worker forever.
+    serving_command_timeout: float = 60.0
+
+    # VRAM verification: the worker waits until `vram_free_threshold_mb` MB are free,
+    # polling every `vram_check_poll` seconds, for at most `vram_check_timeout` seconds.
+    # `vram_reader=nvidia_smi` reads real free memory via `nvidia-smi`;
+    # `vram_reader=mock` (default) assumes the threshold is met so no GPU is touched.
+    vram_reader: Literal["mock", "nvidia_smi"] = "mock"
+    vram_free_threshold_mb: int = 8192
+    vram_check_poll: float = 5.0
+    vram_check_timeout: int = 300
+
+    @model_validator(mode="after")
+    def _validate_serving_coordination(self) -> Self:
+        """No half-configured safety pipeline.
+
+        `serving_control=shell` only activates the real stop/verify/train/restart
+        cycle; with default `mock` every field below is inert. Shell mode therefore
+        requires its full configuration to be deliberately set — an empty command
+        or a mock VRAM reader would silently pretend the safety checks ran while
+        the operator believes the whole pipeline is active:
+        - the stop/start/health-check commands must all be non-empty;
+        - the VRAM reader must be the real `nvidia_smi` (a mock reader that always
+          reports the threshold as met fakes the free-VRAM verification);
+        - `vram_free_threshold_mb` must be set explicitly — there is no built-in
+          default until a governance decision picks an H100 free-VRAM budget.
+        """
+        if self.serving_control != "shell":
+            return self
+        missing = [
+            name
+            for name, value in (
+                ("SERVING_STOP_CMD", self.serving_stop_cmd),
+                ("SERVING_START_CMD", self.serving_start_cmd),
+                ("SERVING_HEALTH_CMD", self.serving_health_cmd),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "SERVING_CONTROL=shell requires non-empty commands; "
+                f"missing: {', '.join(missing)}"
+            )
+        if self.vram_reader != "nvidia_smi":
+            raise ValueError(
+                "SERVING_CONTROL=shell requires VRAM_READER=nvidia_smi; a mock "
+                "reader would fake the free-VRAM check the shell mode promises"
+            )
+        if "vram_free_threshold_mb" not in self.model_fields_set:
+            raise ValueError(
+                "SERVING_CONTROL=shell requires VRAM_FREE_THRESHOLD_MB to be set "
+                "explicitly (no default until a governance decision exists)"
+            )
+        if self.vram_free_threshold_mb <= 0:
+            raise ValueError("VRAM_FREE_THRESHOLD_MB must be positive")
+        return self
 
     # Model artifact storage (issue #38). Location where each trained version is kept in an
     # immutable per-version directory. No longer a system temp dir — overridable via env.

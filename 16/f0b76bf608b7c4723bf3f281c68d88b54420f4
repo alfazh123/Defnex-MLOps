@@ -1,0 +1,39 @@
+ml-close-loop-be/app/workers/training_worker.py
+  s_b0ac440893eaab::t_6d678877c71a96 90,93
+  s_b0ac440893eaab::t_eda9118bc6cb09 4,21
+  s_b0ac440893eaab::t_ee99eaa98ce05b 22
+ml-close-loop-be/app/workers/gpu_orchestrator.py
+  s_b0ac440893eaab::t_8e38af5724dfb2 200,204-209
+  s_b0ac440893eaab::t_47ddf9c5561984 342-350
+ml-close-loop-be/.env.example
+  s_b0ac440893eaab::t_89055998acccc1 91-94,106-108,110
+ml-close-loop-be/README.md
+  s_b0ac440893eaab::t_4965ea172854de 266-267
+  s_b0ac440893eaab::t_e37b269e22efa6 191-198
+ml-close-loop-be/app/config.py
+  s_b0ac440893eaab::t_3830b643878485 1,3
+  s_b0ac440893eaab::t_88cb1062c62904 82-126
+ml-close-loop-be/tests/test_gpu_orchestration.py
+  s_b0ac440893eaab::t_6e6be3483d38db 15
+  s_b0ac440893eaab::t_6c39c59b44b3e7 8,11,20-23,25,28
+  s_b0ac440893eaab::t_e543a97564be45 502-541,547-601,610,612-628
+  s_b0ac440893eaab::t_b948319ed9f77d 542-546
+  s_b0ac440893eaab::t_6e062a0ce87e4a 602-609,611
+  s_b0ac440893eaab::t_b77522766117f8 629-630
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "16f0b76bf608b7c4723bf3f281c68d88b54420f4",
+  "prompts": {},
+  "sessions": {
+    "s_b0ac440893eaab": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8999ca08ffeIPMjMrS2LOp1BT",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

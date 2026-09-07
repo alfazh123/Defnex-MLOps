@@ -121,6 +121,7 @@ def test_create_training_run_rejects_unservable_peft_method(
     assert response.status_code == 422
     detail = response.json()["detail"][0]["msg"]
     assert method in detail
+    assert "permanently rejected" in detail
     assert "vLLM serving path" in detail
     with Session(client.engine) as db:
         count = db.scalar(select(func.count()).select_from(TrainingRun))
@@ -222,8 +223,9 @@ def _create_runs(client, admin_token, count):
         )
 
 
-def test_create_training_run_permissive_model_id(client, admin_token):
-    # Gap: TrainingRunCreateRequest.model_id is an unvalidated str, so any format registers.
+def test_create_training_run_rejects_unsafe_model_id(client, admin_token):
+    """Issue #38: model_id becomes part of the immutable version name `{model_id}-{base_model}-v{N}`
+    and a filesystem directory, so path/URL-unsafe characters are rejected (no more free-form ids)."""
     h = auth_header(admin_token)
     _pass_validation(client, admin_token)
     request = dict(TRAINING_RUN_CREATE_REQUEST)
@@ -231,8 +233,8 @@ def test_create_training_run_permissive_model_id(client, admin_token):
 
     response = client.post("/api/v1/training-runs", json=request, headers=h)
 
-    assert response.status_code == 201
-    assert response.json()["model_id"] == "bad model!@#/with spaces"
+    assert response.status_code == 422
+    assert "model_id" in response.json()["detail"][0]["loc"]
 
 
 def test_create_training_run_returns_correct_status_field(client, admin_token):
@@ -249,6 +251,36 @@ def test_create_training_run_returns_correct_status_field(client, admin_token):
     assert fetched.status_code == 200
     assert fetched.json()["status"] == "PENDING"
     assert fetched.json()["current_epoch"] is None
+
+
+def test_get_training_run_shows_live_progress_while_running(client, admin_token):
+    """Issue #38: while a run is still RUNNING, GET /training-runs/{id} returns the progress
+    fields the training runner streams in — non-NULL mid-run, not only after COMPLETED."""
+    from app.services import training_service as svc
+
+    h = auth_header(admin_token)
+    _pass_validation(client, admin_token)
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
+
+    with Session(client.engine) as db:
+        run = svc.get_training_run(db, created["training_run_id"])
+        assert svc.claim_training_run(db, run)
+        svc.update_training_progress(db, run, epoch=1, current_step=42, train_loss=0.3)
+        db.commit()
+
+    fetched = client.get(
+        f"/api/v1/training-runs/{created['training_run_id']}", headers=h
+    )
+
+    assert fetched.status_code == 200
+    body = fetched.json()
+    assert body["status"] == "RUNNING"
+    assert body["current_epoch"] == 1
+    assert body["current_step"] == 42
+    assert body["train_loss"] == 0.3
+    assert body["eval_loss"] is None
 
 
 def test_list_training_runs_empty(client, admin_token):

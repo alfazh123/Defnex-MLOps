@@ -29,6 +29,18 @@ class Settings(BaseSettings):
     vllm_api_key: str = ""
     vllm_timeout_seconds: float = 60.0
 
+    # Inference & smoke test (issue #41). Each smoke-test property is explicit and
+    # configurable - not a magic number in code. The smoke test runs inside
+    # `deployment_service.deploy` after the adapter is loaded but before the alias/
+    # pointer moves; a failure aborts the deploy and the alias stays on the old version.
+    inference_smoke_enabled: bool = True
+    inference_smoke_prompt: str = "Return OK."
+    # Minimum length of the generated output for the smoke test to pass. A non-empty
+    # output is enough to prove the adapter can generate; tune up for stronger signal.
+    inference_smoke_min_chars: int = 1
+    # Max tokens for a generation (shared by the smoke test and the inference endpoint).
+    inference_max_tokens: int = 128
+
     # Auth (Phase 9)
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
@@ -123,6 +135,20 @@ class Settings(BaseSettings):
         if self.vram_free_threshold_mb <= 0:
             raise ValueError("VRAM_FREE_THRESHOLD_MB must be positive")
         return self
+
+    # Model artifact storage (issue #38). Location where each trained version is kept in an
+    # immutable per-version directory. No longer a system temp dir — overridable via env.
+    artifact_storage_dir: str = "data/artifacts"
+
+    # Real Unsloth training runner (issue #38). The worker spawns a standalone Unsloth
+    # training script in a SEPARATE venv via subprocess (never in the app's own venv —
+    # serving and training venvs are kept apart per the project constraint). These knobs
+    # let deployment point at the training venv's interpreter and script.
+    training_python: str = "python3"
+    training_script_path: str = "app/training/run_training.py"
+    # Seconds before a runaway training subprocess is killed (run becomes FAILED, not stuck
+    # RUNNING). 0 disables the timeout.
+    training_timeout_seconds: int = 0
 
     # Logging
     debug: bool = False

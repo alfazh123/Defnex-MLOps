@@ -1321,6 +1321,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Unprocessable Content
+  /api/v1/models/{model_id}/inference:
+    post:
+      tags:
+      - Inference
+      summary: Run Inference
+      description: 'Generate from a model, addressed by deployment alias (`prod`, resolved via
+        the single deployment_service.resolve_alias function from issue #36) or by explicit
+        version number. Alias resolution reuses the single alias function - there is no second
+        resolution logic here. An explicit version must be the DEPLOYED one. Unknown model or an
+        explicit version that does not exist for the model -> 404 MODEL_NOT_FOUND, unknown alias
+        -> 404 UNKNOWN_DEPLOYMENT_ALIAS, known alias with no deployed version -> 404
+        DEPLOYMENT_NOT_FOUND, version exists but not DEPLOYED -> 409 INFERENCE_NOT_ALLOWED,
+        upstream serving failure -> 502 INFERENCE_FAILED. The deployment-time smoke test (issue #41) runs inside
+        deployment_service.deploy after the adapter is loaded but before the alias moves; a
+        failure returns 502 SMOKE_TEST_FAILED and the alias stays on the old version.'
+      operationId: run_inference_api_v1_models__model_id__inference_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 'Not Found - model unknown (MODEL_NOT_FOUND), an explicit version that
+            does not exist for the model (also MODEL_NOT_FOUND), unknown alias
+            (UNKNOWN_DEPLOYMENT_ALIAS), or known alias with no deployed version
+            (DEPLOYMENT_NOT_FOUND).'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 'Conflict - the requested explicit version exists but is not the DEPLOYED
+            one (INFERENCE_NOT_ALLOWED).'
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 'Bad Gateway - the serving backend could not generate (INFERENCE_FAILED),
+            or a deploy-time smoke test failed (SMOKE_TEST_FAILED).'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Artifact:
@@ -1815,6 +1886,43 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    InferenceRequest:
+      properties:
+        target:
+          type: string
+          title: Target
+          description: Deployment alias (e.g. 'prod') or an explicit deployed version number.
+        prompt:
+          type: string
+          minLength: 1
+          title: Prompt
+      type: object
+      required:
+      - target
+      - prompt
+      title: InferenceRequest
+      description: Body for POST /api/v1/models/{model_id}/inference. `target` is either a
+        deployment alias (``prod``, resolved via the single deployment_service.resolve_alias
+        function from issue #36) or an explicit version number.
+    InferenceResponse:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        version:
+          type: integer
+          title: Version
+        generation:
+          type: string
+          title: Generation
+      type: object
+      required:
+      - model_id
+      - version
+      - generation
+      title: InferenceResponse
+      description: A generation result. model_id/version identify the concrete version whose
+        adapter actually served the request (issue #41), not an alias.
     LoginRequest:
       properties:
         username:
@@ -1836,6 +1944,12 @@ components:
         version:
           type: integer
           title: Version
+        name:
+          type: string
+          title: Name
+          description: >-
+            Version name `{project}-{base_model}-v{N}` (issue #38); also the immutable
+            artifact directory name for this version.
         status:
           type: string
           enum:
@@ -1907,6 +2021,7 @@ components:
       required:
       - model_id
       - version
+      - name
       - status
       - training_run_id
       - base_model

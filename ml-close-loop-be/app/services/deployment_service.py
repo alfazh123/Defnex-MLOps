@@ -31,6 +31,13 @@ _DEPLOYED_CONFLICT_MESSAGE = (
 )
 
 
+class SmokeTestError(Exception):
+    """The just-loaded adapter failed the deploy-time smoke test (issue #41): vLLM could not
+    produce a generation at or above the configured threshold. Raised by `deploy` *after* the
+    adapter was loaded but *before* the pointer moved, so the previous version stays DEPLOYED
+    (and keeps serving) and the failure is recorded in the logs."""
+
+
 def _deployed_model_version(db: Session, model_id: str) -> ModelVersion | None:
     """The single source of truth query: the DEPLOYED ModelVersion for `model_id`, or None."""
     return db.scalars(
@@ -114,6 +121,14 @@ def deploy(
 
     backend.deploy(model_version)
 
+    # Smoke test before the alias/pointer moves (issue #41): the `prod` alias must never point
+    # at an adapter that cannot actually generate. Run a real generation against the just-loaded
+    # adapter; on failure the adapter is unloaded again and the deploy aborts, leaving the
+    # previous version DEPLOYED (and serving). The pointer only moves below, inside the same
+    # transaction, so concurrent inference resolves the alias to the old adapter throughout.
+    if settings.inference_smoke_enabled:
+        _run_smoke_test(backend, model_version)
+
     if previous is not None:
         # Best-effort: unload failure must not block the retire - the newly loaded `model_version`
         # is the one that now serves. `ServingBackend.unload` is defined to not raise, but a
@@ -171,6 +186,74 @@ def deploy(
             )
         raise ValueError(_DEPLOYED_CONFLICT_MESSAGE) from exc
     return deployment, previous
+
+
+def _run_smoke_test(backend: ServingBackend, model_version: ModelVersion) -> None:
+    """Run the deploy-time smoke test (issue #41) against the just-loaded adapter and raise
+    `SmokeTestError` on failure. Prompt and pass threshold are the explicit, configurable
+    settings (`inference_smoke_prompt` / `inference_smoke_min_chars`), never a magic value.
+
+    On failure the just-loaded adapter is unloaded again (best-effort, mirroring the deploy
+    race-cleanup pattern) so the serving backend is left as it was before this deploy, the
+    failure is recorded as a warning log line, and `deploy` aborts with the old version still
+    DEPLOYED. Uses a detached `ModelVersion(model_id=..., version=...)` snapshot for the
+    cleanup unload so a later failed flush / expired attributes can never mask the smoke
+    failure with a lazy-load error.
+    """
+    model_id = model_version.model_id
+    version = model_version.version
+    try:
+        output = backend.generate(settings.inference_smoke_prompt, model_id, version)
+    except Exception as exc:  # noqa: BLE001 - any generation failure fails the smoke test
+        logger.warning(
+            "smoke_test_failed",
+            model_id=model_id,
+            version=version,
+            reason="generation_error",
+            error=str(exc),
+        )
+        _unload_after_smoke_failure(backend, model_id, version)
+        raise SmokeTestError(
+            f"smoke test failed for model_id {model_id!r} version {version}: "
+            f"generation error: {exc}"
+        ) from exc
+    if len(output) < settings.inference_smoke_min_chars:
+        logger.warning(
+            "smoke_test_failed",
+            model_id=model_id,
+            version=version,
+            reason="output_too_short",
+            output_chars=len(output),
+            min_chars=settings.inference_smoke_min_chars,
+        )
+        _unload_after_smoke_failure(backend, model_id, version)
+        raise SmokeTestError(
+            f"smoke test failed for model_id {model_id!r} version {version}: "
+            f"generated {len(output)} chars, below the configured minimum "
+            f"{settings.inference_smoke_min_chars}"
+        )
+    logger.info(
+        "smoke_test_passed",
+        model_id=model_id,
+        version=version,
+        output_chars=len(output),
+    )
+
+
+def _unload_after_smoke_failure(
+    backend: ServingBackend, model_id: str, version: int
+) -> None:
+    """Best-effort unload of the adapter that just failed its smoke test, so the serving
+    backend is left without the half-verified adapter. Must never mask the smoke failure."""
+    try:
+        backend.unload(ModelVersion(model_id=model_id, version=version))
+    except Exception:  # noqa: BLE001 - cleanup must never mask the smoke failure
+        logger.warning(
+            "smoke_test_cleanup_unload_failed",
+            model_id=model_id,
+            version=version,
+            exc_info=True,
+        )
 
 
 def get_deployment_status(db: Session, model_id: str) -> DeploymentStatus:

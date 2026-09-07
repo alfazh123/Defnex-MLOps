@@ -27,6 +27,15 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _artifact_sandbox(tmp_path, monkeypatch):
+    """The worker registers model versions (issue #38), finalizing staged artifacts into the
+    immutable store; keep that out of the repo's data/ dir with a fresh per-test dir."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "artifact_storage_dir", str(tmp_path))
+
+
+@pytest.fixture(autouse=True)
 def _disable_promotion_gates(monkeypatch):
     """This test covers the closed loop's plumbing, not the #43 eval gate
     (gate criteria are covered by tests/test_promotion_gate.py)."""
@@ -341,7 +350,7 @@ def test_full_lifecycle_persists_a_complete_lineage_chain(client, admin_token):
 
 
 class _RaisingRunner:
-    def run(self, training_run):
+    def run(self, db, training_run):
         raise RuntimeError("boom: cuda oom")
 
 

@@ -40,6 +40,12 @@ packages = ["app"]
 testpaths = ["tests"]
 addopts = ["--cov=app", "--cov-report=term-missing", "--cov-fail-under=80"]
 
+# run_training.py is a standalone subprocess entrypoint the worker spawns in a SEPARATE
+# training venv (issue #38); it imports Unsloth/torch which CI tests cannot import (no GPU),
+# so it is exercised only against the fake-script runner contract in tests, not executed.
+[tool.coverage.run]
+omit = ["app/training/run_training.py"]
+
 [tool.ruff.lint.per-file-ignores]
 "app/models/*.py" = ["F821"]
 "tests/*.py" = ["SIM117"]

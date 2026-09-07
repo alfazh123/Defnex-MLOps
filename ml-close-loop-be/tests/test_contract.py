@@ -1,15 +1,25 @@
 """API contract validation (openapi.yaml / mlops-api-contract.md): assert each endpoint's
 response shape and status code, driven purely through the HTTP client — no service calls."""
 
+import pytest
 import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.dataset import DatasetVersion
 from app.schemas.training import SUPPORTED_PEFT_METHODS, TrainingConfig
 from app.workers.mock_runner import MockTrainingRunner
 from app.workers.training_worker import process_next_job
 from tests.conftest import auth_header
+
+
+@pytest.fixture(autouse=True)
+def _artifact_sandbox(tmp_path, monkeypatch):
+    """The worker path finalizes staged artifacts into the immutable store via
+    register_model_version; keep it out of the repo's data/ dir with a fresh per-test dir."""
+    monkeypatch.setattr(settings, "artifact_storage_dir", str(tmp_path))
+
 
 DATASET_CREATE_REQUEST = {
     "source_type": "huggingface",
@@ -265,6 +275,7 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
     assert set(data) == {
         "model_id",
         "version",
+        "name",
         "status",
         "training_run_id",
         "base_model",

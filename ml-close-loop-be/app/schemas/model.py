@@ -81,6 +81,8 @@ class ModelRegistryRecord(BaseModel):
 
     model_id: str
     version: int
+    # Issue #38: stable version name `{model_id}-{base_model_slug}-v{N}`.
+    name: str
     status: ModelLifecycleStatus
     training_run_id: str
     base_model: str

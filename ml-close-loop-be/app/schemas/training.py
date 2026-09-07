@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+import re
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -12,10 +13,12 @@ TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
 # path can serve; it only changes the scale factor alpha/sqrt(r) at training time.
 SUPPORTED_PEFT_METHODS = ("lora", "qlora", "rslora")
 
-# Values that exist in the ecosystem but cannot be honored by the current vLLM serving
-# path (DoRA/QDoRA reparameterization, and the Full Finetuning branch that has no PEFT
-# adapter to serve). They are rejected with a specific message rather than silently
-# downgraded to plain LoRA.
+# Values that exist in the ecosystem but cannot be honored by this project's vLLM-only
+# serving path (DoRA/QDoRA reparameterization, and the Full Finetuning branch that has no
+# PEFT adapter to serve). Rejection is a final governance decision (issue #44, following
+# up on the temporary rejection issue #34 introduced) — not contingent on the current
+# infrastructure and not expected to change without a new governance decision. They are
+# rejected with a specific message rather than silently downgraded to plain LoRA.
 _SERVING_UNSUPPORTED_PEFT_METHODS = ("dora", "qdora", "none")
 
 PeftMethod = Literal[SUPPORTED_PEFT_METHODS]
@@ -43,7 +46,8 @@ class TrainingConfig(BaseModel):
     def _reject_serving_unsupported(cls, v: object) -> object:
         if v in _SERVING_UNSUPPORTED_PEFT_METHODS:
             raise ValueError(
-                f"peft_method {v!r} is not supported by the current vLLM serving path; "
+                f"peft_method {v!r} is permanently rejected (governance decision, "
+                f"issue #44): not supported by this project's vLLM serving path; "
                 f"supported values: {', '.join(SUPPORTED_PEFT_METHODS)}"
             )
         return v
@@ -91,7 +95,21 @@ class TrainingRunCreateRequest(BaseModel):
 
     dataset_id: str
     dataset_version: int
+    # `model_id` becomes part of the immutable version name `{model_id}-{base_model}-v{N}`
+    # (issue #38) and a filesystem directory, so it is restricted to path- and URL-safe
+    # characters rather than any free string.
     model_id: str
+
+    @field_validator("model_id", mode="before")
+    @classmethod
+    def _validate_model_id(cls, v: object) -> object:
+        if isinstance(v, str) and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", v):
+            raise ValueError(
+                "model_id must match [A-Za-z0-9][A-Za-z0-9._-]* "
+                "(it is embedded in the immutable version name and artifact path)"
+            )
+        return v
+
     base_model: str
     training_config: TrainingConfig
     triggered_by: str | None = None

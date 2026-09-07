@@ -1,0 +1,102 @@
+ml-close-loop-be/app/workers/training_worker.py
+  s_0f6821ed0e22fe::t_07ba7fca5682f0 82,89,93-98
+  s_0f6821ed0e22fe::t_300b1071d4b1a9 25-30,33-35,139,141-142
+README.md
+  s_0f6821ed0e22fe::t_f6f8e003a04f54 20
+ml-close-loop-be/.gitignore
+  s_0f6821ed0e22fe::t_c74bf8b0c82d8c 9-10
+ml-close-loop-be/README.md
+  s_0f6821ed0e22fe::t_c08411c723400a 15,31-38,41,84-114,155,246,248-249,254,262-263,266-274,296-299
+ml-close-loop-be/alembic/versions/a1c0ffee38_issue38_training_runner_and_atomic_versioning.py
+  s_0f6821ed0e22fe::t_88228998769bbd 1-53
+ml-close-loop-be/app/api/inference.py
+  s_0f6821ed0e22fe::t_ffac3fa058f77b 1-73
+ml-close-loop-be/app/main.py
+  s_0f6821ed0e22fe::t_2a274b43805b88 20,29,99,147-163
+ml-close-loop-be/app/models/model.py
+  s_0f6821ed0e22fe::t_ed6732d2bca760 43-45,56-60
+ml-close-loop-be/app/models/training.py
+  s_0f6821ed0e22fe::t_65d85803d05b8b 24-27
+ml-close-loop-be/app/schemas/inference.py
+  s_0f6821ed0e22fe::t_a62478d876a908 1-27
+ml-close-loop-be/app/schemas/model.py
+  s_0f6821ed0e22fe::t_f97fd55ecafeb0 84-85
+ml-close-loop-be/app/schemas/training.py
+  s_0f6821ed0e22fe::t_5a9c4e5194f3cc 3,16-21,49-50,98-100,102-112
+ml-close-loop-be/app/services/artifact_storage.py
+  s_0f6821ed0e22fe::t_8cb68a4f8f72df 1-2,6-11,20-26,30-31,34,39-66
+ml-close-loop-be/app/services/deployment_service.py
+  s_0f6821ed0e22fe::t_a1276668f5b729 34-40,124-131,191-258
+ml-close-loop-be/app/services/inference_service.py
+  s_0f6821ed0e22fe::t_e5e08f9c4dd444 1-54
+ml-close-loop-be/app/services/model_service.py
+  s_0f6821ed0e22fe::t_3de46d44f61fd8 1-3,5,8,19,21,23-135,139-146,156-178,276
+ml-close-loop-be/app/services/serving.py
+  s_0f6821ed0e22fe::t_4aeca5690c5a7b 38-44,57-62,87-91,94-98,227-266
+ml-close-loop-be/app/services/training_service.py
+  s_0f6821ed0e22fe::t_e4f568d115b05a 84,88-119,127,138,140-143
+ml-close-loop-be/app/training/run_training.py
+  s_0f6821ed0e22fe::t_1e38549cc717aa 1-161
+ml-close-loop-be/app/workers/mock_runner.py
+  s_0f6821ed0e22fe::t_370fd721996502 1-3,9-13,16-17,19-23
+ml-close-loop-be/app/workers/unsloth_runner.py
+  s_0f6821ed0e22fe::t_6242dd55dc97bf 1-170
+ml-close-loop-be/openapi.yaml
+  s_0f6821ed0e22fe::t_36ac6d53b1f082 1324-1394,1889-1925,1947-1952,2024
+ml-close-loop-be/pyproject.toml
+  s_0f6821ed0e22fe::t_9614536df51429 43-48
+ml-close-loop-be/tests/test_artifact_storage.py
+  s_0f6821ed0e22fe::t_1eba2a926f441f 1-9,19-88
+ml-close-loop-be/tests/test_contract.py
+  s_0f6821ed0e22fe::t_973c672ad327ab 4,9,16-23,278
+ml-close-loop-be/tests/test_deployment_api.py
+  s_0f6821ed0e22fe::t_bb8364e389feae 97
+ml-close-loop-be/tests/test_deployment_single_source.py
+  s_0f6821ed0e22fe::t_da05a2278072c0 399
+ml-close-loop-be/tests/test_filtering.py
+  s_0f6821ed0e22fe::t_f592e6639d709f 187
+ml-close-loop-be/tests/test_inference.py
+  s_0f6821ed0e22fe::t_dfdf627f7a938b 1-246
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_0f6821ed0e22fe::t_66fb77695241ff 29-37,353
+ml-close-loop-be/tests/test_mock_runner.py
+  s_0f6821ed0e22fe::t_7d7dd913d99fb6 3-5,13-19,44-46,48,50,52-55,65-76
+ml-close-loop-be/tests/test_model_api.py
+  s_0f6821ed0e22fe::t_83eea90ab0e151 81
+ml-close-loop-be/tests/test_model_service.py
+  s_0f6821ed0e22fe::t_1ae4c5537a58b6 1-2,4-5,7,41,197-376
+ml-close-loop-be/tests/test_promotion_api.py
+  s_0f6821ed0e22fe::t_27540e185d73b7 100,204
+ml-close-loop-be/tests/test_smoke_test.py
+  s_0f6821ed0e22fe::t_ad16bccc2cce20 1-205
+ml-close-loop-be/tests/test_training_api.py
+  s_0f6821ed0e22fe::t_69a5a57e09e4d2 124,226-228,236-237,256-285
+ml-close-loop-be/tests/test_training_service.py
+  s_0f6821ed0e22fe::t_9f4eacbb7ff17d 133-187
+ml-close-loop-be/tests/test_training_worker.py
+  s_0f6821ed0e22fe::t_a20657b87446ab 1,4,10,19-35,37-38,43,48,58,64,96-109,116,123-124,147,176,184-185,194,227,235,258,276
+ml-close-loop-be/tests/test_unsloth_runner.py
+  s_0f6821ed0e22fe::t_13261d0d31af65 1-303
+ml-close-loop-be/tests/test_vllm_serving.py
+  s_0f6821ed0e22fe::t_b926c1bd546e0a 28,66-76,194-255
+ml-close-loop-be/.env.example
+  s_0f6821ed0e22fe::t_6450c5c5001bd6 45-57,127-141
+ml-close-loop-be/app/config.py
+  s_0f6821ed0e22fe::t_bbb31549ee002d 32-43,139-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "f882a08113922adaebcccd25d2c114ab82ff2fe8",
+  "prompts": {},
+  "sessions": {
+    "s_0f6821ed0e22fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ccc5bff-edd2-459d-b456-37fe93cbb5d2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+ml-close-loop-be/tests/test_model_service.py
+  s_19ba643bb5e330::t_b6abb4a527ed2c 322-323,330,332,342,345,349-350,356-360,362-366,369-373,375
+  s_19ba643bb5e330::t_34a006d8afce5e 324-329,331,346-348,351-355,361,367-368
+ml-close-loop-be/app/services/serving.py
+  s_19ba643bb5e330::t_a5e0516a6c62af 76-80
+ml-close-loop-be/tests/test_unsloth_runner.py
+  s_19ba643bb5e330::t_7303c55e65e77c 238-303
+ml-close-loop-be/app/services/model_service.py
+  s_19ba643bb5e330::t_97fdd24380b8b3 36-41
+  s_19ba643bb5e330::t_49a45baf334ac7 117-121
+  s_19ba643bb5e330::t_d056a2a89e5159 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "6eb040e6e9bb11568a2818a08fddbcdeb73f2ae1",
+  "prompts": {},
+  "sessions": {
+    "s_19ba643bb5e330": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8be0ee8effeh9bKqof3DCz7XB",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

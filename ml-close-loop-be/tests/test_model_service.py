@@ -319,11 +319,17 @@ def test_allocate_version_retries_when_first_pick_already_taken(
     assert model_version.version == 2
 
 
-def test_sequential_registration_allocates_distinct_versions(tmp_path):
-    """Issue #38 required test: two sequential registrations on the SAME model_id must
-    produce versions N and N+1. SQLite allows only one writer at a time, so true
-    concurrency is only testable on PostgreSQL; sequential execution still exercises
-    the SAVEPOINT retry path in _allocate_version."""
+def test_concurrent_registration_allocates_distinct_versions(tmp_path):
+    """Issue #38 required test (concurrency): two threads registering the SAME model_id
+    must produce versions N and N+1 with no unhandled exception. Follows the proven pattern
+    from test_concurrent_workers_run_single_pending_job_once (issue #33): file-backed SQLite
+    shared by two connections, each with its own engine/session. SQLite allows one writer at
+    a time; the SAVEPOINT retry (catching IntegrityError + OperationalError) handles the
+    lock contention. A small stagger ensures the first thread acquires the write lock before
+    the second starts, avoiding a livelock where both keep colliding on every retry."""
+    import threading
+    import time
+
     db_path = str(tmp_path / "registry.db")
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"timeout": 30})
     Base.metadata.create_all(engine)
@@ -333,17 +339,38 @@ def test_sequential_registration_allocates_distinct_versions(tmp_path):
         second = _completed_training_run(setup, model_id="race-model")
         setup.commit()
         first_id, second_id = first.training_run_id, second.training_run_id
+    engine.dispose()
 
     versions: list[int] = []
+    errors: list[Exception] = []
+    barrier = threading.Event()
 
-    def register(run_id):
-        with Session(engine) as session:
-            run = training_service.get_training_run(session, run_id)
-            mv = model_service.register_model_version(session, run)
-            versions.append(mv.version)
-            session.commit()
+    def register(run_id, go_second=False):
+        eng = create_engine(f"sqlite:///{db_path}", connect_args={"timeout": 30})
+        try:
+            if go_second:
+                barrier.wait(timeout=5)
+                time.sleep(0.05)
+            else:
+                barrier.set()
+            with Session(eng) as session:
+                run = training_service.get_training_run(session, run_id)
+                mv = model_service.register_model_version(session, run)
+                versions.append(mv.version)
+                session.commit()
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            eng.dispose()
 
-    register(first_id)
-    register(second_id)
+    threads = [
+        threading.Thread(target=register, args=(first_id, False)),
+        threading.Thread(target=register, args=(second_id, True)),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
 
+    assert errors == [], f"concurrent registration raised: {errors}"
     assert sorted(versions) == [1, 2]

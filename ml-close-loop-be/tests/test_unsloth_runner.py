@@ -235,3 +235,69 @@ def test_runner_ignores_garbage_and_non_contract_json(db, tmp_path):
     staging = _runner(_write_script(tmp_path, script_body)).run(db, _run_in_dir(db))
 
     assert Path(staging).is_dir()
+
+
+def test_progress_visible_from_separate_session_while_training_runs(tmp_path):
+    """Issue #38 core acceptance (cross-session visibility): progress committed by the runner
+    must be visible from a DIFFERENT database session while training is still in progress.
+    The runner's per-event `db.commit()` is a real DB-level commit (not just a flush), so a
+    second session reading the same file sees live non-NULL progress columns."""
+    import threading
+
+    from sqlalchemy import create_engine as ce
+    from sqlalchemy.orm import Session as S
+
+    db_path = str(tmp_path / "progress.db")
+    engine = ce(f"sqlite:///{db_path}", connect_args={"timeout": 30})
+    Base.metadata.create_all(engine)
+
+    with S(engine) as setup:
+        run = _run_in_dir(setup, model_id="live-progress")
+        setup.commit()
+        run_id = run.training_run_id
+    engine.dispose()
+
+    # Training script: emit one progress event, wait for observer, then exit.
+    script_body = (
+        "import json, sys, time\n"
+        'print(json.dumps({"event": "progress", "epoch": 1, "step": 1, "train_loss": 0.9}), flush=True)\n'
+        "time.sleep(3)\n"
+        'print(json.dumps({"event": "progress", "epoch": 1, "step": 2, "train_loss": 0.8}), flush=True)\n'
+        "sys.exit(0)\n"
+    )
+    script = tmp_path / "live_training.py"
+    script.write_text(script_body)
+
+    eng = ce(f"sqlite:///{db_path}", connect_args={"timeout": 30})
+    observed = {}
+
+    def run_training():
+        with S(eng) as session:
+            run_obj = training_service.get_training_run(session, run_id)
+            training_service.claim_training_run(session, run_obj)
+            _runner(script).run(session, run_obj)
+            session.commit()
+
+    t = threading.Thread(target=run_training)
+    t.start()
+
+    # Poll from a SEPARATE session until the first progress event lands.
+    reader_eng = ce(f"sqlite:///{db_path}", connect_args={"timeout": 30})
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with S(reader_eng) as reader:
+            row = training_service.get_training_run(reader, run_id)
+            if row and row.current_step is not None:
+                observed["status"] = row.status
+                observed["step"] = row.current_step
+                observed["loss"] = row.train_loss
+                break
+        time.sleep(0.2)
+    reader_eng.dispose()
+
+    t.join(timeout=15)
+    eng.dispose()
+
+    assert observed["status"] == "RUNNING"
+    assert observed["step"] >= 1
+    assert observed["loss"] == 0.9

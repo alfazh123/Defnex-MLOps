@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.model import Model, ModelVersion
@@ -33,7 +33,12 @@ def _slug(value: str) -> str:
 def build_version_name(model_id: str, base_model: str, version: int) -> str:
     """Version name following `{project}-{base_model}-v{N}` (issue #38), with `project`
     being the `model_id`. `model_id` is request-validated to `[A-Za-z0-9._-]`; `base_model`
-    is slugged so the combined name is safe to use as a filesystem directory name."""
+    is slugged so the combined name is safe to use as a filesystem directory name.
+
+    Note: this is a 3-part name (includes base_model) used for artifact directories and the
+    DB `model_versions.name` column. The vLLM LoRA registry uses a shorter 2-part name
+    `{model_id}-v{version}` via `serving._lora_name` — the two are intentionally different;
+    see serving.py for the rationale."""
     return f"{model_id}-{_slug(base_model)}-v{version}"
 
 
@@ -109,10 +114,11 @@ def _allocate_version(
                 db.add(model_version)
                 db.flush()
             return model_version, next_version
-        except IntegrityError:
-            # Unique (model_id, version) violated — another writer took this version. The
-            # SAVEPOINT rolled back this attempt; the outer transaction is still usable for
-            # the next iteration with a freshly computed version.
+        except (IntegrityError, OperationalError):
+            # IntegrityError: unique (model_id, version) violated — another writer took this
+            # version.  OperationalError: SQLite "database is locked" — concurrent writer
+            # holds the write lock.  In both cases the SAVEPOINT rolled back this attempt;
+            # the outer transaction is still usable for the next iteration.
             continue
     raise RuntimeError(
         f"could not allocate a model version for {model_id!r} "

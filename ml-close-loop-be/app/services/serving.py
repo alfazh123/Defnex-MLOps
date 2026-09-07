@@ -73,10 +73,11 @@ class MockServingBackend:
 
 
 def _lora_name(model_version: ModelVersion) -> str:
-    """Deterministic adapter identity for the vLLM LoRA registry. Matches the versioning
-    adapter convention (`{project}-{base_model}-v{N}`) collapsed to what the registry already
-    keys everything on (model_id + version) so a deploy/rollback always targets the exact
-    version it means."""
+    """Deterministic adapter identity for the vLLM LoRA registry. Collapses to
+    `{model_id}-v{version}` — shorter than the 3-part artifact name
+    (`model_service.build_version_name`, `{model_id}-{base_model_slug}-v{N}`)
+    because the registry keys on model_id + version only; base_model is redundant here
+    since a version already binds a specific base_model."""
     return f"{model_version.model_id}-v{model_version.version}"
 
 

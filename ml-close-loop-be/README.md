@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 27 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 28 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -28,9 +28,17 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 - Retry with exponential backoff on Unsloth API failures
 - vLLM serving backend (issue #40): runtime LoRA adapter load/unload over the vLLM API,
   GPU profile in docker-compose; a mock backend keeps tests and no-GPU dev green
+- Inference endpoint (issue #41): `POST /api/v1/models/{model_id}/inference` accepts a
+  deployment alias (`prod`, resolved via the single `deployment_service.resolve_alias`
+  function) or an explicit version number and returns the generation **plus the concrete
+  version that served it**
+- Deploy-time smoke test (issue #41): after a new adapter is loaded but *before* the
+  production alias moves to it, the adapter must produce a generation at or above a
+  configurable threshold; a failing smoke test aborts the deploy and the alias stays on the
+  old version
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
-- pytest-cov coverage gate `--cov-fail-under=80` (currently 392 tests, 97% coverage)
+- pytest-cov coverage gate `--cov-fail-under=80` (currently 423 tests, 97% coverage)
 
 ## Quickstart — Docker
 
@@ -73,6 +81,37 @@ Serving details:
 - If `SERVING_BACKEND=vllm` but `serving` is not running, `POST .../deploy` fails with
   `502 DEPLOY_FAILED` and the DB stays untouched (the load runs before any mutation).
 
+## Inference & smoke test (issue #41)
+
+```bash
+# Generate from the deployed (prod) adapter - the response carries the concrete version:
+curl -X POST http://localhost:8000/api/v1/models/qwen-sft-domain-x/inference \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"target": "prod", "prompt": "What is the capital of France?"}'
+# → {"model_id": "qwen-sft-domain-x", "version": 2, "generation": "Paris."}
+
+# Same, but address the deployed version by number instead of alias:
+curl -X POST .../qwen-sft-domain-x/inference -d '{"target": "2", "prompt": "..."}'
+```
+
+- Alias resolution (`target: "prod"`) reuses the **single** resolution function from issue #36
+  (`deployment_service.resolve_alias`); the endpoint contains no second alias-resolution logic.
+  An explicit version number must be the currently `DEPLOYED` version (the only adapter
+  guaranteed loaded and smoke-tested). Unknown alias / never-deployed model → `404`; explicit
+  version that doesn't exist → `404 MODEL_NOT_FOUND`; explicit version that exists but isn't
+  `DEPLOYED` → `409 INFERENCE_NOT_ALLOWED`; upstream generation failure →
+  `502 INFERENCE_FAILED`.
+- **Deploy-time smoke test** — after `deployment_service.deploy` loads a new adapter but
+  *before* the `prod` alias/pointer moves (the `DEPLOYED` status is the single source of
+  truth), the adapter must generate a completion at or above `INFERENCE_SMOKE_MIN_CHARS`
+  chars for the prompt `INFERENCE_SMOKE_PROMPT`. On failure the adapter is unloaded again,
+  the deploy aborts with the old version still serving, and the failure is logged
+  (`smoke_test_failed`) and returned as `502 SMOKE_TEST_FAILED`. Because the pointer only
+  moves after the smoke test passes (same transaction), an inference request that arrives
+  mid-deploy always resolves to the old, still-`DEPLOYED` adapter. Each smoke-test knob is a
+  config value, not a magic number; `INFERENCE_SMOKE_ENABLED=false` disables the gate.
+
 ## Quickstart — Local
 
 Requires Python 3.11+.
@@ -113,7 +152,7 @@ it.
 ## Tests & Quality
 
 ```bash
-.venv/bin/pytest tests/ -q          # 392 tests, 97% coverage (threshold --cov-fail-under=80)
+.venv/bin/pytest tests/ -q          # 423 tests, 97% coverage (threshold --cov-fail-under=80)
 ruff check .                        # lint
 ruff format --check .               # format check
 ```
@@ -163,12 +202,15 @@ across hosts), coordination must move outside this module.
 | `401` | `INVALID_CREDENTIALS` | Wrong username/password |
 | `401` | `MISSING_TOKEN` | No `Authorization: Bearer` header |
 | `401` | `INVALID_REFRESH_TOKEN` | Expired or invalid refresh token |
-| `404` | `MODEL_NOT_FOUND` | Model ID does not exist |
+| `404` | `MODEL_NOT_FOUND` | Model ID does not exist (or the requested version of it is missing) |
 | `404` | `EVAL_SET_NOT_FOUND` | `eval_set_id` (or version) does not exist |
+| `404` | `DEPLOYMENT_NOT_FOUND` | Known alias resolves to no deployed version |
+| `404` | `UNKNOWN_DEPLOYMENT_ALIAS` | Inference `target` is not a known alias |
 | `409` | `USERNAME_TAKEN` | Register with existing username |
 | `409` | `EVAL_SET_OVERLAP` | Eval-set record duplicates already-validated training content (H8) |
 | `409` | `EVAL_SET_EMPTY` | Validate/train against an eval set that has no versions |
 | `409` | `PROMOTION_GATE_BLOCKED` | `PROMOTED` decision failed the eval gate (missing eval-set ref, no majority win, regressions found, or eval-loss worse) |
+| `409` | `INFERENCE_NOT_ALLOWED` | Inference `target` version exists but is not the `DEPLOYED` one |
 | `409` | `VALIDATION_REQUIRED` | No validation report yet for this dataset version |
 | `409` | `VALIDATION_FAILED` | Latest validation gate decision is FAIL or has no valid records |
 | `422` | `VALIDATION_RECORDS_REQUIRED` | Validate body missing or `records` empty |
@@ -176,6 +218,8 @@ across hosts), coordination must move outside this module.
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many login/register requests (see headers) |
 | `413` | `REQUEST_TOO_LARGE` | Body exceeds `MAX_REQUEST_BODY_SIZE` |
 | `502` | `DEPLOY_FAILED` | Serving backend could not load the adapter (vLLM unreachable/rejected the load) |
+| `502` | `SMOKE_TEST_FAILED` | Deploy-time smoke test failed; adapter unloaded and alias stayed on the old version |
+| `502` | `INFERENCE_FAILED` | Serving backend could not generate during inference |
 
 `training_config.peft_method` menerima `lora`, `qlora`, dan `rslora`. Nilai `dora`,
 `qdora`, dan `none` (Full Finetuning) ditolak **permanen** dengan `422` beserta pesan
@@ -208,6 +252,10 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `VLLM_SERVED_MODEL_NAME` | `defnex-model` | `--served-model-name` for inference requests |
 | `VLLM_MAX_LORAS` | `4` | Concurrent adapter slots (`--max-loras`); must be ≥2 since deploy loads the new adapter before unloading the superseded one |
 | `VLLM_MAX_LORA_RANK` | `64` | `--max-lora-rank` for runtime LoRA |
+| `INFERENCE_SMOKE_ENABLED` | `true` | Run the deploy-time smoke test before the alias moves |
+| `INFERENCE_SMOKE_PROMPT` | `Return OK.` | Prompt sent to a just-loaded adapter to prove it generates |
+| `INFERENCE_SMOKE_MIN_CHARS` | `1` | Minimum generated-output length for the smoke test to pass |
+| `INFERENCE_MAX_TOKENS` | `128` | Max tokens for a generation (smoke test + inference endpoint) |
 | `JWT_SECRET` | `dev-secret-change-in-production` | JWT signing secret (**change in prod**) |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
 | `JWT_EXPIRE_MINUTES` | `1440` (24h) | Access token lifetime |

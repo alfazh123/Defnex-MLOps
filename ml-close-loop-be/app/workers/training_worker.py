@@ -1,6 +1,7 @@
 import time
 from typing import Protocol
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,8 @@ from app.workers.gpu_orchestrator import (
     VRAMNotFree,
     make_coordinator,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class TrainingRunner(Protocol):
@@ -84,9 +87,10 @@ def process_next_job(
                         # COMPLETED — without it nothing in a running system ever creates a
                         # ModelVersion, so the loop never closes.
                         model_service.register_model_version(db, training_run)
-            except (VRAMNotFree, ServingStopFailed):
+            except (VRAMNotFree, ServingStopFailed) as exc:
                 # Serving could not be made safe for training: the run is not started,
                 # stays PENDING, and the poll is skipped so the next iteration retries it.
+                logger.warning("serving_preflight_failed", reason=str(exc))
                 return None
     except TimeoutError:
         return None

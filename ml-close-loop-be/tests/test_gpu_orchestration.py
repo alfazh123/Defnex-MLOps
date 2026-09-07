@@ -5,18 +5,27 @@ import subprocess
 import sys
 import threading
 import time
+import types
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.config import Settings, settings
 from app.db.base import Base
 from app.services import training_service
 from app.workers.gpu_orchestrator import (
     MockServingControl,
+    NvidiaSmiVRAMReader,
+    NoopServingCoordinator,
+    RealServingCoordinator,
+    ServingStartFailed,
     ServingStopFailed,
+    ShellServingControl,
     StubVRAMReader,
     VRAMNotFree,
+    make_coordinator,
     serving_cycle,
 )
 from app.workers.training_worker import process_next_job
@@ -490,3 +499,132 @@ with Session(engine) as check:
     assert child.returncode == 0
     assert time.monotonic() - started_at < 15  # exited promptly, did not keep polling
     assert pathlib.Path(marker).read_text() == "stop,start,health_check|PENDING"
+
+
+# ── real-impl wiring (no GPU touched): subprocess mocked, settings driven explicitly ──
+
+
+def test_shell_control_runs_configured_command_and_noops_empty(monkeypatch):
+    """`ShellServingControl` runs exactly the configured command and treats an
+    unconfigured (empty) command as a no-op success."""
+    calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append(args)
+        return types.SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("app.workers.gpu_orchestrator.subprocess.run", fake_run)
+    control = ShellServingControl(
+        stop_cmd="docker stop vllm", start_cmd="", health_cmd=""
+    )
+    control.stop()
+    control.start()  # empty command -> no subprocess call
+    assert control.health_check() is True
+    assert len(calls) == 1
+    assert calls[0][0] == "docker stop vllm"
+
+
+def test_shell_control_nonzero_returncode_raises(monkeypatch):
+    """The Protocol contract — stop/start raise on failure, health_check returns False —
+    is honored by the real implementation behind a failing (`returncode=1`) command."""
+    monkeypatch.setattr(
+        "app.workers.gpu_orchestrator.subprocess.run",
+        lambda *a, **k: types.SimpleNamespace(returncode=1),
+    )
+    with pytest.raises(ServingStopFailed):
+        ShellServingControl(stop_cmd="stop").stop()
+    with pytest.raises(ServingStartFailed):
+        ShellServingControl(start_cmd="start").start()
+    assert ShellServingControl(health_cmd="curl /health").health_check() is False
+
+
+def test_shell_control_timeout_propagates(monkeypatch):
+    """A hung command must not stall the worker forever — the subprocess timeout is
+    honored and the wrapped cycle turns it into a ServingStopFailed pre-flight failure."""
+
+    def fake_run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs["timeout"])
+
+    monkeypatch.setattr("app.workers.gpu_orchestrator.subprocess.run", fake_run)
+    with pytest.raises(subprocess.TimeoutExpired):
+        ShellServingControl(stop_cmd="hung", timeout=1.0).stop()
+
+
+def test_make_coordinator_default_is_noop():
+    """`SERVING_CONTROL=mock` (default) must yield a no-op coordinator — the worker
+    never touches serving, preserving pre-#39 behavior."""
+    assert isinstance(make_coordinator(), NoopServingCoordinator)
+
+
+def test_make_coordinator_shell_wires_real_cycle(monkeypatch):
+    """`SERVING_CONTROL=shell` maps each setting to its real implementation:
+    shell command control + real nvidia-smi reader into a RealServingCoordinator.
+    Constructing the reader is safe (only `free_mb()` would touch the GPU)."""
+    monkeypatch.setattr(settings, "serving_control", "shell")
+    monkeypatch.setattr(settings, "serving_stop_cmd", "stop")
+    monkeypatch.setattr(settings, "serving_start_cmd", "start")
+    monkeypatch.setattr(settings, "serving_health_cmd", "health")
+    monkeypatch.setattr(settings, "vram_reader", "nvidia_smi")
+    monkeypatch.setattr(settings, "vram_free_threshold_mb", 10000)
+
+    coordinator = make_coordinator()
+    assert isinstance(coordinator, RealServingCoordinator)
+    assert isinstance(coordinator._control, ShellServingControl)
+    assert isinstance(coordinator._vram, NvidiaSmiVRAMReader)
+
+
+def test_make_coordinator_shell_rejects_mock_vram(monkeypatch):
+    """Shell mode with a mock VRAM reader must fail loudly, never silently fake the
+    free-VRAM verification (the config validator is the first guard; this is the
+    second, for programmatically-constructed settings)."""
+    monkeypatch.setattr(settings, "serving_control", "shell")
+    monkeypatch.setattr(settings, "vram_reader", "mock")
+    with pytest.raises(ValueError, match="nvidia_smi"):
+        make_coordinator()
+
+
+# ── Settings validator: no half-configured safety pipeline ──
+
+
+def _shell_settings(**overrides):
+    base = {
+        "serving_control": "shell",
+        "serving_stop_cmd": "stop",
+        "serving_start_cmd": "start",
+        "serving_health_cmd": "health",
+        "vram_reader": "nvidia_smi",
+        "vram_free_threshold_mb": 4096,
+    }
+    base.update(overrides)
+    return Settings(_env_file=None, **base)
+
+
+def test_settings_shell_requires_explicit_threshold():
+    """No built-in VRAM threshold default until a governance decision exists —
+    shell mode refuses to start unless the operator explicitly picks a value."""
+    kwargs = {
+        "serving_control": "shell",
+        "serving_stop_cmd": "stop",
+        "serving_start_cmd": "start",
+        "serving_health_cmd": "health",
+        "vram_reader": "nvidia_smi",
+    }
+    with pytest.raises(ValidationError, match="VRAM_FREE_THRESHOLD_MB"):
+        Settings(_env_file=None, **kwargs)  # threshold left at its default -> not set
+
+
+def test_settings_shell_rejects_mock_vram_reader():
+    with pytest.raises(ValidationError, match="VRAM_READER"):
+        _shell_settings(vram_reader="mock")
+
+
+def test_settings_shell_rejects_empty_command():
+    with pytest.raises(ValidationError, match="SERVING_STOP_CMD"):
+        _shell_settings(serving_stop_cmd="")
+
+
+def test_settings_shell_accepts_fully_configured():
+    configured = _shell_settings(vram_free_threshold_mb=16384)
+    assert configured.serving_control == "shell"
+    assert configured.vram_reader == "nvidia_smi"
+    assert configured.vram_free_threshold_mb == 16384

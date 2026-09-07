@@ -197,10 +197,16 @@ def serving_cycle(
             raise ServingStopFailed(str(exc)) from exc
 
         deadline = time.monotonic() + timeout
+        read_failure_logged = False
         while True:
             try:
                 free = vram.free_mb()
-            except Exception:  # noqa: BLE001 - a VRAM read failure must not crash the worker
+            except Exception:  # noqa: BLE001 - a read failure must not crash the worker
+                if not read_failure_logged:
+                    # One warning per cycle (not per poll): a persistently failing reader
+                    # would otherwise spam the same line every poll for the whole timeout.
+                    read_failure_logged = True
+                    logger.warning("vram_read_failed", exc_info=True)
                 free = 0
             if free >= threshold_mb:
                 break
@@ -333,10 +339,15 @@ def make_coordinator() -> ServingCoordinator:
             health_cmd=settings.serving_health_cmd,
             timeout=settings.serving_command_timeout,
         )
-        if settings.vram_reader == "nvidia_smi":
-            vram: VRAMReader = NvidiaSmiVRAMReader()
-        else:
-            vram = StubVRAMReader(free_mb=settings.vram_free_threshold_mb)
+        # `Settings` rejects `SERVING_CONTROL=shell` without `VRAM_READER=nvidia_smi`;
+        # the guard here closes the bypass for programmatically-constructed settings so a
+        # mock reader can never silently fake the free-VRAM verification shell mode promises.
+        if settings.vram_reader != "nvidia_smi":
+            raise ValueError(
+                "SERVING_CONTROL=shell requires VRAM_READER=nvidia_smi; a mock reader "
+                "would fake the free-VRAM check"
+            )
+        vram: VRAMReader = NvidiaSmiVRAMReader()
         return RealServingCoordinator(
             control=control,
             vram=vram,

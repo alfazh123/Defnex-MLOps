@@ -188,7 +188,14 @@ worker never touches serving — preserving the pre-#39 behavior for tests and
 no-GPU dev). With `shell`, `SERVING_STOP_CMD` / `SERVING_START_CMD` /
 `SERVING_HEALTH_CMD` are shell commands run with a per-command timeout
 (`SERVING_COMMAND_TIMEOUT`), and `VRAM_READER=nvidia_smi` reads real free memory
-via `nvidia-smi` (`mock` assumes the threshold is met).
+via `nvidia-smi`.
+
+Shell mode is all-or-nothing, validated at startup: `Settings` refuses to start
+with a half-configured safety pipeline. `SERVING_CONTROL=shell` requires all
+three commands to be non-empty, `VRAM_READER=nvidia_smi` (a mock reader would
+silently report the threshold as met and fake the verification), and
+`VRAM_FREE_THRESHOLD_MB` explicitly set (no built-in default until a governance
+decision picks the shared-H100 free-VRAM budget).
 
 ## Error Codes
 
@@ -256,8 +263,8 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `SERVING_START_CMD` | *(empty)* | Shell command that restarts serving (run after training) |
 | `SERVING_HEALTH_CMD` | *(empty)* | Shell command returning 0 when serving is healthy again |
 | `SERVING_COMMAND_TIMEOUT` | `60` | Per-command timeout for the serving stop/start/health commands |
-| `VRAM_READER` | `mock` | `mock` (threshold assumed met) or `nvidia_smi` (real `nvidia-smi` read) |
-| `VRAM_FREE_THRESHOLD_MB` | `8192` | Free VRAM (MB) required before training starts |
+| `VRAM_READER` | `mock` | `mock` = verification off (default). `SERVING_CONTROL=shell` requires `nvidia_smi` (real `nvidia-smi` read) |
+| `VRAM_FREE_THRESHOLD_MB` | — | Free VRAM (MB) required before training starts; `SERVING_CONTROL=shell` requires it set explicitly — no default until a governance decision |
 | `VRAM_CHECK_POLL` | `5` | Seconds between VRAM checks while waiting for free memory |
 | `VRAM_CHECK_TIMEOUT` | `300` | Seconds to wait for free VRAM before skipping the run (stays PENDING) |
 | `EVAL_GATE_REQUIRE_EVAL_SET_REFERENCE` | `true` | Promotion requires a recorded eval-set reference |

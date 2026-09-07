@@ -1,5 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -77,6 +78,51 @@ class Settings(BaseSettings):
     vram_free_threshold_mb: int = 8192
     vram_check_poll: float = 5.0
     vram_check_timeout: int = 300
+
+    @model_validator(mode="after")
+    def _validate_serving_coordination(self) -> Self:
+        """No half-configured safety pipeline.
+
+        `serving_control=shell` only activates the real stop/verify/train/restart
+        cycle; with default `mock` every field below is inert. Shell mode therefore
+        requires its full configuration to be deliberately set — an empty command
+        or a mock VRAM reader would silently pretend the safety checks ran while
+        the operator believes the whole pipeline is active:
+        - the stop/start/health-check commands must all be non-empty;
+        - the VRAM reader must be the real `nvidia_smi` (a mock reader that always
+          reports the threshold as met fakes the free-VRAM verification);
+        - `vram_free_threshold_mb` must be set explicitly — there is no built-in
+          default until a governance decision picks an H100 free-VRAM budget.
+        """
+        if self.serving_control != "shell":
+            return self
+        missing = [
+            name
+            for name, value in (
+                ("SERVING_STOP_CMD", self.serving_stop_cmd),
+                ("SERVING_START_CMD", self.serving_start_cmd),
+                ("SERVING_HEALTH_CMD", self.serving_health_cmd),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "SERVING_CONTROL=shell requires non-empty commands; "
+                f"missing: {', '.join(missing)}"
+            )
+        if self.vram_reader != "nvidia_smi":
+            raise ValueError(
+                "SERVING_CONTROL=shell requires VRAM_READER=nvidia_smi; a mock "
+                "reader would fake the free-VRAM check the shell mode promises"
+            )
+        if "vram_free_threshold_mb" not in self.model_fields_set:
+            raise ValueError(
+                "SERVING_CONTROL=shell requires VRAM_FREE_THRESHOLD_MB to be set "
+                "explicitly (no default until a governance decision exists)"
+            )
+        if self.vram_free_threshold_mb <= 0:
+            raise ValueError("VRAM_FREE_THRESHOLD_MB must be positive")
+        return self
 
     # Logging
     debug: bool = False

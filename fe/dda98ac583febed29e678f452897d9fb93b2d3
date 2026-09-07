@@ -1,0 +1,24 @@
+ml-close-loop-be/tests/test_gpu_orchestration.py
+  s_0f6821ed0e22fe::t_161cf8da0e4b77 6,35-48
+  s_0f6821ed0e22fe::t_b1c750a3122142 78,82
+  s_0f6821ed0e22fe::t_c25dbf063cdbfb 59
+  s_0f6821ed0e22fe::t_1639491e281e1f 218-219
+  s_0f6821ed0e22fe::t_ab76daa4fc58aa 488
+  s_0f6821ed0e22fe::t_9150020730afe9 49-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "fedda98ac583febed29e678f452897d9fb93b2d3",
+  "prompts": {},
+  "sessions": {
+    "s_0f6821ed0e22fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ccc5bff-edd2-459d-b456-37fe93cbb5d2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.dataset import Dataset, DatasetVersion as DatasetVersionModel
+from app.models.feedback import Feedback
 from app.schemas.dataset import (
     DatasetManifest,
     DatasetSummary,
@@ -23,6 +24,15 @@ def register_dataset(db: Session, dataset_id: str) -> Dataset:
     return dataset
 
 
+def _next_version(db: Session, dataset_id: str) -> int:
+    latest_version = db.scalar(
+        select(DatasetVersionModel.version)
+        .where(DatasetVersionModel.dataset_id == dataset_id)
+        .order_by(DatasetVersionModel.version.desc())
+    )
+    return (latest_version or 0) + 1
+
+
 def create_dataset_version(
     db: Session, dataset_id: str, request: DatasetVersionCreateRequest
 ) -> DatasetVersionModel:
@@ -34,22 +44,65 @@ def create_dataset_version(
 
     register_dataset(db, dataset_id)
 
-    latest_version = db.scalar(
-        select(DatasetVersionModel.version)
-        .where(DatasetVersionModel.dataset_id == dataset_id)
-        .order_by(DatasetVersionModel.version.desc())
-    )
-    next_version = (latest_version or 0) + 1
-
     version = DatasetVersionModel(
         dataset_id=dataset_id,
-        version=next_version,
+        version=_next_version(db, dataset_id),
         status="PROCESSED",
+        source_type=request.source_type,
         source_url_or_hf_id=request.source_dataset,
         source_commit_or_snapshot_date=request.source_commit_or_snapshot_date,
         source_format=request.source_format,
         seed=None,
         row_count=None,
+        cleaning_steps_applied=[],
+        created_at=datetime.now(timezone.utc),
+        created_by=None,
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+def create_dataset_version_from_feedback(
+    db: Session, dataset_id: str, feedback_ids: list[str], source_format: str
+) -> DatasetVersionModel:
+    """Create the next version for `dataset_id` from curated feedback (issue #42).
+
+    Every id in `feedback_ids` must resolve to an existing, `APPROVED` `Feedback` row - a
+    missing id raises `ValueError("... not found")` (API 404), a not-yet-`APPROVED` one raises
+    `ValueError("... not APPROVED")` (API 409); no version is created either way. Selection is
+    explicit and manual (the request lists exact ids) - there is no automatic
+    threshold-based trigger, matching issue #42's stated scope.
+    """
+
+    rows = list(
+        db.scalars(select(Feedback).where(Feedback.feedback_id.in_(feedback_ids)))
+    )
+    found_ids = {row.feedback_id for row in rows}
+    missing = [fid for fid in feedback_ids if fid not in found_ids]
+    if missing:
+        raise ValueError(f"feedback_id(s) not found: {', '.join(missing)}")
+
+    not_approved = [
+        row.feedback_id for row in rows if row.curation_status != "APPROVED"
+    ]
+    if not_approved:
+        raise ValueError(f"feedback_id(s) not APPROVED: {', '.join(not_approved)}")
+
+    register_dataset(db, dataset_id)
+
+    version = DatasetVersionModel(
+        dataset_id=dataset_id,
+        version=_next_version(db, dataset_id),
+        status="PROCESSED",
+        source_type="feedback",
+        source_feedback_ids=feedback_ids,
+        source_url_or_hf_id=None,
+        source_commit_or_snapshot_date=None,
+        source_format=source_format,
+        seed=None,
+        row_count=len(feedback_ids),
         cleaning_steps_applied=[],
         created_at=datetime.now(timezone.utc),
         created_by=None,
@@ -147,12 +200,14 @@ def to_schema(version: DatasetVersionModel) -> DatasetVersionSchema:
         version=version.version,
         status=version.status,
         manifest=DatasetManifest(
+            source_type=version.source_type,
             source_url_or_hf_id=version.source_url_or_hf_id,
             source_commit_or_snapshot_date=version.source_commit_or_snapshot_date,
             source_format=version.source_format,
             seed=version.seed,
             row_count=version.row_count,
             cleaning_steps_applied=version.cleaning_steps_applied,
+            source_feedback_ids=version.source_feedback_ids,
             created_at=version.created_at,
             created_by=version.created_by,
         ),

@@ -294,13 +294,68 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DatasetVersion'
-                title: Response List Dataset Versions Api V1 Datasets  Dataset Id  Versions Get
+                title: Response List Dataset Versions Api V1 Datasets  Dataset Id  Versions
+                  Get
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/datasets/{dataset_id}/versions/from-feedback:
+    post:
+      tags:
+      - Datasets
+      summary: Create Dataset Version From Feedback
+      description: 'Create a dataset version from curated, APPROVED feedback (issue
+        #42) - closes the
+
+        loop from inference response -> feedback -> next training dataset.'
+      operationId: create_dataset_version_from_feedback_api_v1_datasets__dataset_id__versions_from_feedback_post
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackDatasetVersionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetVersion'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
         '422':
           description: Validation Error
           content:
@@ -422,7 +477,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/EvalSetVersion'
-                title: Response List Eval Set Versions Api V1 Eval Sets  Eval Set Id  Versions Get
+                title: Response List Eval Set Versions Api V1 Eval Sets  Eval Set
+                  Id  Versions Get
         '404':
           content:
             application/json:
@@ -502,6 +558,262 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/feedback:
+    post:
+      tags:
+      - Feedback
+      summary: Submit Feedback
+      description: 'Submit feedback on an inference response (issue #42). `model_id`/`version`
+        must be an
+
+        existing model version - `get_model_version_or_404` (issue #36''s helper)
+        resolves it the
+
+        same way every other model-version-scoped endpoint does.'
+      operationId: submit_feedback_api_v1_feedback_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Feedback
+      summary: List Feedback
+      description: '`fl.status` filters on curation_status (PENDING/APPROVED/REJECTED);
+        `fl.model` filters
+
+        on the referenced model_id - same `FilterParams`/`PaginationParams` every
+        other list
+
+        endpoint uses, no new pagination/filter logic (issue #42''s own explicit requirement).'
+      operationId: list_feedback_api_v1_feedback_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: model
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_FeedbackRecord_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/feedback/candidates:
+    get:
+      tags:
+      - Feedback
+      summary: List Candidates
+      description: 'Every APPROVED feedback row as a canonical record, ready to feed
+        straight into
+
+        `POST .../validate` or the from-feedback dataset-version endpoint (issue #42).'
+      operationId: list_candidates_api_v1_feedback_candidates_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response List Candidates Api V1 Feedback Candidates Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/feedback/{feedback_id}/approve:
+    post:
+      tags:
+      - Feedback
+      summary: Approve Feedback
+      operationId: approve_feedback_api_v1_feedback__feedback_id__approve_post
+      parameters:
+      - name: feedback_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feedback Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/FeedbackCurateRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/feedback/{feedback_id}/reject:
+    post:
+      tags:
+      - Feedback
+      summary: Reject Feedback
+      operationId: reject_feedback_api_v1_feedback__feedback_id__reject_post
+      parameters:
+      - name: feedback_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feedback Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/FeedbackCurateRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
         '422':
           description: Validation Error
           content:
@@ -594,7 +906,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ValidationReport'
-                title: Response List Validation Reports Api V1 Datasets  Dataset Id  Versions  Version  Validation Reports Get
+                title: Response List Validation Reports Api V1 Datasets  Dataset Id  Versions  Version  Validation
+                  Reports Get
         '404':
           content:
             application/json:
@@ -1160,14 +1473,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
-        '502':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: 'Bad Gateway - the vLLM serving backend could not load or unload the
-            adapter (issue #40): `DEPLOY_FAILED`. The deployment pointer is unchanged because the
-            load runs before any DB mutation.'
         '422':
           description: Validation Error
           content:
@@ -1218,14 +1523,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
-        '502':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: 'Bad Gateway - the vLLM serving backend could not load the adapter (issue
-            #40): `DEPLOY_FAILED`. The deployment pointer is unchanged because the load runs
-            before any DB mutation.'
         '422':
           description: Validation Error
           content:
@@ -1275,11 +1572,14 @@ paths:
       tags:
       - Deployment
       summary: Get Deployment By Alias
-      description: 'Resolve a deployment alias (currently only ``prod``) to the production version, via the
+      description: 'Resolve a deployment alias (currently only ``prod``) to the production
+        version, via the
 
-        single resolution function `deployment_service.resolve_alias` (openapi.yaml DeploymentStatus
+        single resolution function `deployment_service.resolve_alias` (openapi.yaml
+        DeploymentStatus
 
-        alias resolution). Unknown alias -> 422, model unknown -> 404 MODEL_NOT_FOUND, model never
+        alias resolution). Unknown alias -> 422, model unknown -> 404 MODEL_NOT_FOUND,
+        model never
 
         deployed -> 404 DEPLOYMENT_NOT_FOUND (explicit - never a None that propagates).'
       operationId: get_deployment_by_alias_api_v1_models__model_id__deployment__alias__get
@@ -1326,16 +1626,20 @@ paths:
       tags:
       - Inference
       summary: Run Inference
-      description: 'Generate from a model, addressed by deployment alias (`prod`, resolved via
-        the single deployment_service.resolve_alias function from issue #36) or by explicit
-        version number. Alias resolution reuses the single alias function - there is no second
-        resolution logic here. An explicit version must be the DEPLOYED one. Unknown model or an
-        explicit version that does not exist for the model -> 404 MODEL_NOT_FOUND, unknown alias
-        -> 404 UNKNOWN_DEPLOYMENT_ALIAS, known alias with no deployed version -> 404
-        DEPLOYMENT_NOT_FOUND, version exists but not DEPLOYED -> 409 INFERENCE_NOT_ALLOWED,
-        upstream serving failure -> 502 INFERENCE_FAILED. The deployment-time smoke test (issue #41) runs inside
-        deployment_service.deploy after the adapter is loaded but before the alias moves; a
-        failure returns 502 SMOKE_TEST_FAILED and the alias stays on the old version.'
+      description: 'Generate from a model, addressed by deployment alias (`prod`,
+        resolved via the single
+
+        `deployment_service.resolve_alias` function from issue #36) or by explicit
+        version number.
+
+
+        Unknown alias / missing version / never-deployed model are explicit 404s;
+        a version that
+
+        exists but is not the DEPLOYED one is 409; an upstream serving failure is
+        502 - never a
+
+        500 traceback (issue #41).'
       operationId: run_inference_api_v1_models__model_id__inference_post
       parameters:
       - name: model_id
@@ -1368,24 +1672,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: 'Not Found - model unknown (MODEL_NOT_FOUND), an explicit version that
-            does not exist for the model (also MODEL_NOT_FOUND), unknown alias
-            (UNKNOWN_DEPLOYMENT_ALIAS), or known alias with no deployed version
-            (DEPLOYMENT_NOT_FOUND).'
+          description: Not Found
         '409':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: 'Conflict - the requested explicit version exists but is not the DEPLOYED
-            one (INFERENCE_NOT_ALLOWED).'
+          description: Conflict
         '502':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: 'Bad Gateway - the serving backend could not generate (INFERENCE_FAILED),
-            or a deploy-time smoke test failed (SMOKE_TEST_FAILED).'
+          description: Bad Gateway
         '422':
           description: Validation Error
           content:
@@ -1419,6 +1718,15 @@ components:
       description: A stored model artifact (openapi.yaml Artifact).
     DatasetManifest:
       properties:
+        source_type:
+          anyOf:
+          - type: string
+            enum:
+            - huggingface
+            - file_upload
+            - feedback
+          - type: 'null'
+          title: Source Type
         source_url_or_hf_id:
           anyOf:
           - type: string
@@ -1453,6 +1761,13 @@ components:
           type: array
           title: Cleaning Steps Applied
           default: []
+        source_feedback_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Source Feedback Ids
         created_at:
           type: string
           format: date-time
@@ -1516,7 +1831,8 @@ components:
       - status
       - manifest
       title: DatasetVersion
-      description: A dataset version's manifest and current processing status (openapi.yaml DatasetVersion).
+      description: A dataset version's manifest and current processing status (openapi.yaml
+        DatasetVersion).
     DatasetVersionCreateRequest:
       properties:
         source_type:
@@ -1570,9 +1886,11 @@ components:
       - decision
       - rationale
       title: DecisionCreateRequest
-      description: 'Request body for POST .../decisions (openapi.yaml DecisionCreateRequest). Restricted to
+      description: 'Request body for POST .../decisions (openapi.yaml DecisionCreateRequest).
+        Restricted to
 
-        PROMOTED|REJECTED - ROLLBACK is only ever produced via POST /models/{model_id}/rollback (US-017).'
+        PROMOTED|REJECTED - ROLLBACK is only ever produced via POST /models/{model_id}/rollback
+        (US-017).'
     DecisionRecord:
       properties:
         decision_id:
@@ -1631,7 +1949,8 @@ components:
       - decided_at
       - rationale
       title: DecisionRecord
-      description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers promotion, rejection, and
+      description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
+        promotion, rejection, and
 
         rollback with one schema.'
     DeployResult:
@@ -1679,11 +1998,14 @@ components:
       required:
       - model_id
       title: DeploymentStatus
-      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus), a separate resource
+      description: 'The model-level deployment pointer (openapi.yaml DeploymentStatus),
+        a separate resource
 
-        from any single version''s registry record. `status` has no full enum yet - only "DEPLOYED"
+        from any single version''s registry record. `status` has no full enum yet
+        - only "DEPLOYED"
 
-        is confirmed by any source document - and is null when nothing has ever been deployed.'
+        is confirmed by any source document - and is null when nothing has ever been
+        deployed.'
     ErrorDetail:
       properties:
         code:
@@ -1824,7 +2146,8 @@ components:
       - evaluation
       - status
       title: EvaluationSubmitResponse
-      description: Inline response shape for POST .../evaluation (openapi.yaml, not a named component).
+      description: Inline response shape for POST .../evaluation (openapi.yaml, not
+        a named component).
     EvaluationUpdateRequest:
       properties:
         eval_set_id:
@@ -1851,16 +2174,179 @@ components:
           - type: 'null'
       type: object
       title: EvaluationUpdateRequest
-      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest) - any subset of the
+      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest)
+        - any subset of the
 
-        three signal fields may be submitted; the backend merges onto the existing record.
+        three signal fields may be submitted; the backend merges onto the existing
+        record.
 
 
-        `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals were
+        `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals
+        were
 
-        measured against (issue #43); they are stored once, on the model version, and may be
+        measured against (issue #43); they are stored once, on the model version,
+        and may be
 
         (re)submitted alongside any signal.'
+    FeedbackCreateRequest:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+        version:
+          type: integer
+          title: Version
+        prompt:
+          type: string
+          minLength: 1
+          title: Prompt
+        response:
+          type: string
+          minLength: 1
+          title: Response
+        rating:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Rating
+        correction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correction
+      type: object
+      required:
+      - model_id
+      - version
+      - prompt
+      - response
+      - rating
+      title: FeedbackCreateRequest
+      description: 'Submit feedback on an inference response (issue #42).
+
+
+        `model_id`/`version` identify the concrete `ModelVersion` that produced `response`
+
+        (`InferenceResponse.model_id`/`version`, issue #41) - not an alias, so the
+        reference is
+
+        traceable to an exact version regardless of what is DEPLOYED later. `rating`
+        is a plain
+
+        1-5 input-validation bound (a common feedback scale), not an invented evaluation
+        metric.
+
+        `correction` is optional - a human-authored better answer, when the reviewer
+        has one.'
+    FeedbackCurateRequest:
+      properties:
+        curated_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curated By
+      type: object
+      title: FeedbackCurateRequest
+      description: 'Optional body for the approve/reject endpoints - who curated it,
+        for the audit trail
+
+        (same pattern as `DecisionCreateRequest.decided_by`).'
+    FeedbackDatasetVersionRequest:
+      properties:
+        feedback_ids:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Feedback Ids
+        source_format:
+          type: string
+          enum:
+          - alpaca
+          - sharegpt
+          - chatml
+          - other
+          title: Source Format
+      type: object
+      required:
+      - feedback_ids
+      - source_format
+      title: FeedbackDatasetVersionRequest
+      description: 'Create a dataset version from approved feedback candidates (issue
+        #42).
+
+
+        `feedback_ids` is an explicit, manual selection - there is no automatic threshold-based
+
+        trigger (issue #42''s own "out of scope"). `source_format` still has to be
+        chosen the same
+
+        way it does for `DatasetVersionCreateRequest`; feedback rows don''t carry
+        one themselves.'
+    FeedbackRecord:
+      properties:
+        feedback_id:
+          type: string
+          title: Feedback Id
+        model_id:
+          type: string
+          title: Model Id
+        version:
+          type: integer
+          title: Version
+        prompt:
+          type: string
+          title: Prompt
+        response:
+          type: string
+          title: Response
+        rating:
+          type: integer
+          title: Rating
+        correction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correction
+        curation_status:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          title: Curation Status
+        submitted_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Submitted By
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+        curated_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curated By
+        curated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Curated At
+      type: object
+      required:
+      - feedback_id
+      - model_id
+      - version
+      - prompt
+      - response
+      - rating
+      - curation_status
+      - submitted_at
+      title: FeedbackRecord
+      description: A feedback row (openapi.yaml Feedback).
     GeneralDomainRegressionCheck:
       properties:
         checked:
@@ -1891,19 +2377,27 @@ components:
         target:
           type: string
           title: Target
-          description: Deployment alias (e.g. 'prod') or an explicit deployed version number.
+          description: Deployment alias (e.g. 'prod') or an explicit deployed version
+            number
         prompt:
           type: string
           minLength: 1
           title: Prompt
+          description: Prompt to generate from
       type: object
       required:
       - target
       - prompt
       title: InferenceRequest
-      description: Body for POST /api/v1/models/{model_id}/inference. `target` is either a
-        deployment alias (``prod``, resolved via the single deployment_service.resolve_alias
-        function from issue #36) or an explicit version number.
+      description: 'Body for POST /api/v1/models/{model_id}/inference.
+
+
+        `target` is either a deployment alias (``prod``, resolved via the single
+
+        `deployment_service.resolve_alias` function) or an explicit version number
+        (the model''s
+
+        DEPLOYED version). `prompt` is the text to generate from.'
     InferenceResponse:
       properties:
         model_id:
@@ -1921,8 +2415,13 @@ components:
       - version
       - generation
       title: InferenceResponse
-      description: A generation result. model_id/version identify the concrete version whose
-        adapter actually served the request (issue #41), not an alias.
+      description: 'A generation result. `model_id` / `version` identify the concrete
+        version whose adapter
+
+        actually served the request (issue #41) - not an alias, so callers know exactly
+        which
+
+        model produced the output.'
     LoginRequest:
       properties:
         username:
@@ -1947,9 +2446,6 @@ components:
         name:
           type: string
           title: Name
-          description: >-
-            Version name `{project}-{base_model}-v{N}` (issue #38); also the immutable
-            artifact directory name for this version.
         status:
           type: string
           enum:
@@ -2086,6 +2582,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[DatasetSummary]
+    PaginatedResponse_FeedbackRecord_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/FeedbackRecord'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[FeedbackRecord]
     PaginatedResponse_TrainingRun_:
       properties:
         items:
@@ -2192,7 +2715,8 @@ components:
       - rollback_of_version
       - rationale
       title: RollbackRequest
-      description: Request body for POST /models/{model_id}/rollback (openapi.yaml RollbackRequest).
+      description: Request body for POST /models/{model_id}/rollback (openapi.yaml
+        RollbackRequest).
     TokenResponse:
       properties:
         access_token:
@@ -2432,7 +2956,8 @@ components:
       - training_config
       - created_at
       title: TrainingRun
-      description: A training run's stored record plus live status/progress (openapi.yaml TrainingRun).
+      description: A training run's stored record plus live status/progress (openapi.yaml
+        TrainingRun).
     TrainingRunCreateRequest:
       properties:
         dataset_id:
@@ -2539,21 +3064,27 @@ components:
       description: 'Optional body for POST .../validate (openapi.yaml ValidateDatasetVersionRequest).
 
 
-        `records` is the actual record content to run the hard-error rules against — the
+        `records` is the actual record content to run the hard-error rules against
+        — the
 
-        client supplies it because no intake/normalization pipeline persists record content
+        client supplies it because no intake/normalization pipeline persists record
+        content
 
-        in this system yet (see progress.txt US-005/US-006). It is required and must be
+        in this system yet (see progress.txt US-005/US-006). It is required and must
+        be
 
-        non-empty so a validation report can never claim PASS over content that was never
+        non-empty so a validation report can never claim PASS over content that was
+        never
 
         examined; the report records a SHA-256 fingerprint of exactly what was checked.
 
         `eval_records` is the legacy inline eval-set content for the H8 leakage check;
 
-        `eval_set_id`/`eval_set_version` reference a stored golden/eval set (issue #43) and
+        `eval_set_id`/`eval_set_version` reference a stored golden/eval set (issue
+        #43) and
 
-        take precedence when both are supplied -- the stored eval set is the real comparison
+        take precedence when both are supplied -- the stored eval set is the real
+        comparison
 
         surface for the H8 check.'
     ValidationError:
@@ -2652,7 +3183,8 @@ components:
       - gate_decision
       - gate_reason
       title: ValidationReport
-      description: Dataset-level validation report (validation-rules.md §5/§7, openapi.yaml ValidationReport).
+      description: Dataset-level validation report (validation-rules.md §5/§7, openapi.yaml
+        ValidationReport).
     ValidationStatusCounts:
       properties:
         VALID:

@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 28 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 33 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -36,9 +36,16 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
   production alias moves to it, the adapter must produce a generation at or above a
   configurable threshold; a failing smoke test aborts the deploy and the alias stays on the
   old version
+- Feedback curation loop (issue #42): `POST /feedback` records a rating/correction against a
+  concrete model version; admin `approve`/`reject` moves it out of `PENDING` (compare-and-set,
+  so two concurrent approvals on the same row can't both win); `GET /feedback/candidates` lists
+  every `APPROVED` row as a canonical `{messages: [...]}` record; `POST
+  /datasets/{id}/versions/from-feedback` turns a set of approved feedback ids into a new,
+  `PROCESSED` dataset version with `source_type="feedback"` and `source_feedback_ids` recorded
+  in its manifest for provenance
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
-- pytest-cov coverage gate `--cov-fail-under=80` (currently 423 tests, 97% coverage)
+- pytest-cov coverage gate `--cov-fail-under=80` (currently 477 tests, 96% coverage)
 
 ## Quickstart — Docker
 
@@ -247,7 +254,10 @@ decision picks the shared-H100 free-VRAM budget).
 | `404` | `EVAL_SET_NOT_FOUND` | `eval_set_id` (or version) does not exist |
 | `404` | `DEPLOYMENT_NOT_FOUND` | Known alias resolves to no deployed version |
 | `404` | `UNKNOWN_DEPLOYMENT_ALIAS` | Inference `target` is not a known alias |
+| `404` | `FEEDBACK_NOT_FOUND` | `feedback_id` does not exist (approve/reject) or one of the `feedback_ids` in a from-feedback dataset request does not exist |
 | `409` | `USERNAME_TAKEN` | Register with existing username |
+| `409` | `FEEDBACK_NOT_PENDING` | Approve/reject on feedback that is already `APPROVED`/`REJECTED`, or lost a concurrent curation race |
+| `409` | `FEEDBACK_NOT_APPROVED` | from-feedback dataset version request includes a `feedback_id` that is not `APPROVED` |
 | `409` | `EVAL_SET_OVERLAP` | Eval-set record duplicates already-validated training content (H8) |
 | `409` | `EVAL_SET_EMPTY` | Validate/train against an eval set that has no versions |
 | `409` | `PROMOTION_GATE_BLOCKED` | `PROMOTED` decision failed the eval gate (missing eval-set ref, no majority win, regressions found, or eval-loss worse) |

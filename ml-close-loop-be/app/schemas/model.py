@@ -17,6 +17,7 @@ class Artifact(BaseModel):
     type: ArtifactType
     uri: str
     size_bytes: int | None = None
+    checksum: str | None = None
 
 
 class EvalLossTrend(BaseModel):

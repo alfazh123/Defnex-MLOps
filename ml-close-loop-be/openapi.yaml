@@ -1768,6 +1768,11 @@ components:
           - type: integer
           - type: 'null'
           title: Size Bytes
+        checksum:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Checksum
       type: object
       required:
       - type

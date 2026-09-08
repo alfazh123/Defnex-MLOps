@@ -176,7 +176,10 @@ def register_model_version(
         final_uri = (storage or LocalFilesystemArtifactStorage()).finalize_version(
             model_id, model_version.name, Path(staging_dir), metadata
         )
-        model_version.artifacts = [{"type": "adapter", "uri": final_uri}]
+        checksum = metadata["checksum"]
+        model_version.artifacts = [
+            {"type": "adapter", "uri": final_uri, "checksum": checksum}
+        ]
         training_run.artifact_uri = final_uri
         db.flush()
 

@@ -86,3 +86,53 @@ def test_finalize_version_writes_metadata_json(tmp_path):
     target = tmp_path / "qwen-sft-domain-x" / metadata["name"]
     written = json.loads((target / "metadata.json").read_text())
     assert written == metadata
+
+
+def test_finalize_version_records_sha256_in_metadata(tmp_path):
+    """Issue #62: finalize_version computes a SHA-256 over the payload files and stores it
+    inside the immutable metadata.json (excluding metadata.json from the digest)."""
+    from app.services.artifact_storage import _compute_checksum
+
+    storage = LocalFilesystemArtifactStorage(base_dir=tmp_path)
+    staging = _staging_dir(tmp_path)
+    name = "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1"
+    storage.finalize_version("qwen-sft-domain-x", name, staging, {})
+
+    target = tmp_path / "qwen-sft-domain-x" / name
+    written = json.loads((target / "metadata.json").read_text())
+    assert len(written["checksum"]) == 64  # SHA-256 hex
+    # Recomputed over the payload matches the stored digest (metadata.json excluded from it).
+    assert written["checksum"] == _compute_checksum(target)
+
+
+def test_verify_checksum_passes_for_intact_artifact(tmp_path):
+    storage = LocalFilesystemArtifactStorage(base_dir=tmp_path)
+    name = "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1"
+    uri = storage.finalize_version(
+        "qwen-sft-domain-x", name, _staging_dir(tmp_path), {}
+    )
+
+    assert storage.verify_checksum(uri) is True
+
+
+def test_verify_checksum_detects_corrupted_artifact(tmp_path):
+    storage = LocalFilesystemArtifactStorage(base_dir=tmp_path)
+    name = "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1"
+    uri = storage.finalize_version(
+        "qwen-sft-domain-x", name, _staging_dir(tmp_path), {}
+    )
+    target = tmp_path / "qwen-sft-domain-x" / name
+    (target / "adapter_model.safetensors").write_bytes(b"tampered")
+
+    assert storage.verify_checksum(uri) is False
+
+
+def test_verify_checksum_returns_true_when_no_metadata(tmp_path):
+    """Issue #62: a pre-#62 artifact without metadata.json has no recorded baseline, so it is
+    treated as verified (existing deploy paths keep working)."""
+    storage = LocalFilesystemArtifactStorage(base_dir=tmp_path)
+    dir_path = tmp_path / "legacy"
+    dir_path.mkdir()
+    (dir_path / "adapter_model.safetensors").write_bytes(b"weights")
+
+    assert storage.verify_checksum(f"file://{dir_path}") is True

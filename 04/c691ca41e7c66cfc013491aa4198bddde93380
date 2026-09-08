@@ -1,0 +1,22 @@
+ml-close-loop-be/app/services/deployment_service.py
+  s_b57a06cd3f8e90::t_17c5c4dc219717 74,154-156,163-165
+  s_b57a06cd3f8e90::t_18f361908ddf5b 117,177-181
+  s_b57a06cd3f8e90::t_b0e9a4c049c11e 71-73
+  s_b57a06cd3f8e90::t_b01f9ca3ba074b 75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "04c691ca41e7c66cfc013491aa4198bddde93380",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

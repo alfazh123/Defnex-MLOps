@@ -18,6 +18,10 @@ from app.services import (
     training_service,
 )
 from app.services.serving import MockServingBackend
+from app.services.artifact_storage import (
+    ArtifactChecksumError,
+    LocalFilesystemArtifactStorage,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -245,3 +249,107 @@ def test_get_deployment_status_after_deploy(db_session):
     assert status.current_deployed_version == model_version.version
     assert status.status == "DEPLOYED"
     assert status.deployed_at == deployment.deployed_at
+
+
+def _actively_finalized_model_version(db_session, tmp_path):
+    """Register a version whose artifact is finalized into the immutable store (so it carries a
+    recorded SHA-256 checksum), promoted to PROMOTED, ready to deploy."""
+    dataset_version = dataset_service.create_dataset_version(
+        db_session,
+        "no_robots",
+        DatasetVersionCreateRequest(
+            source_type="huggingface",
+            source_dataset="HuggingFaceH4/no_robots",
+            source_commit_or_snapshot_date="2026-08-01",
+            source_format="chatml",
+        ),
+    )
+    training_run = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        TrainingRunCreateRequest(
+            dataset_id="no_robots",
+            dataset_version=1,
+            model_id="qwen-sft-domain-x",
+            base_model="Qwen/Qwen3.8-27B",
+            training_config=TrainingConfig(),
+        ),
+    )
+    training_service.start_training_run(db_session, training_run)
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/adapter"
+    )
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    (staging / "adapter_model.safetensors").write_bytes(b"trained-weights")
+    model_version = model_service.register_model_version(
+        db_session,
+        training_run,
+        staging_dir=str(staging),
+        storage=LocalFilesystemArtifactStorage(base_dir=tmp_path / "store"),
+    )
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84),
+            qualitative_comparison=QualitativeComparison(
+                question_table_version=1, wins=13, losses=5, ties=2, total=20
+            ),
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            ),
+        ),
+    )
+    promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="Signals aligned."
+        ),
+    )
+    return model_version
+
+
+def test_deploy_verifies_checksum_for_intact_artifact(db_session, tmp_path):
+    """Issue #62: a finalized artifact with a recorded checksum that matches on disk deploys
+    normally; the pointer moves and the version becomes DEPLOYED."""
+    model_version = _actively_finalized_model_version(db_session, tmp_path)
+    backend = MockServingBackend()
+
+    deployment, previous = deployment_service.deploy(
+        db_session, model_version, backend=backend
+    )
+
+    assert previous is None
+    assert model_version.status == "DEPLOYED"
+    assert deployment.model_version == model_version.version
+    assert model_version.artifacts[0]["checksum"]
+    assert backend.deployed == [
+        ("qwen-sft-domain-x", model_version.version)
+    ]
+
+
+def test_deploy_refuses_corrupted_artifact_before_pointer_moves(db_session, tmp_path):
+    """Issue #62: tampering with a finalized artifact payload after registration means its
+    SHA-256 no longer matches metadata.json. deploy must refuse (no pointer move, no status
+    flip, backend never loads) and raise ArtifactChecksumError."""
+    model_version = _actively_finalized_model_version(db_session, tmp_path)
+    uri = model_version.artifacts[0]["uri"]
+    from app.services.artifact_storage import _uri_to_path
+
+    (  # corrupt the on-disk payload
+        _uri_to_path(uri) / "adapter_model.safetensors"
+    ).write_bytes(b"tampered")
+    backend = MockServingBackend()
+
+    try:
+        deployment_service.deploy(db_session, model_version, backend=backend)
+    except ArtifactChecksumError as exc:
+        assert "checksum mismatch" in str(exc)
+    else:
+        raise AssertionError("expected ArtifactChecksumError for corrupted artifact")
+
+    assert model_version.status == "PROMOTED"  # pointer never moved
+    assert backend.deployed == []  # adapter never loaded
+    assert backend.unloaded == []

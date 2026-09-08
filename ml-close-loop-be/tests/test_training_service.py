@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timedelta, timezone
 
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
@@ -224,3 +225,133 @@ def test_list_training_runs_has_no_n_plus_1(count_queries):
     # 9 extra rows must not add 2 lazy loads each (dataset_version + model_versions) -
     # selectinload keeps the growth to a couple of extra statements.
     assert count_10 - count_1 < 9
+
+
+def _running_run(db_session, model_id="qwen-sft-domain-x"):
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id=model_id)
+    )
+    training_service.claim_training_run(db_session, training_run)
+    return training_run
+
+
+def test_claim_seeds_heartbeat_at(db_session):
+    """The claim seeds `heartbeat_at` so a worker that crashes immediately after claiming
+    still has a timestamp to go stale from (issue #60 AC #5)."""
+    run = _running_run(db_session)
+    assert run.status == "RUNNING"
+    assert run.heartbeat_at is not None
+
+
+def test_touch_heartbeat_updates_only_running_run(db_session):
+    run = _running_run(db_session)
+    assert run.heartbeat_at is not None
+
+    assert training_service.touch_heartbeat(db_session, run.training_run_id) == 1
+    db_session.flush()
+    db_session.refresh(run)
+    # column is stored naive-UTC (SQLite DateTime drops tzinfo); assert it advanced to "now"
+    assert run.heartbeat_at is not None
+    assert (datetime.now(timezone.utc).replace(tzinfo=None) - run.heartbeat_at).total_seconds() < 5
+
+
+def test_touch_heartbeat_noop_when_run_not_running(db_session):
+    dataset_version = _dataset_version(db_session)
+    run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    assert run.status == "PENDING"
+    assert training_service.touch_heartbeat(db_session, run.training_run_id) == 0
+    assert run.heartbeat_at is None
+
+
+def test_running_to_stale_transition_is_valid(db_session):
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    assert run.status == "STALE"
+
+
+def test_stale_to_running_retry_is_valid(db_session):
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    training_service._transition(run, "RUNNING")
+    assert run.status == "RUNNING"
+
+
+def test_mark_stale_runs_flags_lapsed_heartbeat(db_session):
+    run = _running_run(db_session)
+    run.heartbeat_at = datetime.now(timezone.utc) - timedelta(seconds=3600)
+    db_session.flush()
+
+    count = training_service.mark_stale_runs(db_session, threshold_seconds=60)
+    db_session.commit()
+    db_session.refresh(run)
+
+    assert count == 1
+    assert run.status == "STALE"
+
+
+def test_mark_stale_runs_keeps_fresh_run_running(db_session):
+    run = _running_run(db_session)
+    run.heartbeat_at = datetime.now(timezone.utc)
+    db_session.flush()
+
+    count = training_service.mark_stale_runs(db_session, threshold_seconds=3600)
+
+    assert count == 0
+    assert run.status == "RUNNING"
+
+
+def test_mark_stale_runs_uses_started_at_when_no_heartbeat(db_session):
+    """A RUNNING run with no heartbeat at all (crash before any heartbeat persisted) is
+    staled from its start time, not left RUNNING forever."""
+    dataset_version = _dataset_version(db_session)
+    run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    training_service.claim_training_run(db_session, run)
+    run.heartbeat_at = None
+    run.started_at = datetime.now(timezone.utc) - timedelta(seconds=3600)
+    db_session.flush()
+
+    count = training_service.mark_stale_runs(db_session, threshold_seconds=60)
+    db_session.commit()
+    db_session.refresh(run)
+
+    assert count == 1
+    assert run.status == "STALE"
+
+
+def test_stale_run_can_be_reclaimed(db_session):
+    """AC #4: a STALE run (crash recovery) can be claimed again and re-run."""
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    db_session.flush()
+
+    assert training_service.claim_training_run(db_session, run) is True
+    assert run.status == "RUNNING"
+
+
+def test_completed_and_failed_cannot_return_to_running(db_session):
+    run = _running_run(db_session)
+    training_service._transition(run, "COMPLETED")
+    with pytest.raises(ValueError):
+        training_service._transition(run, "RUNNING")
+
+    run2 = _running_run(db_session, model_id="qwen-sft-domain-y")
+    training_service._transition(run2, "FAILED")
+    with pytest.raises(ValueError):
+        training_service._transition(run2, "RUNNING")
+
+
+def test_to_schema_exposes_stale_status(db_session):
+    """STALE must round-trip through the API schema (it is a valid status), not fail
+    Pydantic validation in `to_schema`."""
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    db_session.flush()
+
+    schema = training_service.to_schema(run)
+    assert schema.status == "STALE"
+

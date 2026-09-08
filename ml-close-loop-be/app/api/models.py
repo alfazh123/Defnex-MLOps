@@ -3,15 +3,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     FilterParams,
+    PaginationParams,
     get_current_user,
     get_filters,
     get_model_version_or_404,
+    get_pagination,
 )
 from app.api.errors import APIError
 from app.config import settings
 from app.db.session import get_db
+from app.models.model import Model
 from app.models.user import User
-from app.schemas.common import ErrorResponse
+from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.model import (
     EvaluationObject,
     EvaluationSubmitResponse,
@@ -39,6 +42,33 @@ def list_models(
     fl: FilterParams = Depends(get_filters),
 ) -> list[ModelSummary]:
     return model_service.list_models(db, status=fl.status, search=fl.search)
+
+
+@router.get(
+    "/models/{model_id}/versions",
+    response_model=PaginatedResponse[ModelRegistryRecord],
+    responses={404: {"model": ErrorResponse}},
+)
+def list_model_versions(
+    model_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+    pg: PaginationParams = Depends(get_pagination),
+) -> PaginatedResponse[ModelRegistryRecord]:
+    """List every version (all statuses, including RETIRED) of a model, most-legible for the
+    rollback picker and history browsing (PRD §14.2). Paginated like other list endpoints."""
+    if db.get(Model, model_id) is None:
+        raise APIError(404, "MODEL_NOT_FOUND", f'model_id "{model_id}" not found')
+    versions, total = model_service.list_model_versions(
+        db, model_id, limit=pg.limit, offset=pg.offset
+    )
+    return PaginatedResponse(
+        items=[model_service.to_schema(v) for v in versions],
+        total=total,
+        page=pg.page,
+        size=pg.size,
+        pages=PaginationParams.pages_from(total, pg.size),
+    )
 
 
 @router.get(

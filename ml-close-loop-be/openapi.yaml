@@ -1230,6 +1230,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/versions:
+    get:
+      tags:
+      - Models
+      summary: List Model Versions
+      description: 'List every version (all statuses, including RETIRED) of a model -
+        the data source for the rollback picker and history browsing (PRD §14.2).
+        Paginated like other list endpoints.'
+      operationId: list_model_versions_api_v1_models__model_id__versions_get
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_ModelRegistryRecord_'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/models/{model_id}/versions/{version}:
     get:
       tags:
@@ -1710,6 +1768,11 @@ components:
           - type: integer
           - type: 'null'
           title: Size Bytes
+        checksum:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Checksum
       type: object
       required:
       - type
@@ -2609,6 +2672,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[FeedbackRecord]
+    PaginatedResponse_ModelRegistryRecord_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ModelRegistryRecord'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[ModelRegistryRecord]
     PaginatedResponse_TrainingRun_:
       properties:
         items:
@@ -2896,6 +2986,7 @@ components:
           - RUNNING
           - COMPLETED
           - FAILED
+          - STALE
           title: Status
         dataset_id:
           type: string

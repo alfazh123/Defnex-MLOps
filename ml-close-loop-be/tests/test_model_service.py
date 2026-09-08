@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import pytest
@@ -261,7 +262,11 @@ def test_register_with_staging_finalizes_immutable_artifact_and_metadata(
     assert not staging.exists()
 
     metadata = json.loads((target / "metadata.json").read_text())
-    # datetimes are stringified by json.dumps(default=str) in finalize_version
+    # datetimes are stringified by json.dumps(default=str) in finalize_version; the encoded
+    # "merged-weights" payload-size encoding below must mirror _compute_checksum (issue #62).
+    expected_checksum = hashlib.sha256(
+        b"adapter_model.safetensors:14:merged-weights"
+    ).hexdigest()
     assert metadata == {
         "model_id": "qwen-sft-domain-x",
         "name": name,
@@ -274,8 +279,12 @@ def test_register_with_staging_finalizes_immutable_artifact_and_metadata(
         "git_commit": "deadbeef",
         "started_at": str(training_run.started_at),
         "finished_at": str(training_run.finished_at),
+        "checksum": expected_checksum,
     }
     assert (target / "adapter_model.safetensors").read_bytes() == b"merged-weights"
+    assert model_version.artifacts[0]["checksum"] == expected_checksum
+    schema = model_service.to_schema(model_version)
+    assert schema.artifacts[0].checksum == expected_checksum
 
 
 def test_allocate_version_retries_when_first_pick_already_taken(

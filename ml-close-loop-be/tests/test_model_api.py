@@ -268,3 +268,107 @@ def test_list_models_empty(client, admin_token):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_list_model_versions_returns_404_when_model_missing(client, admin_token):
+    response = client.get(
+        "/api/v1/models/no-such-model/versions", headers=auth_header(admin_token)
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
+
+
+def test_list_model_versions_paginated_full_record(client, admin_token):
+    model_id, version = _registered_model_version(client, admin_token)
+    h = auth_header(admin_token)
+
+    response = client.get(f"/api/v1/models/{model_id}/versions", headers=h)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"items", "total", "page", "size", "pages"}
+    assert body["total"] == 1
+    assert body["page"] == 1
+    assert body["size"] == 20
+    assert body["pages"] == 1
+    item = body["items"][0]
+    assert set(item) == {
+        "model_id",
+        "version",
+        "name",
+        "status",
+        "training_run_id",
+        "base_model",
+        "dataset_id",
+        "dataset_version",
+        "dataset_validation_report_ref",
+        "training_config",
+        "created_at",
+        "created_by",
+        "evaluation",
+        "eval_set_id",
+        "eval_set_version",
+        "artifacts",
+        "promotion_decision_ref",
+        "previous_model_id",
+    }
+    assert item["model_id"] == model_id
+    assert item["version"] == version
+
+
+def test_list_model_versions_includes_retired_status(client, admin_token):
+    model_id, version = _registered_model_version(client, admin_token)
+    with Session(client.engine) as db:
+        from app.services import model_service
+
+        model_version = model_service.get_model_version(db, model_id, version)
+        model_version.status = "RETIRED"
+        db.commit()
+
+    response = client.get(
+        f"/api/v1/models/{model_id}/versions", headers=auth_header(admin_token)
+    )
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [v["status"] for v in items] == ["RETIRED"]
+
+
+def test_list_model_versions_pagination_and_ordering(client, admin_token):
+    model_id, _ = _registered_model_version(client, admin_token)
+    h = auth_header(admin_token)
+
+    from app.services import training_service
+    from app.workers.mock_runner import MockTrainingRunner
+
+    for _ in range(3):
+        created = client.post(
+            "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+        ).json()
+        with Session(client.engine) as db:
+            training_run = training_service.get_training_run(
+                db, created["training_run_id"]
+            )
+            training_service.start_training_run(db, training_run)
+            artifact_uri = MockTrainingRunner().run(db, training_run)
+            training_service.complete_training_run(
+                db, training_run, artifact_uri=artifact_uri
+            )
+            from app.services import model_service
+
+            model_service.register_model_version(db, training_run)
+            db.commit()
+
+    page1 = client.get(
+        f"/api/v1/models/{model_id}/versions", params={"page": 1, "size": 2}, headers=h
+    ).json()
+    assert page1["total"] == 4
+    assert page1["pages"] == 2
+    assert [v["version"] for v in page1["items"]] == [1, 2]
+
+    page2 = client.get(
+        f"/api/v1/models/{model_id}/versions", params={"page": 2, "size": 2}, headers=h
+    ).json()
+    assert page2["page"] == 2
+    assert [v["version"] for v in page2["items"]] == [3, 4]

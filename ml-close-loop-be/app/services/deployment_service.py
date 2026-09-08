@@ -10,6 +10,11 @@ from app.config import settings
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
+from app.services.artifact_storage import (
+    ArtifactChecksumError,
+    ArtifactStorage,
+    LocalFilesystemArtifactStorage,
+)
 from app.services.serving import ServingBackend, get_serving_backend
 from app.workers.gpu_lock import gpu_lock
 
@@ -46,6 +51,27 @@ class DeploymentLockTimeout(Exception):
     Raised by `deploy` in real (vllm) serving mode when training or another GPU-hoisting
     operation still holds the lock. Mapped to a clear 503 `GPU_LOCK_TIMEOUT` by the API so an
     operator sees an explicit "GPU busy, retry" state instead of an indefinite hang."""
+
+
+def verify_artifact_checksum(
+    model_version: ModelVersion, storage: ArtifactStorage | None = None
+) -> None:
+    """Recompute each artifact's SHA-256 against the checksum recorded at finalize time
+    (issue #62). Raises ArtifactChecksumError on any mismatch so the caller (deploy) aborts
+    *before* the pointer moves; the artifact is treated as verified when no recorded checksum
+    exists (pre-#62 artifacts), so existing deployments keep working."""
+    storage = storage or LocalFilesystemArtifactStorage()
+    for artifact in model_version.artifacts or []:
+        uri = artifact.get("uri")
+        if not uri:
+            continue
+        if not storage.verify_checksum(uri):
+            recorded = artifact.get("checksum")
+            raise ArtifactChecksumError(
+                f"artifact checksum mismatch for model_id {model_version.model_id!r} "
+                f"version {model_version.version}: stored checksum {recorded!r} does not "
+                f"match the on-disk payload; deployment refused"
+            )
 
 
 def _deployed_model_version(db: Session, model_id: str) -> ModelVersion | None:
@@ -88,6 +114,7 @@ def deploy(
     *,
     lock_file: str | None = None,
     lock_timeout: float | None = None,
+    artifact_storage: ArtifactStorage | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """Move the deployment pointer to `model_version`, retiring whichever version currently holds
     it (WBS 3.3 §3 release gate + §4 supersession). Returns the new Deployment row and the
@@ -124,14 +151,18 @@ def deploy(
         # Mock backend never touches a GPU, so there is nothing to serialize against training;
         # keep the pre-#59 behavior exact for tests and no-GPU local dev. Only a real vllm
         # deploy mutates the shared H100 and must take the same flock training uses.
-        return _deploy_locked(db, model_version, backend)
+        return _deploy_locked(
+            db, model_version, backend, artifact_storage=artifact_storage
+        )
 
     try:
         with gpu_lock(
             lock_file or settings.gpu_lock_file,
             lock_timeout if lock_timeout is not None else settings.gpu_lock_timeout,
         ):
-            return _deploy_locked(db, model_version, backend)
+            return _deploy_locked(
+                db, model_version, backend, artifact_storage=artifact_storage
+            )
     except TimeoutError as exc:
         logger.warning(
             "deploy_gpu_lock_timeout",
@@ -143,7 +174,11 @@ def deploy(
 
 
 def _deploy_locked(
-    db: Session, model_version: ModelVersion, backend: ServingBackend | None = None
+    db: Session,
+    model_version: ModelVersion,
+    backend: ServingBackend | None = None,
+    *,
+    artifact_storage: ArtifactStorage | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """The locked body of `deploy` (issue #59): the pointer move plus all GPU-touching calls
     (`backend.deploy`, the smoke test, `backend.unload`). Runs inside the GPU lock when the
@@ -171,6 +206,12 @@ def _deploy_locked(
     # A real backend (VLLMServingBackend) is created once per process and reused; the default
     # (mock) is what pre-#40 callers got from `backend or MockServingBackend()`.
     backend = backend or get_serving_backend()
+
+    # Issue #62: verify artifact integrity against the checksum recorded at finalize time
+    # BEFORE loading the adapter and before any pointer moves. On mismatch the deploy aborts
+    # here — nothing is loaded, nothing is unloaded, and the previous version stays DEPLOYED;
+    # the failure is recorded as a log line.
+    verify_artifact_checksum(model_version, artifact_storage)
 
     backend.deploy(model_version)
 

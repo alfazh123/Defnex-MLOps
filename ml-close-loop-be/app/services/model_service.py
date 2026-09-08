@@ -1,10 +1,11 @@
 import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,7 +19,7 @@ from app.schemas.model import (
 )
 from app.services.artifact_storage import LocalFilesystemArtifactStorage
 
-_MAX_VERSION_RETRIES = 10
+_MAX_VERSION_RETRIES = 30
 
 
 def _slug(value: str) -> str:
@@ -119,6 +120,7 @@ def _allocate_version(
             # version.  OperationalError: SQLite "database is locked" — concurrent writer
             # holds the write lock.  In both cases the SAVEPOINT rolled back this attempt;
             # the outer transaction is still usable for the next iteration.
+            time.sleep(0.02)
             continue
     raise RuntimeError(
         f"could not allocate a model version for {model_id!r} "
@@ -174,7 +176,10 @@ def register_model_version(
         final_uri = (storage or LocalFilesystemArtifactStorage()).finalize_version(
             model_id, model_version.name, Path(staging_dir), metadata
         )
-        model_version.artifacts = [{"type": "adapter", "uri": final_uri}]
+        checksum = metadata["checksum"]
+        model_version.artifacts = [
+            {"type": "adapter", "uri": final_uri, "checksum": checksum}
+        ]
         training_run.artifact_uri = final_uri
         db.flush()
 
@@ -206,6 +211,33 @@ def list_models(
             )
         )
     return summaries
+
+
+def list_model_versions(
+    db: Session, model_id: str, limit: int, offset: int
+) -> tuple[list[ModelVersion], int]:
+    """Return all versions for a model (all statuses) with pagination.
+
+    Returns ``(versions, total_count)``.  Versions are ordered ascending by version number.
+    The caller (API layer) maps each row through ``to_schema``."""
+    total = db.scalar(
+        select(func.count())
+        .select_from(ModelVersion)
+        .where(ModelVersion.model_id == model_id)
+    )
+    if total is None:
+        total = 0
+    versions = list(
+        db.scalars(
+            select(ModelVersion)
+            .where(ModelVersion.model_id == model_id)
+            .options(selectinload(ModelVersion.training_run))
+            .order_by(ModelVersion.version)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+    return versions, total
 
 
 def get_model_version(db: Session, model_id: str, version: int) -> ModelVersion | None:

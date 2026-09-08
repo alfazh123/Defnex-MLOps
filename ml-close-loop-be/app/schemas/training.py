@@ -4,7 +4,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+TrainingRunStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED", "STALE"]
 
 # Single source of truth for accepted PEFT methods (issue #34). Consumed by both the
 # request schema (PeftMethod Literal below) and the Unsloth mapper in

@@ -1,0 +1,14 @@
+ml-close-loop-be/app/services/training_service.py
+  h_0fbac3cbabbc88 117-119,127-131,141-142,157-161,171-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "80839f30caca5c3507fe2c6e8cd5f2bb5b322ad5",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

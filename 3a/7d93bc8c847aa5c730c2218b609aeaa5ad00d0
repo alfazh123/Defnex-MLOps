@@ -1,0 +1,26 @@
+ml-close-loop-be/app/api/deployment.py
+  s_d6825f79d1656e::t_eef6046190ea72 38-42
+ml-close-loop-be/tests/test_gpu_deploy_lock.py
+  s_d6825f79d1656e::t_45ce14ae76d513 1-189
+ml-close-loop-be/app/services/deployment_service.py
+  s_d6825f79d1656e::t_05a4814832c737 14
+  s_d6825f79d1656e::t_b8c5d2273ec000 42-50
+  s_d6825f79d1656e::t_de6387229ecbb5 85-90,96-104,123-150
+  s_d6825f79d1656e::t_0e89f6f3b09b15 151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "3a7d93bc8c847aa5c730c2218b609aeaa5ad00d0",
+  "prompts": {},
+  "sessions": {
+    "s_d6825f79d1656e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7fe6d848ffeVrJ56oYBHYoBRg",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

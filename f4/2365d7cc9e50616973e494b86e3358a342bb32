@@ -1,0 +1,24 @@
+ml-close-loop-be/app/services/artifact_storage.py
+  s_b57a06cd3f8e90::t_1e6f029047275f 24-27
+ml-close-loop-be/app/services/deployment_service.py
+  s_b57a06cd3f8e90::t_2504884d13c8b8 15
+  s_b57a06cd3f8e90::t_4bfe0b455977a2 46-48,53
+  s_b57a06cd3f8e90::t_3c4a51d67fd8b0 156
+  s_b57a06cd3f8e90::t_600c38071251be 101-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "f42365d7cc9e50616973e494b86e3358a342bb32",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

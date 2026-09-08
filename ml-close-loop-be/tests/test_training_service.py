@@ -253,7 +253,9 @@ def test_touch_heartbeat_updates_only_running_run(db_session):
     db_session.refresh(run)
     # column is stored naive-UTC (SQLite DateTime drops tzinfo); assert it advanced to "now"
     assert run.heartbeat_at is not None
-    assert (datetime.now(timezone.utc).replace(tzinfo=None) - run.heartbeat_at).total_seconds() < 5
+    assert (
+        datetime.now(timezone.utc).replace(tzinfo=None) - run.heartbeat_at
+    ).total_seconds() < 5
 
 
 def test_touch_heartbeat_noop_when_run_not_running(db_session):
@@ -354,4 +356,3 @@ def test_to_schema_exposes_stale_status(db_session):
 
     schema = training_service.to_schema(run)
     assert schema.status == "STALE"
-

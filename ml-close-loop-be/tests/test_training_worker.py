@@ -421,7 +421,9 @@ def test_process_next_job_persists_heartbeat_while_running(tmp_path):
     assert heartbeat_mid is not None
 
 
-def test_stale_run_is_distinct_from_failed_and_reclaimable_by_worker(db_session, lock_file):
+def test_stale_run_is_distinct_from_failed_and_reclaimable_by_worker(
+    db_session, lock_file
+):
     """AC #3 + #4: STALE is its own state (not FAILED) and a stale run is picked up and
     re-run by the worker."""
     stale_run = _queued_training_run(db_session)
@@ -433,4 +435,3 @@ def test_stale_run_is_distinct_from_failed_and_reclaimable_by_worker(db_session,
 
     assert processed.training_run_id == stale_run.training_run_id
     assert processed.status == "COMPLETED"
-

@@ -325,9 +325,7 @@ def test_deploy_verifies_checksum_for_intact_artifact(db_session, tmp_path):
     assert model_version.status == "DEPLOYED"
     assert deployment.model_version == model_version.version
     assert model_version.artifacts[0]["checksum"]
-    assert backend.deployed == [
-        ("qwen-sft-domain-x", model_version.version)
-    ]
+    assert backend.deployed == [("qwen-sft-domain-x", model_version.version)]
 
 
 def test_deploy_refuses_corrupted_artifact_before_pointer_moves(db_session, tmp_path):

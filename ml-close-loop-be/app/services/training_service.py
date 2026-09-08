@@ -114,7 +114,9 @@ def touch_heartbeat(db: Session, training_run_id: str) -> int:
     return result.rowcount
 
 
-def stale_runs(db: Session, *, threshold_seconds: int | None = None) -> list[TrainingRun]:
+def stale_runs(
+    db: Session, *, threshold_seconds: int | None = None
+) -> list[TrainingRun]:
     """Detector (issue #60, PRD §10.2/§10.3): RUNNING runs whose liveness has lapsed.
 
     A run is stale when its last heartbeat (or, before any heartbeat, its start time)
@@ -122,7 +124,11 @@ def stale_runs(db: Session, *, threshold_seconds: int | None = None) -> list[Tra
     them; `mark_stale_runs` applies the transition. Caller commits.
     """
 
-    threshold = threshold_seconds if threshold_seconds is not None else settings.stale_threshold_seconds
+    threshold = (
+        threshold_seconds
+        if threshold_seconds is not None
+        else settings.stale_threshold_seconds
+    )
     from sqlalchemy import func, or_, select
 
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold)
@@ -132,9 +138,8 @@ def stale_runs(db: Session, *, threshold_seconds: int | None = None) -> list[Tra
                 TrainingRun.status == "RUNNING",
                 or_(
                     TrainingRun.heartbeat_at.is_(None),
-                    func.coalesce(
-                        TrainingRun.heartbeat_at, TrainingRun.started_at
-                    ) < cutoff,
+                    func.coalesce(TrainingRun.heartbeat_at, TrainingRun.started_at)
+                    < cutoff,
                 ),
             )
         ).all()
@@ -149,7 +154,11 @@ def mark_stale_runs(db: Session, *, threshold_seconds: int | None = None) -> int
     worker can log recovery. Caller commits.
     """
 
-    threshold = threshold_seconds if threshold_seconds is not None else settings.stale_threshold_seconds
+    threshold = (
+        threshold_seconds
+        if threshold_seconds is not None
+        else settings.stale_threshold_seconds
+    )
     from sqlalchemy import func, or_
 
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold)
@@ -159,7 +168,8 @@ def mark_stale_runs(db: Session, *, threshold_seconds: int | None = None) -> int
             TrainingRun.status == "RUNNING",
             or_(
                 TrainingRun.heartbeat_at.is_(None),
-                func.coalesce(TrainingRun.heartbeat_at, TrainingRun.started_at) < cutoff,
+                func.coalesce(TrainingRun.heartbeat_at, TrainingRun.started_at)
+                < cutoff,
             ),
         )
         .values(status="STALE")

@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.promotion import DecisionCreateRequest, DecisionRecord, RollbackRequest
-from app.services import promotion_service
+from app.services import deployment_service, promotion_service
 
 router = APIRouter(tags=["Decisions"])
 
@@ -51,6 +51,8 @@ def rollback_model(
     target = get_model_version_or_404(db, model_id, request.rollback_of_version)
     try:
         decision = promotion_service.rollback(db, target, request)
+    except deployment_service.DeploymentLockTimeout as exc:
+        raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except ValueError as exc:
         raise APIError(409, "ROLLBACK_NOT_ALLOWED", str(exc)) from exc
     db.commit()

@@ -315,3 +315,29 @@ def test_rollback_returns_409_when_target_not_promoted(client, admin_token):
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "ROLLBACK_NOT_ALLOWED"
+
+
+def test_rollback_returns_503_when_gpu_lock_timeout(client, admin_token, monkeypatch):
+    """Issue #59 follow-up: rollback path must surface DeploymentLockTimeout as503
+    GPU_LOCK_TIMEOUT, matching the promote/deploy endpoint (deployment.py)."""
+    model_id, version = _promoted_model_version(client, admin_token)
+
+    from app.services import deployment_service
+
+    def _raise_lock_timeout(*a, **kw):
+        raise deployment_service.DeploymentLockTimeout("lock held")
+
+    monkeypatch.setattr(deployment_service, "deploy", _raise_lock_timeout)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/rollback",
+        json={
+            "rollback_of_version": version,
+            "decided_by": "reviewer-1",
+            "rationale": "Prod regression.",
+        },
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "GPU_LOCK_TIMEOUT"

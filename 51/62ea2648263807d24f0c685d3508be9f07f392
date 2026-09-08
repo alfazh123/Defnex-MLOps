@@ -1,0 +1,18 @@
+ml-close-loop-be/tests/test_deployment_service.py
+  h_0fbac3cbabbc88 328
+ml-close-loop-be/tests/test_training_service.py
+  h_0fbac3cbabbc88 256-258
+ml-close-loop-be/tests/test_training_worker.py
+  h_0fbac3cbabbc88 424-426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "5162ea2648263807d24f0c685d3508be9f07f392",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

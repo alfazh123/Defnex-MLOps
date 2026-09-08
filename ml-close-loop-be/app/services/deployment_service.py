@@ -12,6 +12,7 @@ from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
 from app.services.artifact_storage import (
     ArtifactChecksumError,
+    ArtifactStorage,
     LocalFilesystemArtifactStorage,
 )
 from app.services.serving import ServingBackend, get_serving_backend
@@ -42,12 +43,14 @@ class SmokeTestError(Exception):
     (and keeps serving) and the failure is recorded in the logs."""
 
 
-def verify_artifact_checksum(model_version: ModelVersion) -> None:
+def verify_artifact_checksum(
+    model_version: ModelVersion, storage: ArtifactStorage | None = None
+) -> None:
     """Recompute each artifact's SHA-256 against the checksum recorded at finalize time
     (issue #62). Raises ArtifactChecksumError on any mismatch so the caller (deploy) aborts
     *before* the pointer moves; the artifact is treated as verified when no recorded checksum
     exists (pre-#62 artifacts), so existing deployments keep working."""
-    storage = LocalFilesystemArtifactStorage()
+    storage = storage or LocalFilesystemArtifactStorage()
     for artifact in model_version.artifacts or []:
         uri = artifact.get("uri")
         if not uri:
@@ -95,7 +98,11 @@ def _status_for(
 
 
 def deploy(
-    db: Session, model_version: ModelVersion, backend: ServingBackend | None = None
+    db: Session,
+    model_version: ModelVersion,
+    backend: ServingBackend | None = None,
+    *,
+    artifact_storage: ArtifactStorage | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """Move the deployment pointer to `model_version`, retiring whichever version currently holds
     it (WBS 3.3 §3 release gate + §4 supersession). Returns the new Deployment row and the
@@ -146,7 +153,7 @@ def deploy(
     # BEFORE loading the adapter and before any pointer moves. On mismatch the deploy aborts
     # here — nothing is loaded, nothing is unloaded, and the previous version stays DEPLOYED;
     # the failure is recorded as a log line.
-    verify_artifact_checksum(model_version)
+    verify_artifact_checksum(model_version, artifact_storage)
 
     backend.deploy(model_version)
 

@@ -21,6 +21,10 @@ class ArtifactStorage(Protocol):
         """Persist `content` under `key` and return its URI."""
         ...
 
+    def verify_checksum(self, uri: str) -> bool:
+        """Return True if the artifact at `uri` passes its recorded checksum."""
+        ...
+
 
 class LocalFilesystemArtifactStorage:
     """Local-disk artifact storage behind a swappable interface.

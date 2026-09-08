@@ -1,0 +1,42 @@
+ml-close-loop-be/app/services/model_service.py
+  s_13426a1e091bf1::t_3d243e9984480b 177-180
+ml-close-loop-be/app/services/artifact_storage.py
+  s_13426a1e091bf1::t_956d567c38816b 66-68,72-73,77-119
+  s_13426a1e091bf1::t_fed658bf891df4 1
+  s_13426a1e091bf1::t_5abefe395db346 14-18
+ml-close-loop-be/app/services/deployment_service.py
+  s_13426a1e091bf1::t_0d96687a51ed06 13-16
+  s_13426a1e091bf1::t_5de67de14eaac5 45-63
+  s_13426a1e091bf1::t_3409cde1df4126 145-150
+ml-close-loop-be/app/schemas/model.py
+  s_13426a1e091bf1::t_4bb9670606e706 20
+ml-close-loop-be/tests/test_deployment_service.py
+  s_13426a1e091bf1::t_2891397c49d583 252-355
+  s_13426a1e091bf1::t_56db7d4e6ffa18 21-24
+ml-close-loop-be/tests/test_artifact_storage.py
+  s_13426a1e091bf1::t_1071a293d87589 89-93,96-100,103,106-138
+  s_13426a1e091bf1::t_a2d43a38f52f75 94-95,101-102,105
+  s_13426a1e091bf1::t_0189468a2f344b 104
+ml-close-loop-be/openapi.yaml
+  s_13426a1e091bf1::t_e184f8d9c3463a 1713-1717
+ml-close-loop-be/tests/test_model_service.py
+  s_13426a1e091bf1::t_559ff0558ead05 1
+  s_13426a1e091bf1::t_6ab458fc5011c3 286-287
+  s_13426a1e091bf1::t_ded61cf49e2ee7 265-269,282,285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "6c8cc9af35c1e637ba43e4f36ee2496a5c13f898",
+  "prompts": {},
+  "sessions": {
+    "s_13426a1e091bf1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7fe66568ffepsPLvtz4ZjuH23",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

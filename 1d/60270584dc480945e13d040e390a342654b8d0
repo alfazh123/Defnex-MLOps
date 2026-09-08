@@ -1,0 +1,22 @@
+ml-close-loop-be/tests/test_promotion_api.py
+  s_b57a06cd3f8e90::t_78908d4b2d6bb0 318-343
+ml-close-loop-be/app/api/promotion.py
+  s_b57a06cd3f8e90::t_4f1284ed685df4 10
+  s_b57a06cd3f8e90::t_ff1ec1eaa595d4 54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1d60270584dc480945e13d040e390a342654b8d0",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

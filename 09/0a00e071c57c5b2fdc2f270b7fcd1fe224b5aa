@@ -1,0 +1,42 @@
+ml-close-loop-be/app/api/models.py
+  s_c94afee8fb9d4c::t_ac46a64bf31e3f 6,10,15,17
+  s_c94afee8fb9d4c::t_5079d8a66b3a62 48-73
+  s_8a2de7443fb20d::t_9573aeadd92a3a 47
+README.md
+  s_c94afee8fb9d4c::t_33878b8089aa9a 20
+ml-close-loop-be/app/services/model_service.py
+  s_c94afee8fb9d4c::t_6ccf2bff7f6ceb 7
+  s_c94afee8fb9d4c::t_e616cafe5cbf04 211-218,222-226,230-237
+  s_c94afee8fb9d4c::t_1628f5cacf7a60 219-221,227-229
+ml-close-loop-be/openapi.yaml
+  s_c94afee8fb9d4c::t_53682921b504d7 2670-2696
+  s_c94afee8fb9d4c::t_4ed48652ea2bd2 1233-1290
+ml-close-loop-be/tests/test_model_api.py
+  s_c94afee8fb9d4c::t_6a904fc437bfb7 271-374
+ml-close-loop-be/README.md
+  s_c94afee8fb9d4c::t_4427077bf736d6 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "090a00e071c57c5b2fdc2f270b7fcd1fe224b5aa",
+  "prompts": {},
+  "sessions": {
+    "s_8a2de7443fb20d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f80b31b82ffeqrWR0nsHJBJT2i",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_c94afee8fb9d4c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7fe6382cffe7D3arvk0F5FIRP",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

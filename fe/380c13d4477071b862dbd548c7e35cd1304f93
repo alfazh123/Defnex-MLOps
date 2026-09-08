@@ -1,0 +1,63 @@
+ml-close-loop-be/tests/test_training_api.py
+  s_d987d145eef654::t_0756f936dafa29 345-370
+  s_8a2de7443fb20d::t_7163c17130a7f5 371-372
+ml-close-loop-be/.env.example
+  s_d987d145eef654::t_f17e09b3dd7b4e 99-105
+ml-close-loop-be/app/models/training.py
+  s_d987d145eef654::t_2f8cd3b9f80169 28-31
+ml-close-loop-be/app/workers/training_worker.py
+  s_d987d145eef654::t_ef8b36581ef994 40-41,43-47,53-62,64,66-68,76,78-79,85-90,100,103,119-123,129-130,132-134,153-155
+  s_d987d145eef654::t_1495e3e0276859 1
+  s_d987d145eef654::t_46ea26ba9eb0a3 42,48-52,63,65,124-128,131
+ml-close-loop-be/tests/test_training_worker.py
+  s_d987d145eef654::t_1eb3b898a78ad1 4
+  s_d987d145eef654::t_f43ee9d744142b 13
+  s_d987d145eef654::t_32b4e3a75cb851 341-378,381-382,384-407,411-418,420-436
+  s_d987d145eef654::t_514aa4b1b01416 379-380,383,408-410,419
+  s_d987d145eef654::t_29dd33efb18f19 69-89
+ml-close-loop-be/alembic/versions/0f6d1c9e4a2f_add_heartbeat_at_to_training_runs.py
+  s_d987d145eef654::t_5c087b6e705076 1-36
+ml-close-loop-be/app/config.py
+  s_d987d145eef654::t_8a6a5db7df0f3e 72-79
+ml-close-loop-be/tests/test_training_service.py
+  s_d987d145eef654::t_afcb6bc2a75f8b 337
+  s_d987d145eef654::t_9ac4dff1a2f1c3 2
+  s_d987d145eef654::t_ff67368789015a 228-248,250-253,257-296,298-336,338-357
+  s_d987d145eef654::t_7d0272cce0493b 297
+  s_d987d145eef654::t_bda638de25857a 249,254-256
+ml-close-loop-be/app/services/training_service.py
+  s_d987d145eef654::t_b365d47b9da283 2
+  s_d987d145eef654::t_e155949f1def58 7,17-18,21-22
+  s_d987d145eef654::t_417be932c4c940 155
+  s_d987d145eef654::t_e59e2d281757a1 97-127,129-154,156-170
+  s_d987d145eef654::t_050d89a63162bc 67,70,73-74,81,88,90-93
+  s_d987d145eef654::t_dffc0a0c29864d 128
+ml-close-loop-be/app/schemas/training.py
+  s_d987d145eef654::t_58954ee99e2791 7
+ml-close-loop-be/openapi.yaml
+  s_d987d145eef654::t_77416326213ee5 2899
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "fe380c13d4477071b862dbd548c7e35cd1304f93",
+  "prompts": {},
+  "sessions": {
+    "s_8a2de7443fb20d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f80b31b82ffeqrWR0nsHJBJT2i",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_d987d145eef654": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7fe69f35ffeaSXDDL1lXAJlht",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

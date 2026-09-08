@@ -11,6 +11,7 @@ from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
 from app.services.serving import ServingBackend, get_serving_backend
+from app.workers.gpu_lock import gpu_lock
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +37,15 @@ class SmokeTestError(Exception):
     produce a generation at or above the configured threshold. Raised by `deploy` *after* the
     adapter was loaded but *before* the pointer moved, so the previous version stays DEPLOYED
     (and keeps serving) and the failure is recorded in the logs."""
+
+
+class DeploymentLockTimeout(Exception):
+    """The GPU lock shared with training (#33) could not be acquired within the configured
+    timeout, so the GPU-touching deploy must NOT proceed (issue #59).
+
+    Raised by `deploy` in real (vllm) serving mode when training or another GPU-hoisting
+    operation still holds the lock. Mapped to a clear 503 `GPU_LOCK_TIMEOUT` by the API so an
+    operator sees an explicit "GPU busy, retry" state instead of an indefinite hang."""
 
 
 def _deployed_model_version(db: Session, model_id: str) -> ModelVersion | None:
@@ -72,11 +82,25 @@ def _status_for(
 
 
 def deploy(
-    db: Session, model_version: ModelVersion, backend: ServingBackend | None = None
+    db: Session,
+    model_version: ModelVersion,
+    backend: ServingBackend | None = None,
+    *,
+    lock_file: str | None = None,
+    lock_timeout: float | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """Move the deployment pointer to `model_version`, retiring whichever version currently holds
     it (WBS 3.3 §3 release gate + §4 supersession). Returns the new Deployment row and the
     superseded ModelVersion, if any.
+
+    The GPU-works portion of the deploy (loading/unloading the LoRA adapter into the serving
+    process) serializes with training on the SAME exclusive GPU lock that `training_worker`
+    holds (issue #59, PRD §17.5/§18.1): a hot-swap must never load onto VRAM that training is
+    actively using, and vice versa. The lock is only taken when the serving backend actually
+    touches the GPU (`SERVING_BACKEND=vllm`); the mock backend never touches a GPU, so tests and
+    no-GPU local dev keep the exact pre-#59 behavior. When the lock cannot be acquired within the
+    timeout the deploy raises `DeploymentLockTimeout` — an explicit state/error, never a hang —
+    and the lock is always released via the context manager's `finally` (PRD §18.4).
 
     Deliberately has no `status` guard of its own: the PROMOTED-only gate belongs to the deploy
     endpoint, while `promotion_service.rollback` legitimately points at a RETIRED version. This is
@@ -95,6 +119,35 @@ def deploy(
     index, its own freshly-loaded adapter is unloaded again so the winner's adapter is the only
     one left resident in vLLM.
     """
+
+    if settings.serving_backend != "vllm":
+        # Mock backend never touches a GPU, so there is nothing to serialize against training;
+        # keep the pre-#59 behavior exact for tests and no-GPU local dev. Only a real vllm
+        # deploy mutates the shared H100 and must take the same flock training uses.
+        return _deploy_locked(db, model_version, backend)
+
+    try:
+        with gpu_lock(
+            lock_file or settings.gpu_lock_file,
+            lock_timeout if lock_timeout is not None else settings.gpu_lock_timeout,
+        ):
+            return _deploy_locked(db, model_version, backend)
+    except TimeoutError as exc:
+        logger.warning(
+            "deploy_gpu_lock_timeout",
+            model_id=model_version.model_id,
+            version=model_version.version,
+            lock_file=lock_file or settings.gpu_lock_file,
+        )
+        raise DeploymentLockTimeout(str(exc)) from exc
+
+
+def _deploy_locked(
+    db: Session, model_version: ModelVersion, backend: ServingBackend | None = None
+) -> tuple[Deployment, ModelVersion | None]:
+    """The locked body of `deploy` (issue #59): the pointer move plus all GPU-touching calls
+    (`backend.deploy`, the smoke test, `backend.unload`). Runs inside the GPU lock when the
+    serving backend is real; see `deploy` for the lock/timeout/`finally` semantics."""
 
     # Queried rather than read off `model_version.model.versions`: that collection is loaded once
     # per Session and does not pick up versions registered afterwards, so a sibling deployed in the

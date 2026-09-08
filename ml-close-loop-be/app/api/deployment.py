@@ -35,6 +35,11 @@ def deploy_model_version(
     try:
         deployment, previous = deployment_service.deploy(db, model_version)
         db.commit()
+    except deployment_service.DeploymentLockTimeout as exc:
+        # The GPU lock shared with training was still held when the timeout passed (issue #59):
+        # the deploy must not touch the GPU while training does, and must surface an explicit
+        # "GPU busy, retry" state (503) instead of hanging.
+        raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except ValueError as exc:
         # A concurrent deploy won the race for this model_id (partial unique index
         # uq_model_versions_one_deployed) - a real conflict, not a fake success.

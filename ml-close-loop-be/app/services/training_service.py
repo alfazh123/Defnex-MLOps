@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.dataset import DatasetVersion as DatasetVersionModel
 from app.models.training import TrainingRun
 from app.schemas.training import (
@@ -13,9 +14,12 @@ from app.schemas.training import (
 
 # PRD §9's lifecycle prose says QUEUED; the frozen TrainingRunStatus enum (openapi.yaml,
 # mlops-api-contract.md §3.4) uses PENDING for the same "not started yet" state (see US-007's note).
+# STALE (issue #60, PRD §10.2/§10.3): a worker stopped reporting heartbeat beyond the threshold;
+# distinct from FAILED and reclaimable (STALE -> RUNNING retry).
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "PENDING": {"RUNNING"},
-    "RUNNING": {"COMPLETED", "FAILED"},
+    "RUNNING": {"COMPLETED", "FAILED", "STALE"},
+    "STALE": {"RUNNING"},
     "COMPLETED": set(),
     "FAILED": set(),
 }
@@ -60,29 +64,108 @@ def start_training_run(db: Session, training_run: TrainingRun) -> TrainingRun:
 
 
 def claim_training_run(db: Session, training_run: TrainingRun) -> bool:
-    """Atomically claim a PENDING run for execution (issue #33).
+    """Atomically claim a claimable (PENDING or STALE) run for execution (issue #33/#60).
 
     Compare-and-set on the status column: only the caller that flips
-    PENDING -> RUNNING at the SQL level wins. Two worker processes that have
+    PENDING|STALE -> RUNNING at the SQL level wins. Two worker processes that have
     both selected the same PENDING row can then not both win; the loser gets
     `False` and must not execute the runner. Works on SQLite (where
-    `SELECT ... FOR UPDATE` is a no-op) and on PostgreSQL.
+    `SELECT ... FOR UPDATE` is a no-op) and on PostgreSQL. STALE is re-claimable so
+    a timed-out run can be retried (issue #60).
     """
 
     result = db.execute(
         update(TrainingRun)
         .where(
             TrainingRun.training_run_id == training_run.training_run_id,
-            TrainingRun.status == "PENDING",
+            TrainingRun.status.in_(["PENDING", "STALE"]),
         )
         .values(status="RUNNING")
         .execution_options(synchronize_session=False)
     )
     if result.rowcount != 1:
         return False
+    now = datetime.now(timezone.utc)
     training_run.status = "RUNNING"
-    training_run.started_at = datetime.now(timezone.utc)
+    training_run.started_at = now
+    # Seed the heartbeat at claim time so a worker that crashes right after claiming
+    # still has a timestamp to go stale from (issue #60).
+    training_run.heartbeat_at = now
     return True
+
+
+def touch_heartbeat(db: Session, training_run_id: str) -> int:
+    """Atomically refresh `heartbeat_at` for a RUNNING run by id (issue #60).
+
+    Standalone SQL update with `synchronize_session=False` so it can be driven from a
+    worker heartbeat thread that does not hold the run's ORM object. Returns the number
+    of rows updated (0 when the run is no longer RUNNING). Caller commits.
+    """
+
+    result = db.execute(
+        update(TrainingRun)
+        .where(
+            TrainingRun.training_run_id == training_run_id,
+            TrainingRun.status == "RUNNING",
+        )
+        .values(heartbeat_at=datetime.now(timezone.utc))
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount
+
+
+def stale_runs(db: Session, *, threshold_seconds: int | None = None) -> list[TrainingRun]:
+    """Detector (issue #60, PRD §10.2/§10.3): RUNNING runs whose liveness has lapsed.
+
+    A run is stale when its last heartbeat (or, before any heartbeat, its start time)
+    is older than `stale_threshold_seconds`. Returns the stale runs without mutating
+    them; `mark_stale_runs` applies the transition. Caller commits.
+    """
+
+    threshold = threshold_seconds if threshold_seconds is not None else settings.stale_threshold_seconds
+    from sqlalchemy import func, or_, select
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold)
+    return list(
+        db.scalars(
+            select(TrainingRun).where(
+                TrainingRun.status == "RUNNING",
+                or_(
+                    TrainingRun.heartbeat_at.is_(None),
+                    func.coalesce(
+                        TrainingRun.heartbeat_at, TrainingRun.started_at
+                    ) < cutoff,
+                ),
+            )
+        ).all()
+    )
+
+
+def mark_stale_runs(db: Session, *, threshold_seconds: int | None = None) -> int:
+    """Transition lapsed RUNNING runs to STALE (issue #60). Returns the count marked.
+
+    The bulk UPDATE runs on the SQL level without touching the ORM objects, so the
+    caller should consider the session state; returns how many rows flipped so the
+    worker can log recovery. Caller commits.
+    """
+
+    threshold = threshold_seconds if threshold_seconds is not None else settings.stale_threshold_seconds
+    from sqlalchemy import func, or_
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold)
+    result = db.execute(
+        update(TrainingRun)
+        .where(
+            TrainingRun.status == "RUNNING",
+            or_(
+                TrainingRun.heartbeat_at.is_(None),
+                func.coalesce(TrainingRun.heartbeat_at, TrainingRun.started_at) < cutoff,
+            ),
+        )
+        .values(status="STALE")
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount
 
 
 def update_training_progress(

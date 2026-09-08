@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     # Seconds a worker waits for the GPU lock before skipping the poll (run stays PENDING).
     gpu_lock_timeout: int = 300
 
+    # Job heartbeat / stale detection (issue #60, PRD §10.2-10.4). A RUNNING job
+    # persists `heartbeat_at` every `heartbeat_interval_seconds`; a run whose heartbeat
+    # (or start time, before the first heartbeat) has not advanced past
+    # `stale_threshold_seconds` is reclaimed as STALE by the detector so a crashed
+    # worker never leaves it stuck RUNNING.
+    heartbeat_interval_seconds: int = 10
+    stale_threshold_seconds: int = 60
+
     # Cross-service GPU coordination (issue #39): before training starts, the serving
     # service is stopped and VRAM verified free, then restarted after training ends —
     # all inside the same #33 GPU lock. `serving_control=mock` (default) disables all

@@ -2896,6 +2896,7 @@ components:
           - RUNNING
           - COMPLETED
           - FAILED
+          - STALE
           title: Status
         dataset_id:
           type: string

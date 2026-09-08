@@ -1,3 +1,4 @@
+import threading
 import time
 from typing import Protocol
 
@@ -36,6 +37,35 @@ class TrainingRunner(Protocol):
         ...
 
 
+def _heartbeat_loop(
+    stop: threading.Event,
+    db: Session,
+    run_id: str,
+    interval: float,
+) -> None:
+    """Persist a heartbeat for `run_id` every `interval` seconds until stopped (issue #60).
+
+    Runs on a daemon thread SHARING the worker's `db` session (the claim is not committed
+    until the runner/loop commits, so a separate connection could not observe RUNNING).
+    It only issues an atomic `touch_heartbeat` UPDATE with `synchronize_session=False` and
+    never begins/commits a transaction, so the runner's own commits flush the heartbeat
+    along with progress. Caller calls `stop.set()` after the runner returns to exit.
+    """
+
+    next_tick = time.monotonic() + interval
+    while not stop.is_set():
+        now = time.monotonic()
+        if now < next_tick:
+            stop.wait(next_tick - now)
+            continue
+        next_tick = time.monotonic() + interval
+        try:
+            training_service.touch_heartbeat(db, run_id)
+        except Exception:
+            # Heartbeats are best-effort liveness; a failed write must not fail the job.
+            logger.warning("heartbeat_failed", training_run_id=run_id, exc_info=True)
+
+
 def process_next_job(
     db: Session,
     runner: TrainingRunner,
@@ -43,13 +73,20 @@ def process_next_job(
     lock_file: str | None = None,
     lock_timeout: float | None = None,
     coordinator: ServingCoordinator | None = None,
+    heartbeat_interval: float | None = None,
 ) -> TrainingRun | None:
-    """One worker iteration (PRD §10 steps 1-8): pick the oldest PENDING run, claim it
-    atomically, run it under the exclusive GPU lock, persist the outcome.
+    """One worker iteration (PRD §10 steps 1-8): pick the oldest claimable run (PENDING or
+    STALE), claim it atomically, run it under the exclusive GPU lock, persist the outcome.
 
     Returns the processed run, or None if the queue is empty or the claim was lost
     to a concurrent worker. A lock-queue timeout does not fail or lose the run: the
     worker simply skips this poll and the run stays PENDING for the next iteration.
+
+    Heartbeat / stale detection (issue #60): before picking a run, the detector
+    `mark_stale_runs` reclaims any RUNNING run whose heartbeat has lapsed (a crashed
+    worker's orphaned run), so it is never stuck RUNNING forever and gets re-claimable.
+    While the runner executes, a daemon heartbeat thread persists `heartbeat_at` every
+    `heartbeat_interval` seconds so the run stays alive (PRD §10.4).
 
     Serving orchestration (issue #39): the `coordinator` (default `make_coordinator()`
     from settings — a no-op when `SERVING_CONTROL=mock`) wraps the training block so
@@ -60,9 +97,10 @@ def process_next_job(
     never fails or loses a run, matching the lock-timeout behavior.
     """
 
+    training_service.mark_stale_runs(db)
     training_run = db.scalar(
         select(TrainingRun)
-        .where(TrainingRun.status == "PENDING")
+        .where(TrainingRun.status.in_(["PENDING", "STALE"]))
         .order_by(TrainingRun.created_at)
     )
     if training_run is None:
@@ -78,6 +116,22 @@ def process_next_job(
                 with coordinator.cycle():
                     if not training_service.claim_training_run(db, training_run):
                         return None
+                    interval = (
+                        heartbeat_interval
+                        if heartbeat_interval is not None
+                        else settings.heartbeat_interval_seconds
+                    )
+                    stop = threading.Event()
+                    # ponytail: heartbeat daemon thread shares the worker's Session (single
+                    # atomic UPDATE, no transaction begin/commit); switch to a separate
+                    # session only once the claim is committed independently or Celery owns
+                    # the job lifecycle.
+                    heartbeat = threading.Thread(
+                        target=_heartbeat_loop,
+                        args=(stop, db, training_run.training_run_id, interval),
+                        daemon=True,
+                    )
+                    heartbeat.start()
                     try:
                         staging_dir = runner.run(db, training_run)
                     except Exception as exc:
@@ -96,6 +150,9 @@ def process_next_job(
                         model_service.register_model_version(
                             db, training_run, staging_dir=staging_dir
                         )
+                    finally:
+                        stop.set()
+                        heartbeat.join(timeout=2)
             except (VRAMNotFree, ServingStopFailed) as exc:
                 # Serving could not be made safe for training: the run is not started,
                 # stays PENDING, and the poll is skipped so the next iteration retries it.

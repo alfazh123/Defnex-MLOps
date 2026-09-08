@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from app.schemas.model import (
 )
 from app.services.artifact_storage import LocalFilesystemArtifactStorage
 
-_MAX_VERSION_RETRIES = 10
+_MAX_VERSION_RETRIES = 30
 
 
 def _slug(value: str) -> str:
@@ -119,6 +120,7 @@ def _allocate_version(
             # version.  OperationalError: SQLite "database is locked" — concurrent writer
             # holds the write lock.  In both cases the SAVEPOINT rolled back this attempt;
             # the outer transaction is still usable for the next iteration.
+            time.sleep(0.02)
             continue
     raise RuntimeError(
         f"could not allocate a model version for {model_id!r} "

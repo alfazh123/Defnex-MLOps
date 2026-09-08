@@ -25,6 +25,10 @@ class TrainingRun(Base):
     # for `ModelVersion.training_started_at`/`training_completed_at` at registration time.
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Issue #60: worker liveness. Persisted periodically while a run is RUNNING;
+    # a run whose heartbeat has not advanced past the stale threshold is reclaimed
+    # as STALE (PRD §10.4), so a crashed/frozen worker never leaves it RUNNING forever.
+    heartbeat_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     current_epoch: Mapped[int | None] = mapped_column(nullable=True)
     current_step: Mapped[int | None] = mapped_column(nullable=True)

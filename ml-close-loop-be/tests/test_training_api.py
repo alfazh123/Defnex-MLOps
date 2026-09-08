@@ -342,6 +342,34 @@ def test_create_training_run_returns_409_without_validation_report(client, admin
     assert listing["total"] == 0
 
 
+def test_get_training_run_exposes_stale_status(client, admin_token):
+    """A run reclaimed as STALE (crash recovery) round-trips through the API as STALE —
+    it is a distinct status, not FAILED, and must not fail Pydantic validation in to_schema."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.services import training_service as svc
+
+    h = auth_header(admin_token)
+    _pass_validation(client, admin_token)
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
+
+    with Session(client.engine) as db:
+        run = svc.get_training_run(db, created["training_run_id"])
+        assert svc.claim_training_run(db, run)
+        run.heartbeat_at = datetime.now(timezone.utc) - timedelta(seconds=3600)
+        svc.mark_stale_runs(db, threshold_seconds=60)
+        db.commit()
+
+    fetched = client.get(
+        f"/api/v1/training-runs/{created['training_run_id']}", headers=h
+    )
+
+    assert fetched.status_code == 200
+    assert fetched.json()["status"] == "STALE"
+
+
 def test_create_training_run_blocked_by_fail_gate_and_no_row_created(
     client, admin_token
 ):

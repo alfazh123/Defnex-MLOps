@@ -39,8 +39,9 @@ monorepo (`Defnex-MLOps/`) — all your work happens under `ml-close-loop-be/`.
   story**, leave `passes: false`, write the conflict into `progress.txt`
   under a `## Blocked` heading, and end your turn without guessing a
   resolution.
-- No Kubernetes, Kafka, Airflow, MLflow, Celery, Redis, or other
-  infrastructure not already named in the PRD.
+- No infrastructure not already named in `DEFNEX_MLOps_Multi_Server_Architecture_v2_PRD.md`
+  (repo root). The PRD names PostgreSQL, Redis, Celery, MinIO, vLLM, Unsloth, Docker; it does
+  NOT name Kubernetes, Kafka, Airflow, MLflow, or Vault — do not introduce those.
 - Work on ONE story per iteration. Do not start a second story even if time
   remains.
 - Keep changes scoped to `ml-close-loop-be/` unless a story explicitly says

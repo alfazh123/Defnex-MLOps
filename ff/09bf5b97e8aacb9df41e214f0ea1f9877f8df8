@@ -1,0 +1,21 @@
+ml-close-loop-be/README.md
+  s_b57a06cd3f8e90::t_7f63bf866df1e4 15
+README.md
+  s_b57a06cd3f8e90::t_da702a5e0296da 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "ff09bf5b97e8aacb9df41e214f0ea1f9877f8df8",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

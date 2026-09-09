@@ -1,3 +1,4 @@
+from app.models.compute_resource import ComputeResource
 from app.models.dataset import Dataset, DatasetVersion
 from app.models.deployment import Deployment
 from app.models.eval_set import EvalSet, EvalSetVersion
@@ -10,6 +11,7 @@ from app.models.user import User
 from app.models.validation import ValidationReport
 
 __all__ = [
+    "ComputeResource",
     "Dataset",
     "DatasetVersion",
     "Deployment",

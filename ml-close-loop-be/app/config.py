@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # VLLMServingBackend against `vllm_url`. docker-compose's GPU serving profile starts vLLM.
     serving_backend: Literal["mock", "vllm"] = "mock"
     vllm_url: str = "http://localhost:8001"
+    # Per-environment vLLM URLs (issue #68, PRD §16.1/§19.4): comma-separated `env:url` pairs,
+    # e.g. `staging:http://staging-vllm:8001,production:http://prod-vllm:8001`. Lets a deploy to a
+    # named environment target a different host instead of the single `vllm_url` — changing a
+    # staging/prod host is a config change, not a code change. Empty (default) falls back to
+    # `vllm_url` for every environment (backward compatible).
+    vllm_url_by_env: str = ""
     vllm_api_key: str = ""
     vllm_timeout_seconds: float = 60.0
     # Base model the serving stack is actually running (issue #65). The `serving`

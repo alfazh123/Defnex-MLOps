@@ -12,7 +12,11 @@ implementation. Two implementations exist:
   restart). Enabled with `settings.serving_backend == "vllm"`.
 
 `serving.py` replaces the pre-#40 placeholder with a stateful backend that is built once per
-process (`get_serving_backend`) so a real HTTP client is not recreated per call.
+process (`get_serving_backend`) so a real HTTP client is not recreated per call. Since #68 the
+default (None/`default`) backend remains that process singleton, while a named environment
+(e.g. `staging`/`production`) resolves to its own cached backend pointed at that environment's
+URL from `vllm_url_by_env` (PRD §16.1) — letting a deploy target a different host per
+environment (PRD §19.4).
 """
 
 from __future__ import annotations
@@ -141,6 +145,28 @@ def _adapter_path(model_version: ModelVersion) -> str:
         "artifact to load (artifacts: "
         f"{[a.get('type') for a in model_version.artifacts or []]})"
     )
+
+
+def parse_vllm_url_by_env(raw: str) -> dict[str, str]:
+    """Parse the `vllm_url_by_env` setting (`env:url` pairs, comma-separated) into a mapping
+    (issue #68, PRD §16.1). The URL is split on its *first* colon only, so `http://…` URLs with
+    more colons survive intact. Empty pairs are skipped; a malformed entry (no `:` or an empty
+    side) raises ValueError so a misconfigured topology fails loudly rather than silently
+    routing an environment to the wrong host."""
+    mapping: dict[str, str] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        env, _, url = pair.partition(":")
+        env = env.strip()
+        url = url.strip()
+        if not env or not url:
+            raise ValueError(
+                f"invalid VLLM_URL_BY_ENV entry {pair!r}; expected `env:url`"
+            )
+        mapping[env] = url
+    return mapping
 
 
 def _auth_header(api_key: str) -> dict[str, str]:
@@ -294,21 +320,35 @@ class VLLMServingBackend:
 
 
 _backend: ServingBackend | None = None
+_env_backends: dict[str, ServingBackend] = {}
 
 
-def get_serving_backend() -> ServingBackend:
-    """The process-wide serving backend, created once and reused.
+def _build_backend(base_url: str | None = None) -> ServingBackend:
+    """Construct the backend for `base_url` (or the process default when None). Mock never
+    touches a host, so a vllm backend is only built when `serving_backend == "vllm"`."""
+    if settings.serving_backend == "vllm":
+        return VLLMServingBackend(base_url=base_url)
+    return MockServingBackend()
 
-    Issue #40: the mock was previously instantiated fresh per call via
-    `(backend or MockServingBackend())` in `deployment_service.deploy`, so the real vLLM HTTP
-    client would have been rebuilt (and its connection dropped) on every deploy/rollback. A
-    singleton fixes that while keeping the default (`settings.serving_backend == "mock"`)
-    identical to pre-#40 behavior for tests and no-GPU local dev.
+
+def get_serving_backend(environment: str | None = None) -> ServingBackend:
+    """The process-wide serving backend for `environment` (issue #68, PRD §16.1/§17.1).
+
+    - `environment` None or `"default"` → the default singleton, created once and reused
+      (issue #40): the mock was previously instantiated fresh per call via
+      `(backend or MockServingBackend())` in `deployment_service.deploy`, so a real vLLM HTTP
+      client would have been rebuilt (and its connection dropped) on every deploy/rollback.
+    - a named environment (e.g. `"staging"`, `"production"`) → a per-environment backend cached
+      in `_env_backends`, constructed with the environment's URL from `vllm_url_by_env`. This is
+      how a staging/prod deploy can target a *different* host than the default (PRD §19.4):
+      changing the host is a config change, not a code change.
     """
     global _backend
-    if _backend is None:
-        if settings.serving_backend == "vllm":
-            _backend = VLLMServingBackend()
-        else:
-            _backend = MockServingBackend()
-    return _backend
+    if environment is None or environment == "default":
+        if _backend is None:
+            _backend = _build_backend()
+        return _backend
+    if environment not in _env_backends:
+        urls = parse_vllm_url_by_env(settings.vllm_url_by_env)
+        _env_backends[environment] = _build_backend(urls.get(environment))
+    return _env_backends[environment]

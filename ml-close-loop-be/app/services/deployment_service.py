@@ -218,8 +218,12 @@ def _deploy_locked(
     version = model_version.version
 
     # A real backend (VLLMServingBackend) is created once per process and reused; the default
-    # (mock) is what pre-#40 callers got from `backend or MockServingBackend()`.
-    backend = backend or get_serving_backend()
+    # (mock) is what pre-#40 callers got from `backend or MockServingBackend()`. When the caller
+    # targets a named environment without passing an explicit backend, resolve the backend for
+    # that environment (issue #68, PRD §16.1) so a staging/prod deploy can hit a different host;
+    # a None/`default` environment resolves to the process singleton (unchanged).
+    if backend is None:
+        backend = get_serving_backend(environment)
 
     # Issue #62: verify artifact integrity against the checksum recorded at finalize time
     # BEFORE loading the adapter and before any pointer moves. On mismatch the deploy aborts

@@ -1112,6 +1112,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/training-runs/{training_run_id}/retry:
+    post:
+      tags:
+      - Training
+      summary: Retry Training Run
+      description: 'Retry a FAILED training run: creates a new PENDING run whose `retry_of`
+        points back at the immutable original (PRD §10.5). The original is never mutated;
+        any non-FAILED status is a deterministic 409 (issue #61).'
+      operationId: retry_training_run_api_v1_training_runs__training_run_id__retry_post
+      parameters:
+      - name: training_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Training Run Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingRun'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/training-runs/{training_run_id}/progress:
     get:
       tags:

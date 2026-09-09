@@ -116,6 +116,35 @@ def get_training_run(
     return training_service.to_schema(training_run)
 
 
+@router.post(
+    "/training-runs/{training_run_id}/retry",
+    response_model=TrainingRun,
+    status_code=201,
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+def retry_training_run(
+    training_run_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> TrainingRun:
+    """Retry a FAILED run: creates a new PENDING run with `retry_of` back at the original
+    (PRD §10.5). The original stays immutable; only a FAILED run is retryable, any other
+    status is a deterministic 409."""
+    training_run = training_service.get_training_run(db, training_run_id)
+    if training_run is None:
+        raise APIError(
+            404,
+            "TRAINING_RUN_NOT_FOUND",
+            f'training_run_id "{training_run_id}" not found',
+        )
+    try:
+        new_run = training_service.retry_training_run(db, training_run)
+    except ValueError as exc:
+        raise APIError(409, "TRAINING_RUN_NOT_RETRYABLE", str(exc)) from exc
+    db.commit()
+    return training_service.to_schema(new_run)
+
+
 @router.get(
     "/training-runs/{training_run_id}/progress",
     responses={404: {"model": ErrorResponse}},

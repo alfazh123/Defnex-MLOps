@@ -347,6 +347,53 @@ def test_completed_and_failed_cannot_return_to_running(db_session):
         training_service._transition(run2, "RUNNING")
 
 
+def _failed_run(db_session, model_id="qwen-sft-domain-x"):
+    dataset_version = _dataset_version(db_session)
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id=model_id)
+    )
+    training_service.claim_training_run(db_session, training_run)
+    training_service.fail_training_run(db_session, training_run, error_message="OOM")
+    return training_run
+
+
+def test_retry_failed_run_creates_new_pending_run_with_retry_of(db_session):
+    """Issue #61: a FAILED run can be retried into a fresh PENDING run whose `retry_of`
+    points back at the original; the original record is not mutated (immutable history)."""
+    failed = _failed_run(db_session)
+    failed_id = failed.training_run_id
+    failed_config = failed.training_config
+
+    new_run = training_service.retry_training_run(db_session, failed)
+
+    assert new_run is not failed
+    assert new_run.status == "PENDING"
+    assert new_run.retry_of == failed_id
+    assert new_run.dataset_version_id == failed.dataset_version_id
+    assert new_run.model_id == failed.model_id
+    assert new_run.base_model == failed.base_model
+    assert new_run.training_config == failed_config
+    assert new_run.triggered_by == failed.triggered_by
+    # Original stays FAILED and untouched.
+    assert failed.status == "FAILED"
+    assert failed.error_message == "OOM"
+    assert failed.retry_of is None
+
+
+@pytest.mark.parametrize("status", ["PENDING", "RUNNING", "COMPLETED", "STALE"])
+def test_retry_rejects_non_failed_run(db_session, status):
+    """Retry is only legal from FAILED; any other status raises (endpoint maps to 409)."""
+    dataset_version = _dataset_version(db_session)
+    run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+    run.status = status
+    db_session.flush()
+
+    with pytest.raises(ValueError, match="must be FAILED"):
+        training_service.retry_training_run(db_session, run)
+
+
 def test_to_schema_exposes_stale_status(db_session):
     """STALE must round-trip through the API schema (it is a valid status), not fail
     Pydantic validation in `to_schema`."""

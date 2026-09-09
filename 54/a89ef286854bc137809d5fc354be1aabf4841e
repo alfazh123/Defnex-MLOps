@@ -1,0 +1,31 @@
+ml-close-loop-be/pyproject.toml
+  s_f7d2b20f5d78c5::t_c9b7907ec234cb 31-33
+ml-close-loop-be/app/services/ssh.py
+  s_f7d2b20f5d78c5::t_52f2f095af7a05 1-112,114-128,130-180,182-260,262-362,364-405
+  s_f7d2b20f5d78c5::t_cf71bf830bd43d 261
+  s_f7d2b20f5d78c5::t_bfc35c5d59e91e 113,129,181,363
+ml-close-loop-be/tests/test_ssh.py
+  s_f7d2b20f5d78c5::t_134ace07869048 391
+  s_f7d2b20f5d78c5::t_18a2a38898c4fc 1-100,104-390,392-404,409-415
+  s_f7d2b20f5d78c5::t_bfc35c5d59e91e 101-103,405-408
+ml-close-loop-be/app/config.py
+  s_f7d2b20f5d78c5::t_5f1d8ff8f069f8 167-169
+ml-close-loop-be/.env.example
+  s_f7d2b20f5d78c5::t_0bf56493770281 155-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "54a89ef286854bc137809d5fc354be1aabf4841e",
+  "prompts": {},
+  "sessions": {
+    "s_f7d2b20f5d78c5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7b161c35ffeqwCZekgJVpki31",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

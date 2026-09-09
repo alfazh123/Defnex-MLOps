@@ -1,0 +1,37 @@
+ml-close-loop-be/tests/test_compute_resource_api.py
+  s_30b48ebb916854::t_e77382b8aa1812 21-22,27-30
+  s_30b48ebb916854::t_1de4f87a31dbd6 1-12,33-77,79,83-85,87-140,142,145-147,149-243,247-250,252-307,311-313,315-342,344,347-349,351-413
+  s_30b48ebb916854::t_cd23efe57e722d 141,143-144,148
+  s_30b48ebb916854::t_641a9c411f2f63 244-246,251
+  s_30b48ebb916854::t_f71018aac434f6 13-20
+  s_30b48ebb916854::t_15a65e1ec90856 308-310,314
+  s_30b48ebb916854::t_d5de5314723f47 78,80-82,86
+  s_30b48ebb916854::t_650f3bc9566b90 23-26,31-32
+  s_30b48ebb916854::t_c18e9ed92c29cc 343,345-346,350
+ml-close-loop-be/app/main.py
+  s_30b48ebb916854::t_d72c4ef7fa4809 14
+ml-close-loop-be/app/schemas/compute_resource.py
+  s_30b48ebb916854::t_02582e44ef3cde 1-68
+ml-close-loop-be/app/api/compute_resources.py
+  s_30b48ebb916854::t_671b8b903053d7 1-10,12-168
+  s_30b48ebb916854::t_a89063175d4142 11
+  s_30b48ebb916854::t_3ba7eb0fcd3181 169-171
+ml-close-loop-be/app/services/compute_resource_service.py
+  s_30b48ebb916854::t_07b4968422ab84 1-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "501c0a4e6375b569733275d0078840a50b13ed33",
+  "prompts": {},
+  "sessions": {
+    "s_30b48ebb916854": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7ab32a64ffeQn6BmuRaNreOsJ",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

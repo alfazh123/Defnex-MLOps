@@ -34,6 +34,9 @@ intake = [
 s3 = [
     "boto3>=1.34",
 ]
+ssh = [
+    "paramiko>=3.4",
+]
 
 [build-system]
 requires = ["hatchling"]

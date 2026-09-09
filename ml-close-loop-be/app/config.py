@@ -183,6 +183,9 @@ class Settings(BaseSettings):
     # RUNNING). 0 disables the timeout.
     training_timeout_seconds: int = 0
 
+    # SSH / remote connectivity (issue #73)
+    ssh_connect_timeout: float = 30.0
+
     # Logging
     debug: bool = False
     log_level: str = "INFO"

@@ -119,6 +119,7 @@ def deploy(
     lock_file: str | None = None,
     lock_timeout: float | None = None,
     artifact_storage: ArtifactStorage | None = None,
+    environment: str | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """Move the deployment pointer to `model_version`, retiring whichever version currently holds
     it (WBS 3.3 §3 release gate + §4 supersession). Returns the new Deployment row and the
@@ -156,7 +157,11 @@ def deploy(
         # keep the pre-#59 behavior exact for tests and no-GPU local dev. Only a real vllm
         # deploy mutates the shared H100 and must take the same flock training uses.
         return _deploy_locked(
-            db, model_version, backend, artifact_storage=artifact_storage
+            db,
+            model_version,
+            backend,
+            artifact_storage=artifact_storage,
+            environment=environment,
         )
 
     try:
@@ -165,7 +170,11 @@ def deploy(
             lock_timeout if lock_timeout is not None else settings.gpu_lock_timeout,
         ):
             return _deploy_locked(
-                db, model_version, backend, artifact_storage=artifact_storage
+                db,
+                model_version,
+                backend,
+                artifact_storage=artifact_storage,
+                environment=environment,
             )
     except TimeoutError as exc:
         logger.warning(
@@ -183,6 +192,7 @@ def _deploy_locked(
     backend: ServingBackend | None = None,
     *,
     artifact_storage: ArtifactStorage | None = None,
+    environment: str | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """The locked body of `deploy` (issue #59): the pointer move plus all GPU-touching calls
     (`backend.deploy`, the smoke test, `backend.unload`). Runs inside the GPU lock when the
@@ -258,7 +268,7 @@ def _deploy_locked(
         deployment_id=f"deployment-{uuid.uuid4().hex[:6]}",
         model_id=model_version.model_id,
         model_version=model_version.version,
-        environment=settings.deployment_environment,
+        environment=environment or settings.deployment_environment,
         status="DEPLOYED",
         deployed_at=datetime.now(timezone.utc),
     )

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -22,3 +22,13 @@ class Deployment(Base):
     environment: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
     deployed_at: Mapped[datetime] = mapped_column()
+
+    # Navigation to the `Environment` this deployment targeted (issue #67). No DB-level FK so an
+    # existing `environment` value that predates the environments table (e.g. "default") always
+    # resolves; environments are advisory metadata on deployment history, not a hard join.
+    environment_obj = relationship(
+        "Environment",
+        primaryjoin="Deployment.environment == Environment.name",
+        foreign_keys="Environment.name",
+        uselist=False,
+    )

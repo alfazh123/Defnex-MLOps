@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_model_version_or_404, require_admin
 from app.api.errors import APIError
 from app.db.session import get_db
+from app.models.environment import Environment
 from app.models.model import Model
 from app.models.user import User
 from app.schemas.common import ErrorResponse
-from app.schemas.deployment import DeployResult, DeploymentStatus
+from app.schemas.deployment import (
+    DeployRequest,
+    DeployResult,
+    DeploymentStatus,
+    EnvironmentOut,
+)
 from app.services import deployment_service
 
 router = APIRouter(tags=["Deployment"])
@@ -21,6 +28,7 @@ router = APIRouter(tags=["Deployment"])
 def deploy_model_version(
     model_id: str,
     version: int,
+    body: DeployRequest | None = None,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> DeployResult:
@@ -33,7 +41,9 @@ def deploy_model_version(
             "can be deployed.",
         )
     try:
-        deployment, previous = deployment_service.deploy(db, model_version)
+        deployment, previous = deployment_service.deploy(
+            db, model_version, environment=body.environment if body else None
+        )
         db.commit()
     except deployment_service.DeploymentLockTimeout as exc:
         # The GPU lock shared with training was still held when the timeout passed (issue #59):
@@ -45,6 +55,21 @@ def deploy_model_version(
         # uq_model_versions_one_deployed) - a real conflict, not a fake success.
         raise APIError(409, "DEPLOY_CONFLICT", str(exc)) from exc
     return deployment_service.to_deploy_result(deployment, previous)
+
+
+@router.get(
+    "/environments",
+    response_model=list[EnvironmentOut],
+    responses={401: {"model": ErrorResponse}},
+)
+def list_environments(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> list[EnvironmentOut]:
+    """List the registered deployment environments (PRD §16.1), seeded as `default`/`staging`/
+    `production` by the environments migration."""
+    rows = db.scalars(select(Environment).order_by(Environment.name)).all()
+    return [EnvironmentOut(name=r.name, description=r.description) for r in rows]
 
 
 @router.get(

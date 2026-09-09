@@ -1609,6 +1609,12 @@ paths:
         schema:
           type: string
           title: Authorization
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployRequest'
       responses:
         '200':
           description: Successful Response
@@ -1726,6 +1732,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Unprocessable Content
+  /api/v1/environments:
+    get:
+      tags:
+      - Deployment
+      summary: List Environments
+      description: 'List the registered deployment environments (PRD §16.1), seeded as
+        `default`/`staging`/`production`
+
+        by the environments migration. Deployments record which environment they
+        target.'
+      operationId: list_environments_api_v1_environments_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Environment'
+                title: Response List Environments Api V1 Environments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/models/{model_id}/inference:
     post:
       tags:
@@ -2082,6 +2122,37 @@ components:
       - current_deployed_version
       title: DeployResult
       description: Response for POST .../deploy (openapi.yaml DeployResult).
+    DeployRequest:
+      properties:
+        environment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Environment
+      type: object
+      title: DeployRequest
+      description: 'Optional body for POST .../deploy (issue #67, PRD §16.1). `environment`
+        names
+
+        the target environment; omitted, the deploy defaults to the configured default
+        environment
+
+        (pre-#67 behavior).'
+    Environment:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      type: object
+      required:
+      - name
+      title: Environment
+      description: A deployment target environment (openapi.yaml Environment).
     DeploymentStatus:
       properties:
         model_id:

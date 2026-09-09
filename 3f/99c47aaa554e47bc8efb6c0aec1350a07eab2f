@@ -1,0 +1,34 @@
+ml-close-loop-be/.env.example
+  s_489c432d956e8f::t_8b599f7994f861 30-35,151-167
+  s_489c432d956e8f::t_b7c9a0ae291b59 168
+ml-close-loop-be/tests/test_artifact_storage_minio.py
+  s_489c432d956e8f::t_2dca157779a66b 1-200
+ml-close-loop-be/app/config.py
+  s_489c432d956e8f::t_6363f6348ec67a 175
+  s_489c432d956e8f::t_8b599f7994f861 29-34,163-174
+ml-close-loop-be/docker-compose.yml
+  s_489c432d956e8f::t_8b599f7994f861 68-92
+ml-close-loop-be/app/services/artifact_storage.py
+  s_489c432d956e8f::t_8b599f7994f861 5,19,25-30,36-81,155-156,158-170,172-176,178-180,182-187,189-192,194-305
+  s_489c432d956e8f::t_f5118a08658701 188,193
+ml-close-loop-be/pyproject.toml
+  s_489c432d956e8f::t_8b599f7994f861 31-36
+ml-close-loop-be/.venv
+  s_489c432d956e8f::t_be94b71923be2c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "3f99c47aaa554e47bc8efb6c0aec1350a07eab2f",
+  "prompts": {},
+  "sessions": {
+    "s_489c432d956e8f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7b16696effeXQdc671nNeTFwB",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

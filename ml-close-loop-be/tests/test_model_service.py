@@ -418,7 +418,9 @@ def _promoted_version(db_session):
     promotion_service.create_decision(
         db_session,
         model_version,
-        DecisionCreateRequest(decision="PROMOTED", decided_by="reviewer-1", rationale="ok"),
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
     )
     assert model_version.status == "PROMOTED"
     return model_version

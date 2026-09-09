@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.schemas.training import TrainingConfig
 
 ModelLifecycleStatus = Literal[
-    "REGISTERED", "EVALUATED", "PROMOTED", "REJECTED", "DEPLOYED", "RETIRED"
+    "REGISTERED", "EVALUATED", "PROMOTED", "REJECTED", "DEPLOYED", "RETIRED", "ARCHIVED"
 ]
 ArtifactType = Literal["adapter", "merged", "gguf"]
 

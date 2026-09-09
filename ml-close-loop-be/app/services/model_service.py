@@ -295,6 +295,54 @@ def submit_evaluation(
     return model_version
 
 
+# issue #66: ARCHIVED is a distinct, reversible state - "pernah valid/dipakai tapi tidak lagi
+# aktif". Unlike REJECTED (a failed candidate kept on record), ARCHIVED removes a version from
+# active listing/deployment consideration without deleting its artifact (PRD §8.4, §43).
+_ARCHIVE_MASK = {"PROMOTED", "RETIRED"}
+_ARCHIVED_RESTORE_TARGETS = {"PROMOTED", "REJECTED", "RETIRED"}
+
+
+def archive_model_version(db: Session, model_version: ModelVersion) -> ModelVersion:
+    """Transition a version PROMOTED|RETIRED -> ARCHIVED (issue #66).
+
+    Archive is a soft-hide: the artifact is untouched and stays available for rollback (PRD
+    §8.4, §43). A REJECTED version stays REJECTED - it is already excluded from active
+    deliberation. Illegal transitions follow the per-service transition-table pattern
+    (promotion_service.py `_VALID_TRANSITIONS`) and raise `ValueError`."""
+
+    if model_version.status not in _ARCHIVE_MASK:
+        raise ValueError(
+            f"Cannot archive model_id {model_version.model_id!r} version {model_version.version} "
+            f"in status {model_version.status!r} (must be PROMOTED or RETIRED)"
+        )
+    model_version.status = "ARCHIVED"
+    db.flush()
+    return model_version
+
+
+def unarchive_model_version(
+    db: Session, model_version: ModelVersion, restore_status: str
+) -> ModelVersion:
+    """Reverse an archive (issue #66): ARCHIVED -> PROMOTED|REJECTED|RETIRED.
+
+    The version returns to a prior active state so it can be re-deployed (PROMOTED/RETIRED)
+    or re-deliberated (REJECTED). Artifacts are still intact, so rollback stays possible."""
+
+    if model_version.status != "ARCHIVED":
+        raise ValueError(
+            f"Cannot unarchive model_id {model_version.model_id!r} version "
+            f"{model_version.version} in status {model_version.status!r} (must be ARCHIVED)"
+        )
+    if restore_status not in _ARCHIVED_RESTORE_TARGETS:
+        raise ValueError(
+            f"Cannot restore model_id {model_version.model_id!r} version {model_version.version} "
+            f"to {restore_status!r} (must be PROMOTED, REJECTED, or RETIRED)"
+        )
+    model_version.status = restore_status
+    db.flush()
+    return model_version
+
+
 def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
     """Build the full lineage response (openapi.yaml ModelRegistryRecord) from a ModelVersion row.
 

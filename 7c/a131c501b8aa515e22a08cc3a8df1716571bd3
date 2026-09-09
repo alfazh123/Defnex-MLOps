@@ -1,0 +1,34 @@
+ml-close-loop-be/app/providers/training_provider.py
+  s_b57a06cd3f8e90::t_febd1250dd6480 258
+ml-close-loop-be/app/main.py
+  s_b57a06cd3f8e90::t_dfe9ac96588c7a 75-78
+ml-close-loop-be/README.md
+  s_b57a06cd3f8e90::t_b919c918fed1f2 15
+  s_b57a06cd3f8e90::t_fae0be522cb552 258
+  s_b57a06cd3f8e90::t_009e039ce8edc1 268
+ml-close-loop-be/app/schemas/training.py
+  s_b57a06cd3f8e90::t_d280252669e635 116
+ml-close-loop-be/openapi.yaml
+  s_b57a06cd3f8e90::t_e9059c5c5df82c 1839-2076
+  s_b57a06cd3f8e90::t_bfd7ed0762354d 3659-3908
+ml-close-loop-be/app/services/training_service.py
+  s_b57a06cd3f8e90::t_660b9fbcff5004 41
+README.md
+  s_b57a06cd3f8e90::t_57f79bc611f7c4 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7ca131c501b8aa515e22a08cc3a8df1716571bd3",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

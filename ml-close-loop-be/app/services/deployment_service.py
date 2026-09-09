@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
+from app.models.transfer import ArtifactTransfer
 from app.schemas.deployment import DeployResult, DeploymentStatus
 from app.services.artifact_storage import (
     ArtifactChecksumError,
@@ -75,6 +76,33 @@ def verify_artifact_checksum(
                 f"artifact checksum mismatch for model_id {model_version.model_id!r} "
                 f"version {model_version.version}: stored checksum {recorded!r} does not "
                 f"match the on-disk payload; deployment refused"
+            )
+
+
+class TransferVerificationError(Exception):
+    """Raised when an artifact has a failed or in-progress transfer (PRD §29, issue #72)."""
+
+
+def verify_no_failed_transfers(model_version: ModelVersion, db: Session) -> None:
+    """Reject deploy when any artifact URI has a FAILED transfer record (PRD §29, issue #72).
+
+    Checks for any transfer whose ``artifact_uri`` matches one of the model version's
+    artifacts and whose ``status`` is ``FAILED``.  A pending/in-progress transfer also
+    blocks the deploy (the artifact may not yet be at the target)."""
+    for artifact in model_version.artifacts or []:
+        uri = artifact.get("uri")
+        if not uri:
+            continue
+        transfer = db.scalars(
+            select(ArtifactTransfer).where(
+                ArtifactTransfer.artifact_uri == uri,
+                ArtifactTransfer.status.in_(["FAILED", "TRANSFERRING", "PENDING"]),
+            )
+        ).first()
+        if transfer is not None:
+            raise TransferVerificationError(
+                f"artifact {uri!r} has a {transfer.status} transfer "
+                f"({transfer.transfer_id}); deployment blocked (PRD §29)"
             )
 
 
@@ -230,6 +258,9 @@ def _deploy_locked(
     # here — nothing is loaded, nothing is unloaded, and the previous version stays DEPLOYED;
     # the failure is recorded as a log line.
     verify_artifact_checksum(model_version, artifact_storage)
+
+    # Issue #72: block deploy when any artifact has a failed/in-progress transfer (PRD §29)
+    verify_no_failed_transfers(model_version, db)
 
     # Issue #65: reject a deploy whose artifact base_model doesn't match the served base model
     # (BaseModelMismatchError), before any load/pointer move. Skipped when served_base_model

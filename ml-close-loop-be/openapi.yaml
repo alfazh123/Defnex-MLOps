@@ -3591,6 +3591,80 @@ components:
       - msg
       - type
       title: ValidationError
+    TransferInitiateRequest:
+      properties:
+        artifact_uri:
+          type: string
+          title: Artifact Uri
+        source_host:
+          type: string
+          title: Source Host
+        target_host:
+          type: string
+          title: Target Host
+      type: object
+      required:
+      - artifact_uri
+      - source_host
+      - target_host
+      title: TransferInitiateRequest
+      description: Request body for POST /api/v1/transfers (issue #72, PRD §20.3).
+    TransferRecord:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        artifact_uri:
+          type: string
+          title: Artifact Uri
+        source_host:
+          type: string
+          title: Source Host
+        target_host:
+          type: string
+          title: Target Host
+        checksum_before:
+          type: string
+          title: Checksum Before
+        checksum_after:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Checksum After
+        status:
+          type: string
+          enum:
+          - PENDING
+          - TRANSFERRING
+          - COMPLETED
+          - FAILED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        completed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          format: date-time
+          title: Completed At
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+      type: object
+      required:
+      - transfer_id
+      - artifact_uri
+      - source_host
+      - target_host
+      - checksum_before
+      - status
+      - created_at
+      title: TransferRecord
+      description: Artifact transfer record (issue #72, PRD §20.3).
     ValidationReport:
       properties:
         dataset_id:
@@ -3680,3 +3754,90 @@ components:
       type: object
       title: ValidationStatusCounts
       description: Per-record status tally (validation-rules.md §2).
+  /api/v1/transfers:
+    post:
+      tags:
+      - Transfer
+      summary: Initiate Transfer
+      operationId: initiate_transfer_api_v1_transfers_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferInitiateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferRecord'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+      - Transfer
+      summary: List Transfers
+      operationId: list_transfers_api_v1_transfers_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/transfers/{transfer_id}:
+    get:
+      tags:
+      - Transfer
+      summary: Get Transfer
+      operationId: get_transfer_api_v1_transfers_transfer_id_get
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferRecord'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

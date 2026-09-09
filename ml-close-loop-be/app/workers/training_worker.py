@@ -37,6 +37,35 @@ class TrainingRunner(Protocol):
         ...
 
 
+class ProviderRunnerAdapter:
+    """Adapt a TrainingProvider (issue #74, PRD §9.4) to the TrainingRunner interface.
+
+    The provider's submit/get_status/collect_result cycle is wrapped into a single
+    blocking `run()` call so the existing worker loop works unchanged. For
+    LocalSubprocessProvider this is effectively a direct subprocess call; for remote
+    providers (GPU VPS, Colab) the adapter would poll get_status in a loop.
+    """
+
+    def __init__(self, provider):
+        self._provider = provider
+
+    def run(self, db: Session, training_run: TrainingRun) -> str:
+        external_job_id = self._provider.submit(db, training_run)
+        # For LocalSubprocessProvider, submit() spawns a daemon thread and returns
+        # immediately. Poll until the job completes or fails.
+        import time as _time
+
+        while True:
+            status = self._provider.get_status(external_job_id)
+            if status.status == "COMPLETED":
+                return self._provider.collect_result(external_job_id)
+            if status.status in ("FAILED", "CANCELLED"):
+                raise RuntimeError(
+                    status.error_message or f"Job {external_job_id} {status.status}"
+                )
+            _time.sleep(0.1)
+
+
 def _heartbeat_loop(
     stop: threading.Event,
     db: Session,
@@ -171,10 +200,17 @@ def run_forever(
     """Poll for queued training runs, independent of the FastAPI process (PRD §10).
     Run standalone via `python -m app.workers.training_worker`.
 
+    Accepts either a TrainingRunner (legacy) or a TrainingProvider (issue #74).
+    If a TrainingProvider is passed, it is automatically wrapped with ProviderRunnerAdapter.
+
     A SIGTERM that lands mid-cycle (`ServingInterrupted`) has already restarted serving
     in the cycle's `finally`; it now stops the loop so the worker exits cleanly instead
     of spinning after being asked to shut down.
     """
+
+    # Auto-adapt TrainingProvider to TrainingRunner if needed (issue #74).
+    if hasattr(runner, "submit") and not hasattr(runner, "run"):
+        runner = ProviderRunnerAdapter(runner)
 
     while True:
         db = SessionLocal()
@@ -193,7 +229,9 @@ def run_forever(
 
 
 if __name__ == "__main__":
-    from app.workers.unsloth_runner import UnslothTrainingRunner
+    from app.providers.training_provider import LocalSubprocessProvider
 
-    # Real runner: spawns Unsloth training in a separate venv (issue #38). Mock is test-only.
-    run_forever(UnslothTrainingRunner())
+    # Prefer the provider abstraction (issue #74) over the raw runner.
+    # LocalSubprocessProvider wraps UnslothTrainingRunner with the submit/get_status/
+    # collect_result contract so future GPU VPS / Colab providers can be swapped in.
+    run_forever(LocalSubprocessProvider())

@@ -1,0 +1,24 @@
+README.md
+  s_b57a06cd3f8e90::t_f7772bbb705586 20
+ml-close-loop-be/README.md
+  s_b57a06cd3f8e90::t_e330718a8f04f4 15
+ml-close-loop-be/alembic/versions/e21e265f06fb_merge_batch_2_branches_retry_of_.py
+  s_b57a06cd3f8e90::t_96a1b68ab29561 8,13-18
+  s_b57a06cd3f8e90::t_4fcb19d8b35766 1-7,9-12,19-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1af7479965af4e725b506053c9cce865216d6a9d",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

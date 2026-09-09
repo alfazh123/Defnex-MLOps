@@ -2,7 +2,7 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.config import settings
 
@@ -16,14 +16,67 @@ class ArtifactChecksumError(Exception):
     finalize time (issue #62). Deploy/transfer must reject the artifact before any pointer moves."""
 
 
+@runtime_checkable
 class ArtifactStorage(Protocol):
     def store(self, key: str, content: str) -> str:
         """Persist `content` under `key` and return its URI."""
         ...
 
+    def finalize_version(
+        self, model_id: str, name: str, staging_dir: Path | str, metadata: dict
+    ) -> str:
+        """Move a training run's staged output into its immutable, versioned location."""
+        ...
+
     def verify_checksum(self, uri: str) -> bool:
         """Return True if the artifact at `uri` passes its recorded checksum."""
         ...
+
+
+def compute_checksum_from_bytes(entries: list[tuple[str, bytes]]) -> str:
+    """Deterministic SHA-256 over a list of (relative_path, data) pairs.
+
+    Each entry is prefixed with its relative path and byte length so the digest is
+    order-correct and unambiguous between files.  This is the canonical algorithm shared
+    by LocalFilesystemArtifactStorage and MinioArtifactStorage (issue #62)."""
+    h = hashlib.sha256()
+    for rel, data in sorted(entries, key=lambda e: e[0]):
+        h.update(f"{rel}:{len(data)}:".encode())
+        h.update(data)
+    return h.hexdigest()
+
+
+def _compute_checksum(target: Path) -> str:
+    """Deterministic SHA-256 over every payload file (excluding metadata.json) in a version dir.
+
+    Files are hashed in sorted relative-path order; each file is prefixed with its relative
+    path and byte length so the digest is order-correct and unambiguous between files."""
+    entries: list[tuple[str, bytes]] = []
+    for p in target.rglob("*"):
+        if p.is_file() and p.name != "metadata.json":
+            entries.append((p.relative_to(target).as_posix(), p.read_bytes()))
+    return compute_checksum_from_bytes(entries)
+
+
+def _uri_to_path(uri: str) -> Path:
+    """Strip a `file://` prefix from an artifact URI (artifacts are stored at `file://{dir}`)."""
+    return Path(uri[len("file://") :]) if uri.startswith("file://") else Path(uri)
+
+
+def _uri_to_s3(uri: str) -> tuple[str, str]:
+    """Parse an `s3://{bucket}/{key}` URI into (bucket, key)."""
+    prefix = "s3://"
+    if not uri.startswith(prefix):
+        raise ValueError(f"not an s3:// URI: {uri!r}")
+    without_prefix = uri[len(prefix) :]
+    slash = without_prefix.find("/")
+    if slash < 0:
+        raise ValueError(f"s3:// URI has no key: {uri!r}")
+    return without_prefix[:slash], without_prefix[slash + 1 :]
+
+
+def _serialize_metadata(metadata: dict) -> bytes:
+    return json.dumps(metadata, indent=2, sort_keys=True, default=str).encode()
 
 
 class LocalFilesystemArtifactStorage:
@@ -67,8 +120,6 @@ class LocalFilesystemArtifactStorage:
         self._base_dir.mkdir(parents=True, exist_ok=True)
         staging = Path(staging_dir)
         shutil.move(str(staging), str(target))
-        # Issue #62: record a SHA-256 over the payload files (everything but metadata.json)
-        # as part of the immutable metadata, so deploy/transfer can detect corruption.
         metadata["checksum"] = _compute_checksum(target)
         self._write_metadata(target, metadata)
         return f"file://{target}"
@@ -101,23 +152,154 @@ class LocalFilesystemArtifactStorage:
         return _compute_checksum(_uri_to_path(uri)) == recorded
 
 
-def _compute_checksum(target: Path) -> str:
-    """Deterministic SHA-256 over every payload file (excluding metadata.json) in a version dir.
+class MinioArtifactStorage:
+    """MinIO/S3-backed artifact storage (issue #71, PRD §13.1, §13.2).
 
-    Files are hashed in sorted relative-path order; each file is prefixed with its relative
-    path and byte length so the digest is order-correct and unambiguous between files."""
-    h = hashlib.sha256()
-    for rel in sorted(
-        p.relative_to(target).as_posix()
-        for p in target.rglob("*")
-        if p.is_file() and p.name != "metadata.json"
+    Artifacts (adapter/model) and dataset bytes live in MinIO, not a server-local
+    directory.  The URI scheme is ``s3://{bucket}/{key}``.  Callers interact through
+    the same ``ArtifactStorage`` protocol as ``LocalFilesystemArtifactStorage``.
+    """
+
+    def __init__(
+        self,
+        *,
+        endpoint: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        bucket: str | None = None,
+        secure: bool | None = None,
     ):
-        data = (target / rel).read_bytes()
-        h.update(f"{rel}:{len(data)}:".encode())
-        h.update(data)
-    return h.hexdigest()
+        self._endpoint = endpoint or settings.minio_endpoint
+        self._access_key = access_key or settings.minio_access_key
+        self._secret_key = secret_key or settings.minio_secret_key
+        self._bucket = bucket or settings.minio_bucket
+        self._secure = secure if secure is not None else settings.minio_secure
+
+    def _client(self):
+        """Lazy boto3 S3 client so boto3 is only imported when MinIO is actually used."""
+        import boto3
+
+        return boto3.client(
+            "s3",
+            endpoint_url=f"{'https' if self._secure else 'http'}://{self._endpoint}",
+            aws_access_key_id=self._access_key,
+            aws_secret_access_key=self._secret_key,
+        )
+
+    def _ensure_bucket(self, client) -> None:
+        existing = [b["Name"] for b in client.list_buckets().get("Buckets", [])]
+        if self._bucket not in existing:
+            client.create_bucket(Bucket=self._bucket)
+
+    def store(self, key: str, content: str) -> str:
+        client = self._client()
+        self._ensure_bucket(client)
+        client.put_object(Bucket=self._bucket, Key=key, Body=content.encode())
+        return f"s3://{self._bucket}/{key}"
+
+    def finalize_version(
+        self, model_id: str, name: str, staging_dir: Path | str, metadata: dict
+    ) -> str:
+        """Upload staging_dir contents to ``{model_id}/{name}/`` under the bucket,
+        then write ``metadata.json`` with a SHA-256 checksum over all payload objects.
+
+        Raises ArtifactExistsError if any object already exists at the target prefix
+        (immutability — issue #38)."""
+        client = self._client()
+        self._ensure_bucket(client)
+
+        prefix = f"{model_id}/{name}/"
+        existing = client.list_objects_v2(Bucket=self._bucket, Prefix=prefix, MaxKeys=1)
+        if existing.get("KeyCount", 0) > 0:
+            raise ArtifactExistsError(
+                f"Refusing to overwrite existing immutable artifact at "
+                f"s3://{self._bucket}/{prefix}"
+            )
+
+        staging = Path(staging_dir)
+        checksum_entries: list[tuple[str, bytes]] = []
+        for p in sorted(staging.rglob("*")):
+            if p.is_file():
+                data = p.read_bytes()
+                rel = p.relative_to(staging).as_posix()
+                client.put_object(
+                    Bucket=self._bucket,
+                    Key=f"{prefix}{rel}",
+                    Body=data,
+                )
+                checksum_entries.append((rel, data))
+
+        metadata["checksum"] = compute_checksum_from_bytes(checksum_entries)
+        client.put_object(
+            Bucket=self._bucket,
+            Key=f"{prefix}metadata.json",
+            Body=_serialize_metadata(metadata),
+        )
+        return f"s3://{self._bucket}/{prefix}"
+
+    def read_metadata(self, uri: str) -> dict:
+        """Load metadata.json from the S3 prefix pointed to by `uri`.
+
+        Returns an empty dict when no metadata.json exists (a pre-#62 artifact
+        that predates checksum metadata)."""
+        client = self._client()
+        bucket, prefix = _uri_to_s3(uri)
+        if not prefix.endswith("/"):
+            prefix += "/"
+        try:
+            resp = client.get_object(Bucket=bucket, Key=f"{prefix}metadata.json")
+            return json.loads(resp["Body"].read())
+        except client.exceptions.NoSuchKey:
+            return {}
+
+    def verify_checksum(self, uri: str) -> bool:
+        """Recompute the SHA-256 of the artifact payload and compare against the checksum
+        recorded in metadata.json at finalize time (issue #62 / #71).  A pre-#62 artifact
+        with no recorded checksum is treated as verified (no baseline to compare against)."""
+        client = self._client()
+        bucket, prefix = _uri_to_s3(uri)
+        if not prefix.endswith("/"):
+            prefix += "/"
+        try:
+            meta_resp = client.get_object(Bucket=bucket, Key=f"{prefix}metadata.json")
+            meta = json.loads(meta_resp["Body"].read())
+        except client.exceptions.NoSuchKey:
+            return True
+        recorded = meta.get("checksum")
+        if recorded is None:
+            return True
+        entries: list[tuple[str, bytes]] = []
+        paginator = client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith("/metadata.json"):
+                    continue
+                rel = key[len(prefix) :]
+                if not rel:
+                    continue
+                body = client.get_object(Bucket=bucket, Key=key)["Body"].read()
+                entries.append((rel, body))
+        return compute_checksum_from_bytes(entries) == recorded
+
+    def generate_presigned_upload_url(
+        self, key: str, expires_seconds: int = 3600
+    ) -> str:
+        """Generate a presigned PUT URL so compute can upload directly to MinIO without
+        going through the FastAPI backend (PRD §13.3 — direct artifact upload)."""
+        client = self._client()
+        return client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": self._bucket, "Key": key},
+            ExpiresIn=expires_seconds,
+        )
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Strip a `file://` prefix from an artifact URI (artifacts are stored at `file://{dir}`)."""
-    return Path(uri[len("file://") :]) if uri.startswith("file://") else Path(uri)
+def get_artifact_storage() -> ArtifactStorage:
+    """Return the configured artifact storage backend (PRD §13.1).
+
+    ``local`` → LocalFilesystemArtifactStorage (dev / CI).
+    ``minio`` → MinioArtifactStorage (production object storage)."""
+    if settings.artifact_backend == "minio":
+        return MinioArtifactStorage()
+    return LocalFilesystemArtifactStorage()

@@ -160,6 +160,19 @@ class Settings(BaseSettings):
     # immutable per-version directory. No longer a system temp dir — overridable via env.
     artifact_storage_dir: str = "data/artifacts"
 
+    # Artifact backend selection (issue #71, PRD §13.1). `local` uses
+    # LocalFilesystemArtifactStorage (dev / CI); `minio` uses MinioArtifactStorage for
+    # production object storage (PRD §13.2: PostgreSQL = metadata, MinIO/S3 = bytes).
+    artifact_backend: Literal["local", "minio"] = "local"
+
+    # MinIO / S3-compatible object storage settings (issue #71, PRD §13.1).
+    # All defaults match the compose-baseline minio service (PRD §32).
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "artifacts"
+    minio_secure: bool = False  # True = HTTPS to the MinIO/S3 endpoint
+
     # Real Unsloth training runner (issue #38). The worker spawns a standalone Unsloth
     # training script in a SEPARATE venv via subprocess (never in the app's own venv —
     # serving and training venvs are kept apart per the project constraint). These knobs

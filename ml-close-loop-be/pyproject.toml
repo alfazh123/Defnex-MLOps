@@ -28,6 +28,12 @@ intake = [
     "python-multipart>=0.0.12",
     "openpyxl>=3.1",
 ]
+# MinIO/S3 artifact storage (issue #71). Optional by design: the base install and the
+# [dev] test job do NOT need boto3 — tests mock the S3 client. Install only for the
+# production artifact-backend path that actually talks to MinIO/S3 (`pip install -e ".[s3]"`).
+s3 = [
+    "boto3>=1.34",
+]
 
 [build-system]
 requires = ["hatchling"]

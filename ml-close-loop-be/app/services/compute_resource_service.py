@@ -37,8 +37,6 @@ def create_compute_resource(
         ssh_username=request.ssh_username,
         credential_ref=request.credential_ref,
         is_healthy=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
     )
     db.add(resource)
     db.flush()

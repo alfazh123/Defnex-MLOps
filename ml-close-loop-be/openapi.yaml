@@ -2065,6 +2065,244 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/compute-resources:
+    post:
+      tags:
+      - Compute Resources
+      summary: Create Compute Resource
+      description: Register a new compute resource (PRD §19.4). Admin only.
+      operationId: create_compute_resource_api_v1_compute_resources_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputeResourceCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Compute Resources
+      summary: List Compute Resources
+      description: List compute resources with optional filters. Any authenticated user.
+      operationId: list_compute_resources_api_v1_compute_resources_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          title: Size
+      - name: role
+        in: query
+        required: false
+        schema:
+          type: string
+          title: Role
+      - name: environment
+        in: query
+        required: false
+        schema:
+          type: string
+          title: Environment
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          title: Search
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_ComputeResource'
+  /api/v1/compute-resources/{resource_id}:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Compute Resource
+      description: Get a compute resource by ID. Any authenticated user.
+      operationId: get_compute_resource_api_v1_compute_resources__resource_id__get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+    patch:
+      tags:
+      - Compute Resources
+      summary: Update Compute Resource
+      description: Partial update of a compute resource. Admin only.
+      operationId: update_compute_resource_api_v1_compute_resources__resource_id__patch
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputeResourceUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Compute Resources
+      summary: Delete Compute Resource
+      description: Delete a compute resource. Admin only.
+      operationId: delete_compute_resource_api_v1_compute_resources__resource_id__delete
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+  /api/v1/compute-resources/{resource_id}/health:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Compute Resource Health
+      description: Read-only health/connectivity status (PRD §8.6). Any authenticated user.
+      operationId: get_compute_resource_health_api_v1_compute_resources__resource_id__health_get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
 components:
   schemas:
     Artifact:
@@ -3680,3 +3918,253 @@ components:
       type: object
       title: ValidationStatusCounts
       description: Per-record status tally (validation-rules.md §2).
+    ComputeResourceCreateRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          enum:
+          - training
+          - inference
+          - both
+          default: training
+          title: Role
+        environment:
+          type: string
+          enum:
+          - staging
+          - production
+          default: staging
+          title: Environment
+        provider_type:
+          type: string
+          enum:
+          - local
+          - gpu_vps
+          - colab
+          default: local
+          title: Provider Type
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+          description: 'secret:// reference for credentials (PRD §21).'
+      type: object
+      required:
+      - name
+      title: ComputeResourceCreateRequest
+      description: Request to register a new compute resource (PRD §33).
+    ComputeResourceUpdateRequest:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Role
+        environment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Environment
+        provider_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider Type
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+        is_healthy:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Healthy
+      type: object
+      title: ComputeResourceUpdateRequest
+      description: Partial update for a compute resource (PATCH). All fields optional.
+    ComputeResource:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          title: Role
+        environment:
+          type: string
+          title: Environment
+        provider_type:
+          type: string
+          title: Provider Type
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+        is_healthy:
+          type: boolean
+          default: true
+          title: Is Healthy
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - role
+      - environment
+      - provider_type
+      - created_at
+      - updated_at
+      title: ComputeResource
+      description: A compute resource record (PRD §19.3).
+    HealthStatus:
+      properties:
+        resource_id:
+          type: integer
+          title: Resource Id
+        name:
+          type: string
+          title: Name
+        is_healthy:
+          type: boolean
+          title: Is Healthy
+        provider_type:
+          type: string
+          title: Provider Type
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - resource_id
+      - name
+      - is_healthy
+      - provider_type
+      - message
+      title: HealthStatus
+      description: Read-only health/connectivity status for a compute resource (PRD §8.6).
+    PaginatedResponse_ComputeResource:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ComputeResource'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[ComputeResource]

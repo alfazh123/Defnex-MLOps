@@ -113,6 +113,7 @@ class TrainingRunCreateRequest(BaseModel):
     base_model: str
     training_config: TrainingConfig
     triggered_by: str | None = None
+    compute_resource_id: int | None = None
 
 
 class TrainingRun(BaseModel):

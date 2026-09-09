@@ -38,6 +38,7 @@ def create_training_run(
         training_config=request.training_config.model_dump(),
         status="PENDING",
         triggered_by=request.triggered_by,
+        compute_resource_id=request.compute_resource_id,
         created_at=datetime.now(timezone.utc),
     )
     db.add(training_run)

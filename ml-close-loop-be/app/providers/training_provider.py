@@ -255,7 +255,7 @@ class LocalSubprocessProvider:
             stderr = "".join(stderr_lines)[-_MAX_STDERR:]
             job.failed = True
             job.error_message = (
-                f"Training exited with code {job.proc.returncode}: {stderr.strip()[-_MAX_STDERR:]}"
+                f"Training exited with code {job.proc.returncode}: {stderr.strip()}"
                 if stderr
                 else f"Training exited with code {job.proc.returncode}"
             )

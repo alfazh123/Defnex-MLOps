@@ -72,6 +72,10 @@ class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
         "/feedback",
         "/training-runs",
         "/models",
+        "/deployments",
+        "/promotions",
+        "/transfers",
+        "/compute-resources",
     )
 
     async def dispatch(

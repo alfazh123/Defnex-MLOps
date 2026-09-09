@@ -482,3 +482,84 @@ def test_create_training_run_blocked_by_stored_eval_set_leakage(client, admin_to
     assert response.json()["error"]["code"] == "VALIDATION_FAILED"
     listing = client.get("/api/v1/training-runs", headers=h).json()
     assert listing["total"] == 0
+
+
+def _failed_run_via_api(client, admin_token):
+    """Create a training run and drive it to FAILED through the service (like a crashed
+    worker); returns the run id."""
+    from app.services import training_service as svc
+
+    h = auth_header(admin_token)
+    _pass_validation(client, admin_token)
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
+    with Session(client.engine) as db:
+        run = svc.get_training_run(db, created["training_run_id"])
+        assert svc.claim_training_run(db, run)
+        svc.fail_training_run(db, run, error_message="boom: cuda oom")
+        db.commit()
+    return created["training_run_id"]
+
+
+def test_retry_failed_run_creates_new_pending_run(client, admin_token):
+    """Issue #61: POST .../retry on a FAILED run returns a fresh PENDING run."""
+    h = auth_header(admin_token)
+    failed_id = _failed_run_via_api(client, admin_token)
+
+    response = client.post(f"/api/v1/training-runs/{failed_id}/retry", headers=h)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["training_run_id"] != failed_id
+    assert body["status"] == "PENDING"
+    assert body["dataset_id"] == "no_robots"
+    assert body["dataset_version"] == 1
+    assert body["model_id"] == "qwen-sft-domain-x"
+    assert body["base_model"] == "Qwen/Qwen3.8-27B"
+    assert body["training_config"]["peft_method"] == "lora"
+    assert body["model_version"] is None
+
+    with Session(client.engine) as db:
+        original = db.scalar(
+            select(TrainingRun).where(TrainingRun.training_run_id == failed_id)
+        )
+        retry = db.scalar(
+            select(TrainingRun).where(
+                TrainingRun.training_run_id == body["training_run_id"]
+            )
+        )
+        # Immutable history: original stays FAILED; the FK links retry -> original.
+        assert original.status == "FAILED"
+        assert original.error_message == "boom: cuda oom"
+        assert retry.retry_of == failed_id
+        assert retry.status == "PENDING"
+
+
+def test_retry_returns_404_when_run_missing(client, admin_token):
+    response = client.post(
+        "/api/v1/training-runs/run-doesnotexist/retry",
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "TRAINING_RUN_NOT_FOUND"
+
+
+def test_retry_returns_409_when_run_not_failed(client, admin_token):
+    """Retry is only legal from FAILED: a deterministic 409, and no new run is created."""
+    h = auth_header(admin_token)
+    _pass_validation(client, admin_token)
+    created = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    ).json()
+
+    response = client.post(
+        f"/api/v1/training-runs/{created['training_run_id']}/retry", headers=h
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "TRAINING_RUN_NOT_RETRYABLE"
+    with Session(client.engine) as db:
+        count = db.scalar(select(func.count()).select_from(TrainingRun))
+    assert count == 1

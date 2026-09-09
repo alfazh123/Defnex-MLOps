@@ -237,6 +237,35 @@ def fail_training_run(
     return training_run
 
 
+def retry_training_run(db: Session, failed_run: TrainingRun) -> TrainingRun:
+    """Retry a FAILED run: create a NEW PENDING run pointing `retry_of` back at it (PRD §10.5).
+
+    The original run is terminal and immutable — retry never mutates it. The new run
+    copies the original's config snapshot so it can be picked up by the worker exactly
+    like a fresh `create_training_run` row.
+    """
+
+    if failed_run.status != "FAILED":
+        raise ValueError(
+            f"Cannot retry training run {failed_run.training_run_id} in status "
+            f"{failed_run.status} (must be FAILED)"
+        )
+    training_run = TrainingRun(
+        training_run_id=f"run-{uuid.uuid4().hex[:6]}",
+        dataset_version_id=failed_run.dataset_version_id,
+        model_id=failed_run.model_id,
+        base_model=failed_run.base_model,
+        training_config=failed_run.training_config,
+        status="PENDING",
+        triggered_by=failed_run.triggered_by,
+        retry_of=failed_run.training_run_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(training_run)
+    db.flush()
+    return training_run
+
+
 def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
     return db.get(TrainingRun, training_run_id)
 

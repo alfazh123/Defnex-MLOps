@@ -256,7 +256,12 @@ def test_register_stores_deterministic_training_config_hash(db_session):
     ).hexdigest()[:16]
     assert isinstance(first.training_config_hash, str)
     assert len(first.training_config_hash) == 16
-    assert first.training_config_hash == second.training_config_hash == expected == expected_16
+    assert (
+        first.training_config_hash
+        == second.training_config_hash
+        == expected
+        == expected_16
+    )
     assert model_service.to_schema(first).training_config_hash == expected
 
 
@@ -321,9 +326,7 @@ def test_register_with_staging_finalizes_immutable_artifact_and_metadata(
         "dataset_version": 1,
         "base_model": "Qwen/Qwen3.8-27B",
         "training_config": training_run.training_config,
-        "training_config_hash": _training_config_hash(
-            training_run.training_config
-        ),
+        "training_config_hash": _training_config_hash(training_run.training_config),
         "git_commit": "deadbeef",
         "started_at": str(training_run.started_at),
         "finished_at": str(training_run.finished_at),

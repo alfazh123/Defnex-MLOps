@@ -1,0 +1,28 @@
+ml-close-loop-be/app/services/model_service.py
+  s_b398fae7f0331e::t_6dcb04d955be75 302,323-325,329,336-343
+  s_b398fae7f0331e::t_aec87ebd8574d3 298-301,303-322,326-328,330-335,344-345
+ml-close-loop-be/tests/test_model_service.py
+  s_b398fae7f0331e::t_8a026340d5f00f 386-481
+ml-close-loop-be/app/schemas/model.py
+  s_b398fae7f0331e::t_bc7a10900ecec2 9
+ml-close-loop-be/openapi.yaml
+  s_b398fae7f0331e::t_c031ecf1310633 2206
+  s_b398fae7f0331e::t_d82e4c1c68e676 2615
+  s_b398fae7f0331e::t_f74e1c551ad05f 2522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "14b222c3468190240f3cc042c5ab5561896d7c91",
+  "prompts": {},
+  "sessions": {
+    "s_b398fae7f0331e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7bab4e93ffemh3uxagEUXsC62",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 from app.models.dataset import Dataset, DatasetVersion
 from app.models.deployment import Deployment
 from app.models.eval_set import EvalSet, EvalSetVersion
+from app.models.environment import Environment
 from app.models.feedback import Feedback
 from app.models.model import Model, ModelVersion
 from app.models.promotion import PromotionDecision
@@ -14,6 +15,7 @@ __all__ = [
     "Deployment",
     "EvalSet",
     "EvalSetVersion",
+    "Environment",
     "Feedback",
     "Model",
     "ModelVersion",

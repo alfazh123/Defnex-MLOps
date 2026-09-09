@@ -109,6 +109,57 @@ def test_deploy_moves_pointer_and_calls_serving_backend(db_session):
     assert backend.deployed == [("qwen-sft-domain-x", model_version.version)]
 
 
+def test_deploy_records_target_environment(db_session):
+    """Issue #67: `deploy` records the explicitly targeted environment on the deployment row
+    instead of hard-coding the single configured one."""
+    model_version, _ = _promoted_model_version(db_session)
+
+    deployment, _ = deployment_service.deploy(
+        db_session, model_version, environment="staging"
+    )
+
+    assert deployment.environment == "staging"
+    assert _latest_deployment_row(db_session).environment == "staging"
+
+
+def test_deploy_defaults_to_configured_environment(db_session):
+    """Issue #67: an omitted environment keeps the pre-#67 behavior (settings default)."""
+    model_version, _ = _promoted_model_version(db_session)
+
+    deployment, _ = deployment_service.deploy(db_session, model_version)
+
+    assert deployment.environment == "default"
+
+
+def test_deploy_environment_resolves_to_environment_row(db_session):
+    """Issue #67: the deployment's environment navigates to the matching Environment row when one
+    exists (no FK hard-join; unmatched environment resolves to None)."""
+    from app.models.environment import Environment
+
+    db_session.add(Environment(name="staging", description="Integration validation."))
+    model_version, _ = _promoted_model_version(db_session)
+
+    deployment, _ = deployment_service.deploy(
+        db_session, model_version, environment="staging"
+    )
+
+    assert deployment.environment_obj.name == "staging"
+    assert deployment.environment_obj.description == "Integration validation."
+    # A never-seeded environment value resolves to None, never a lazy-load error.
+    deployment_unknown, _ = deployment_service.deploy(
+        db_session, model_version, environment="canary"
+    )
+    assert deployment_unknown.environment_obj is None
+
+
+def _latest_deployment_row(db_session):
+    from sqlalchemy import select
+
+    return db_session.scalars(
+        select(Deployment).order_by(Deployment.deployed_at.desc())
+    ).first()
+
+
 def test_deploy_retires_the_previously_deployed_version(db_session):
     v1, dataset_version = _promoted_model_version(db_session)
     deployment_service.deploy(db_session, v1)

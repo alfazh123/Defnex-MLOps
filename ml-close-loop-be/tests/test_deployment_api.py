@@ -189,6 +189,75 @@ def test_deploy_promoted_version_updates_pointer_and_registry(client, admin_toke
     )
 
 
+def test_deploy_to_named_environment_records_target(client, admin_token):
+    """Issue #67: deploy targets a named environment; the deployment row records it."""
+    model_id, version = _promoted_model_version(client, admin_token)
+    h = auth_header(admin_token)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy",
+        json={"environment": "production"},
+        headers=h,
+    )
+
+    assert response.status_code == 200
+    with Session(client.engine) as session:
+        from sqlalchemy import select
+
+        from app.models.deployment import Deployment
+
+        row = session.scalars(select(Deployment)).first()
+        assert row.environment == "production"
+
+
+def test_deploy_unknown_environment_still_succeeds(client, admin_token):
+    """Issue #67: unknown environment names are tolerated (environments are advisory metadata
+    on deployment history, not a hard FK), preserving the pre-#67 permissive behavior."""
+    model_id, version = _promoted_model_version(client, admin_token)
+    h = auth_header(admin_token)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy",
+        json={"environment": "canary"},
+        headers=h,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["current_deployed_version"] == version
+
+
+def test_list_environments_requires_auth(client):
+    response = client.get("/api/v1/environments")
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "MISSING_TOKEN"
+
+
+def test_list_environments_returns_seeded_targets(client, admin_token):
+    """Issue #67: GET /api/v1/environments reflects the environments table (seeded
+    default/staging/production by the migration; the test DB seeds rows directly)."""
+    from app.models.environment import Environment
+
+    with Session(client.engine) as session:
+        session.add_all(
+            [
+                Environment(name="default", description=None),
+                Environment(name="staging", description="Integration validation."),
+                Environment(name="production", description="Live serving."),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/api/v1/environments", headers=auth_header(admin_token))
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "default", "description": None},
+        {"name": "production", "description": "Live serving."},
+        {"name": "staging", "description": "Integration validation."},
+    ]
+
+
 def test_deploy_reports_and_retires_the_superseded_version(client, admin_token):
     h = auth_header(admin_token)
     model_id, v1 = _promoted_model_version(client, admin_token)

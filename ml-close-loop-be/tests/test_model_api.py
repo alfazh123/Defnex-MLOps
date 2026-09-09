@@ -304,6 +304,7 @@ def test_list_model_versions_paginated_full_record(client, admin_token):
         "dataset_version",
         "dataset_validation_report_ref",
         "training_config",
+        "training_config_hash",
         "created_at",
         "created_by",
         "evaluation",

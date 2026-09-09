@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -62,6 +64,14 @@ def _current_git_commit() -> str | None:
         return None
 
 
+def _training_config_hash(training_config: dict) -> str:
+    """Deterministic id of a training config (issue #64): SHA-256 over the canonicalized
+    JSON (`sort_keys=True`), truncated to the first 16 hex chars. Stable across runs with
+    identical config, so the lineage chain (§37) can point at one config hash."""
+    canonical = json.dumps(training_config, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def _ensure_model_row(db: Session, model_id: str) -> None:
     """Guarantee a `models` row exists, tolerating a concurrent first-registration race."""
     if db.get(Model, model_id) is not None:
@@ -106,6 +116,9 @@ def _allocate_version(
                     training_run_id=training_run.training_run_id,
                     base_model=training_run.base_model,
                     training_config=training_run.training_config,
+                    training_config_hash=_training_config_hash(
+                        training_run.training_config
+                    ),
                     git_commit=_current_git_commit(),
                     training_started_at=training_run.started_at,
                     training_completed_at=training_run.finished_at,
@@ -169,6 +182,7 @@ def register_model_version(
             "dataset_version": training_run.dataset_version.version,
             "base_model": training_run.base_model,
             "training_config": training_run.training_config,
+            "training_config_hash": model_version.training_config_hash,
             "git_commit": model_version.git_commit,
             "started_at": training_run.started_at,
             "finished_at": training_run.finished_at,
@@ -313,6 +327,7 @@ def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
         dataset_version=dataset_version.version,
         dataset_validation_report_ref=model_version.dataset_validation_report_ref,
         training_config=model_version.training_config,
+        training_config_hash=model_version.training_config_hash,
         created_at=model_version.created_at,
         created_by=model_version.created_by,
         evaluation=get_evaluation(model_version),

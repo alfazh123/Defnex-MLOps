@@ -2321,6 +2321,7 @@ components:
           - REJECTED
           - DEPLOYED
           - RETIRED
+          - ARCHIVED
           title: Status
       type: object
       required:
@@ -2636,6 +2637,7 @@ components:
           - REJECTED
           - DEPLOYED
           - RETIRED
+          - ARCHIVED
           title: Status
         training_run_id:
           type: string
@@ -2728,6 +2730,7 @@ components:
           - REJECTED
           - DEPLOYED
           - RETIRED
+          - ARCHIVED
           title: Status
       type: object
       required:

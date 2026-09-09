@@ -383,3 +383,101 @@ def test_concurrent_registration_allocates_distinct_versions(tmp_path):
 
     assert errors == [], f"concurrent registration raised: {errors}"
     assert sorted(versions) == [1, 2]
+
+
+# --- issue #66: ARCHIVED is distinct from REJECTED and reversible ---
+
+
+def _evaluated_version(db_session):
+    training_run = _completed_training_run(db_session)
+    model_version = model_service.register_model_version(db_session, training_run)
+    model_service.submit_evaluation(
+        db_session,
+        model_version,
+        EvaluationUpdateRequest(
+            eval_set_id="domain-benchmark",
+            eval_set_version=1,
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.9),
+            qualitative_comparison=QualitativeComparison(
+                question_table_version=1, wins=10, losses=5, ties=5, total=20
+            ),
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            ),
+        ),
+    )
+    assert model_version.status == "EVALUATED"
+    return model_version
+
+
+def _promoted_version(db_session):
+    from app.schemas.promotion import DecisionCreateRequest
+    from app.services import promotion_service
+
+    model_version = _evaluated_version(db_session)
+    promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+    assert model_version.status == "PROMOTED"
+    return model_version
+
+
+@pytest.mark.parametrize("status", ["PROMOTED", "RETIRED"])
+def test_archive_from_promoted_or_retired(db_session, status):
+    model_version = _promoted_version(db_session)
+    model_version.status = status
+    artifacts_before = list(model_version.artifacts)
+
+    result = model_service.archive_model_version(db_session, model_version)
+
+    assert result.status == "ARCHIVED"
+    # archive is a soft-hide: the artifact is untouched and stays available for rollback
+    assert model_version.artifacts == artifacts_before
+
+
+@pytest.mark.parametrize(
+    "status", ["REGISTERED", "EVALUATED", "REJECTED", "DEPLOYED", "ARCHIVED"]
+)
+def test_archive_rejects_invalid_source_status(db_session, status):
+    model_version = _evaluated_version(db_session)
+    model_version.status = status
+
+    with pytest.raises(ValueError):
+        model_service.archive_model_version(db_session, model_version)
+
+
+@pytest.mark.parametrize("restore", ["PROMOTED", "REJECTED", "RETIRED"])
+def test_unarchive_restores_to_previous_active_state(db_session, restore):
+    model_version = _promoted_version(db_session)
+    model_service.archive_model_version(db_session, model_version)
+    assert model_version.status == "ARCHIVED"
+
+    result = model_service.unarchive_model_version(
+        db_session, model_version, restore_status=restore
+    )
+
+    assert result.status == restore
+
+
+def test_unarchive_rejects_non_archived_source(db_session):
+    model_version = _evaluated_version(db_session)
+    model_version.status = "PROMOTED"
+
+    with pytest.raises(ValueError):
+        model_service.unarchive_model_version(
+            db_session, model_version, restore_status="PROMOTED"
+        )
+
+
+def test_unarchive_rejects_invalid_restore_target(db_session):
+    model_version = _promoted_version(db_session)
+    model_service.archive_model_version(db_session, model_version)
+
+    with pytest.raises(ValueError):
+        model_service.unarchive_model_version(
+            db_session, model_version, restore_status="DEPLOYED"
+        )

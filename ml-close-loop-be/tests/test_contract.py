@@ -283,6 +283,7 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
         "dataset_version",
         "dataset_validation_report_ref",
         "training_config",
+        "training_config_hash",
         "created_at",
         "created_by",
         "evaluation",
@@ -294,6 +295,8 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
     }
     assert data["status"] == "REGISTERED"
     assert isinstance(data["training_config"], dict)
+    assert isinstance(data["training_config_hash"], str)
+    assert len(data["training_config_hash"]) == 16
     assert isinstance(data["artifacts"], list)
 
 

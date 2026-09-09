@@ -17,6 +17,13 @@ from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
 from app.services import dataset_service, model_service, training_service
 
 
+def _training_config_hash(config: dict) -> str:
+    """Mirror model_service._training_config_hash (issue #64), so metadata.json and the
+    row-level checksum can be asserted exactly."""
+    canonical = json.dumps(config, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def _completed_training_run(db_session, **overrides):
     dataset_version = dataset_service.create_dataset_version(
         db_session,
@@ -232,6 +239,49 @@ def test_register_copies_git_commit_and_timestamps(db_session, monkeypatch):
     assert model_version.training_completed_at == training_run.finished_at
 
 
+def test_register_stores_deterministic_training_config_hash(db_session):
+    """Issue #64: the training config hash is stored on the row, exposed via to_schema,
+    and is deterministic — identical configs hash identically, so the §37 lineage chain
+    can point at one config hash."""
+    first = model_service.register_model_version(
+        db_session, _completed_training_run(db_session)
+    )
+    second = model_service.register_model_version(
+        db_session, _completed_training_run(db_session)
+    )
+
+    expected = _training_config_hash(first.training_config)
+    expected_16 = hashlib.sha256(
+        json.dumps(second.training_config, sort_keys=True, default=str).encode()
+    ).hexdigest()[:16]
+    assert isinstance(first.training_config_hash, str)
+    assert len(first.training_config_hash) == 16
+    assert (
+        first.training_config_hash
+        == second.training_config_hash
+        == expected
+        == expected_16
+    )
+    assert model_service.to_schema(first).training_config_hash == expected
+
+
+def test_register_training_config_hash_is_sensitive_to_config(db_session):
+    """Issue #64: a different training config must hash to a different id (the hash is a
+    real discriminator, not a constant)."""
+    changed = _completed_training_run(
+        db_session, training_config=TrainingConfig(lora_r=32)
+    )
+    changed_version = model_service.register_model_version(db_session, changed)
+
+    baseline = _completed_training_run(db_session)
+    baseline_version = model_service.register_model_version(db_session, baseline)
+
+    assert changed_version.training_config_hash != baseline_version.training_config_hash
+    assert changed_version.training_config_hash == _training_config_hash(
+        changed_version.training_config
+    )
+
+
 def test_register_with_staging_finalizes_immutable_artifact_and_metadata(
     db_session, tmp_path, monkeypatch
 ):
@@ -276,6 +326,7 @@ def test_register_with_staging_finalizes_immutable_artifact_and_metadata(
         "dataset_version": 1,
         "base_model": "Qwen/Qwen3.8-27B",
         "training_config": training_run.training_config,
+        "training_config_hash": _training_config_hash(training_run.training_config),
         "git_commit": "deadbeef",
         "started_at": str(training_run.started_at),
         "finished_at": str(training_run.finished_at),

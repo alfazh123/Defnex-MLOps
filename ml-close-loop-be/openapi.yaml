@@ -2658,6 +2658,9 @@ components:
           title: Dataset Validation Report Ref
         training_config:
           $ref: '#/components/schemas/TrainingConfig'
+        training_config_hash:
+          type: string
+          title: Training Config Hash
         created_at:
           type: string
           format: date-time
@@ -2707,6 +2710,7 @@ components:
       - dataset_id
       - dataset_version
       - training_config
+      - training_config_hash
       - created_at
       - artifacts
       title: ModelRegistryRecord

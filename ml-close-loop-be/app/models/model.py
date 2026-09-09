@@ -50,6 +50,9 @@ class ModelVersion(Base):
     )
     base_model: Mapped[str] = mapped_column(String)
     training_config: Mapped[dict] = mapped_column(JSON)
+    # Issue #64: deterministic id of `training_config` (sha256 truncated to 16 hex chars),
+    # so the §37 lineage chain can point at one config hash per version.
+    training_config_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     dataset_validation_report_ref: Mapped[str | None] = mapped_column(
         String, nullable=True
     )

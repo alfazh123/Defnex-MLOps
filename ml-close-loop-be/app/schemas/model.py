@@ -91,6 +91,7 @@ class ModelRegistryRecord(BaseModel):
     dataset_version: int
     dataset_validation_report_ref: str | None = None
     training_config: TrainingConfig
+    training_config_hash: str
     created_at: datetime
     created_by: str | None = None
     evaluation: EvaluationObject | None = None

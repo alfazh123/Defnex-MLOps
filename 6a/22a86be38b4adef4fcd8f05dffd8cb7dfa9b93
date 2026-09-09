@@ -1,0 +1,53 @@
+README.md
+  s_049e6946d2b5e0::t_d6d928de9c6535 20
+ml-close-loop-be/tests/test_deployment_service.py
+  s_049e6946d2b5e0::t_27dfbfc2777317 112-162
+ml-close-loop-be/README.md
+  s_049e6946d2b5e0::t_642acaad715d60 15
+ml-close-loop-be/app/schemas/deployment.py
+  s_049e6946d2b5e0::t_f65e299484c819 15-25
+  s_049e6946d2b5e0::t_38b3c66f63937d 35-42
+ml-close-loop-be/app/models/__init__.py
+  s_049e6946d2b5e0::t_5161d76801d32c 4
+  s_049e6946d2b5e0::t_9aa04034c50d66 18
+ml-close-loop-be/app/models/deployment.py
+  s_049e6946d2b5e0::t_35b67823925b08 25-34
+  s_049e6946d2b5e0::t_caf3f187d82209 4
+ml-close-loop-be/app/models/environment.py
+  s_049e6946d2b5e0::t_c2ebeba31c9f88 1-20
+ml-close-loop-be/alembic/versions/5f3a2b1c0d4e_add_environments_table_and_seed.py
+  s_049e6946d2b5e0::t_437c9f1d692dc6 1-7,9-28,37-58
+  s_049e6946d2b5e0::t_f6e87850cf3fd7 8,29-36
+ml-close-loop-be/app/api/deployment.py
+  s_049e6946d2b5e0::t_8ed5a4d6600819 2,8,12-17,31,44-46,60-72
+  s_049e6946d2b5e0::t_b4b292c6fbe044 73-74
+ml-close-loop-be/app/services/deployment_service.py
+  s_049e6946d2b5e0::t_d0593a84878b92 156-160,169-173
+  s_049e6946d2b5e0::t_358f47c44b275f 118
+  s_049e6946d2b5e0::t_c52375b045d7ad 262
+  s_049e6946d2b5e0::t_a4099e20d38ee9 191
+ml-close-loop-be/openapi.yaml
+  s_049e6946d2b5e0::t_2411f97a4f2994 2078-2108
+  s_049e6946d2b5e0::t_b5f39e5390a231 1565-1570
+  s_049e6946d2b5e0::t_fbe68ac0486cdf 1688-1721
+ml-close-loop-be/tests/test_deployment_api.py
+  s_049e6946d2b5e0::t_c82bca66671a4f 257
+  s_049e6946d2b5e0::t_a95e44ab8a3f35 192-250,252-256,258-260
+  s_049e6946d2b5e0::t_f6e87850cf3fd7 251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "6a22a86be38b4adef4fcd8f05dffd8cb7dfa9b93",
+  "prompts": {},
+  "sessions": {
+    "s_049e6946d2b5e0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7baae2c2ffesFvPtnA28KTFUp",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

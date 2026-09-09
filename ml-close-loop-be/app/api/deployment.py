@@ -15,7 +15,7 @@ from app.schemas.deployment import (
     DeploymentStatus,
     EnvironmentOut,
 )
-from app.services import deployment_service
+from app.services import deployment_service, promotion_service
 
 router = APIRouter(tags=["Deployment"])
 
@@ -33,17 +33,48 @@ def deploy_model_version(
     _admin: User = Depends(require_admin),
 ) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)
-    if model_version.status != "PROMOTED":
-        raise APIError(
-            409,
-            "DEPLOY_NOT_ALLOWED",
-            f'model_id "{model_id}" version {version} is {model_version.status}; only a PROMOTED version '
-            "can be deployed.",
-        )
+    # Batch 3 (issues #69/#70): environment-aware deploy gate for the staging/production
+    # promotion ladder (PRD §16.2 "Promotion Ladder", §41 Principle 4 "Staging Before Production").
+    #   - default/None  : legacy gate, PROMOTED only (unchanged; backward compatible).
+    #   - staging       : EVALUATED|STAGING candidates (AC: "must be in the candidate registry").
+    #   - production    : VALIDATED|PRODUCTION (ladder) plus PROMOTED (legacy) - a production
+    #                     deploy must never bypass the staging/validation gate once on the ladder.
+    # env="staging" deploys also route through promotion_service.stage_deploy so that staging a
+    # candidate does NOT steal the production pointer (deployment_service.deploy's behavior) - the
+    # candidate is demoted to STAGING and the previous production version is restored as DEPLOYED.
+    # Agent 1's serving.py changes do not overlap this block (reading only, no serving coupling).
+    environment = body.environment if body else None
+    if environment == "staging":
+        if model_version.status not in ("EVALUATED", "STAGING"):
+            raise APIError(
+                409,
+                "DEPLOY_NOT_ALLOWED",
+                f'model_id "{model_id}" version {version} is {model_version.status}; a staging '
+                "deploy requires an EVALUATED candidate (or an already-STAGING version).",
+            )
+    elif environment == "production":
+        if model_version.status not in ("VALIDATED", "PRODUCTION", "PROMOTED"):
+            raise APIError(
+                409,
+                "DEPLOY_NOT_ALLOWED",
+                f'model_id "{model_id}" version {version} is {model_version.status}; a production '
+                "deploy requires a VALIDATED/PRODUCTION (ladder) or PROMOTED (legacy) version.",
+            )
+    else:
+        if model_version.status != "PROMOTED":
+            raise APIError(
+                409,
+                "DEPLOY_NOT_ALLOWED",
+                f'model_id "{model_id}" version {version} is {model_version.status}; only a PROMOTED version '
+                "can be deployed.",
+            )
     try:
-        deployment, previous = deployment_service.deploy(
-            db, model_version, environment=body.environment if body else None
-        )
+        if environment == "staging":
+            deployment, previous = promotion_service.stage_deploy(db, model_version)
+        else:
+            deployment, previous = deployment_service.deploy(
+                db, model_version, environment=environment
+            )
         db.commit()
     except deployment_service.DeploymentLockTimeout as exc:
         # The GPU lock shared with training was still held when the timeout passed (issue #59):

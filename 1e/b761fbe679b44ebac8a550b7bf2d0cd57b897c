@@ -1,0 +1,42 @@
+ml-close-loop-be/tests/test_model_service.py
+  s_72786707a299be::t_0d26696858bca9 242-268,270,277-279
+  s_72786707a299be::t_529c756a6b3ef0 20-26
+  s_72786707a299be::t_335ccac8372bab 269,271-276
+  s_72786707a299be::t_36d58e8a1a0f53 324-326
+ml-close-loop-be/app/schemas/model.py
+  s_72786707a299be::t_baeeb0191f6e81 94
+ml-close-loop-be/alembic/versions/b3c7d5e9f1a2_issue64_add_training_config_hash_to_model_versions.py
+  s_72786707a299be::t_5262b644d6ee51 1-34
+ml-close-loop-be/tests/test_contract.py
+  s_72786707a299be::t_f3bfd8d59cc747 298-299
+  s_72786707a299be::t_47953ac8e322c1 286
+ml-close-loop-be/app/models/model.py
+  s_72786707a299be::t_276ded0a9bee13 53-55
+ml-close-loop-be/tests/test_model_api.py
+  s_72786707a299be::t_d0fe9954cc6574 307
+ml-close-loop-be/openapi.yaml
+  s_72786707a299be::t_502d17920b3d4e 2541-2543
+  s_72786707a299be::t_ee736c1db6ab61 2593
+ml-close-loop-be/app/services/model_service.py
+  s_72786707a299be::t_13f2232db5b2d8 185
+  s_72786707a299be::t_7e878c0afb9f93 67-74
+  s_72786707a299be::t_1cb5f5be620c1d 330
+  s_72786707a299be::t_12c77f067df8dc 119-121
+  s_72786707a299be::t_8d94e632e03341 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1eb761fbe679b44ebac8a550b7bf2d0cd57b897c",
+  "prompts": {},
+  "sessions": {
+    "s_72786707a299be": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7bab1c0bffeIxj41lbVnsjhpk",
+        "model": "big-pickle"
+      },
+      "human_author": null
+    }
+  }
+}

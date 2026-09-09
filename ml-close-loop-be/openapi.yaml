@@ -1640,6 +1640,235 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/versions/{version}/deploy-staging:
+    post:
+      tags:
+      - Decisions
+      summary: Deploy To Staging
+      description: 'Issue #69 ladder step 1 - deploy an EVALUATED candidate to the staging
+        target without moving the production pointer. Records the STAGING decision;
+        the staging smoke test runs automatically (PRD 38.4).'
+      operationId: deploy_staging_endpoint_api_v1_models__model_id__versions__version__deploy_staging_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LadderActionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/versions/{version}/validate-staging:
+    post:
+      tags:
+      - Decisions
+      summary: Validate Staging
+      description: 'Issue #69 ladder step 2 - human approval that the STAGING candidate
+        passed its integration validation checks. Only a STAGING version may be validated.'
+      operationId: validate_staging_endpoint_api_v1_models__model_id__versions__version__validate_staging_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LadderActionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/versions/{version}/promote-production:
+    post:
+      tags:
+      - Decisions
+      summary: Promote To Production
+      description: 'Issue #69 ladder step 3 - authorized, controlled promotion of a VALIDATED
+        (or legacy PROMOTED) candidate to the production pointer. Registry terminal status
+        stays DEPLOYED.'
+      operationId: promote_production_endpoint_api_v1_models__model_id__versions__version__promote_production_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LadderActionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/deployments/{deployment_id}/rollback:
+    post:
+      tags:
+      - Decisions
+      summary: Rollback Deployment
+      description: 'Issue #70 - restore the previous immutable version for a deployment target,
+        discovered by deployment row. The deployment''s recorded environment is carried
+        into the ROLLBACK decision. The previous version is never deleted.'
+      operationId: rollback_deployment_api_v1_deployments__deployment_id__rollback_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LadderActionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecord'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/models/{model_id}/deployment:
     get:
       tags:
@@ -2058,6 +2287,9 @@ components:
           - PROMOTED
           - REJECTED
           - ROLLBACK
+          - STAGING
+          - VALIDATED
+          - PRODUCTION
           title: Decision
         decided_by:
           anyOf:
@@ -2100,9 +2332,8 @@ components:
       - rationale
       title: DecisionRecord
       description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
-        promotion, rejection, and
-
-        rollback with one schema.'
+        promotion, rejection, rollback, and
+        the staging/production ladder steps (STAGING/VALIDATED/PRODUCTION) with one schema.'
     DeployResult:
       properties:
         model_id:
@@ -2322,6 +2553,9 @@ components:
           - DEPLOYED
           - RETIRED
           - ARCHIVED
+          - STAGING
+          - VALIDATED
+          - PRODUCTION
           title: Status
       type: object
       required:
@@ -2604,6 +2838,28 @@ components:
         which
 
         model produced the output.'
+    LadderActionRequest:
+      properties:
+        decided_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decided By
+        rationale:
+          type: string
+          title: Rationale
+      type: object
+      required:
+      - rationale
+      title: LadderActionRequest
+      description: 'Request body for the staging/production ladder steps and the
+        deployment-level
+
+        rollback (openapi.yaml LadderActionRequest). The version being acted on is in
+        the URL;
+
+        the body carries only the audit fields (who approved, why), matching
+        `DecisionCreateRequest.decided_by`.'
     LoginRequest:
       properties:
         username:
@@ -2638,6 +2894,9 @@ components:
           - DEPLOYED
           - RETIRED
           - ARCHIVED
+          - STAGING
+          - VALIDATED
+          - PRODUCTION
           title: Status
         training_run_id:
           type: string
@@ -2735,6 +2994,9 @@ components:
           - DEPLOYED
           - RETIRED
           - ARCHIVED
+          - STAGING
+          - VALIDATED
+          - PRODUCTION
           title: Status
       type: object
       required:

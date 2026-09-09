@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 36 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 40 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -21,6 +21,14 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
   a qualitative majority win, no general-domain regressions, and no eval-loss
   regression (human decision on the threshold; each check is an env toggle, all
   on by default, `409 PROMOTION_GATE_BLOCKED` when blocked)
+- Staging/production ladder (issues #69/#70): a candidate flows
+  `EVALUATED → STAGING → VALIDATED → production` via
+  `POST .../versions/{version}/deploy-staging` · `validate-staging` ·
+  `promote-production`. Staging a candidate never moves the production pointer;
+  production promotion is authorized only and structurally requires the staging
+  step (`409` on a version that skipped it). Rollbacks target any prior immutable
+  version, either by model version (`POST /models/{model_id}/rollback`) or by
+  deployment row (`POST /deployments/{deployment_id}/rollback`)
 - Rate limiting (5/min login, 3/min register) with `X-RateLimit-*` headers
 - Request body size limit (1MB default, configurable)
 - Structured logging (structlog, JSON)

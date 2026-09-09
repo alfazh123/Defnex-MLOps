@@ -15,6 +15,15 @@ class DecisionCreateRequest(BaseModel):
     rationale: str
 
 
+class LadderActionRequest(BaseModel):
+    """Request body for the staging/production ladder steps and the deployment-level rollback
+    (openapi.yaml LadderActionRequest). The version being acted on is in the URL; the body carries
+    only the audit fields (who approved, why), matching `DecisionCreateRequest.decided_by`."""
+
+    decided_by: str | None = None
+    rationale: str
+
+
 class RollbackRequest(BaseModel):
     """Request body for POST /models/{model_id}/rollback (openapi.yaml RollbackRequest)."""
 
@@ -24,13 +33,15 @@ class RollbackRequest(BaseModel):
 
 
 class DecisionRecord(BaseModel):
-    """WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers promotion, rejection, and
-    rollback with one schema."""
+    """WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers promotion, rejection,
+    rollback, and the staging/production ladder steps with one schema."""
 
     decision_id: str
     model_id: str
     version: int
-    decision: Literal["PROMOTED", "REJECTED", "ROLLBACK"]
+    decision: Literal[
+        "PROMOTED", "REJECTED", "ROLLBACK", "STAGING", "VALIDATED", "PRODUCTION"
+    ]
     decided_by: str | None = None
     decided_at: datetime
     evidence_snapshot: EvaluationObject | None = None

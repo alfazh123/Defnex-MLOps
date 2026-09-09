@@ -38,11 +38,10 @@ class TrainingRun(Base):
     artifact_uri: Mapped[str | None] = mapped_column(String, nullable=True)
     external_job_id: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
-    # Issue #61: retry lineage. A retry of a FAILED run creates a fresh run whose
-    # `retry_of` points back at the immutable original (PRD §10.5) — the original is
-    # never mutated.
-    retry_of: Mapped[str | None] = mapped_column(
-        ForeignKey("training_runs.training_run_id"), index=True, nullable=True
+    # Issue #75: FK to compute resource (nullable for backward compat — existing
+    # training runs have no resource assignment).
+    compute_resource_id: Mapped[int | None] = mapped_column(
+        ForeignKey("compute_resources.id"), nullable=True, index=True
     )
 
     dataset_version: Mapped["DatasetVersion"] = relationship(

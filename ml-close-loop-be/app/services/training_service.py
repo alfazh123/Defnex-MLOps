@@ -237,31 +237,15 @@ def fail_training_run(
     return training_run
 
 
-def retry_training_run(db: Session, failed_run: TrainingRun) -> TrainingRun:
-    """Retry a FAILED run: create a NEW PENDING run pointing `retry_of` back at it (PRD §10.5).
+def set_external_job_id(
+    db: Session, training_run: TrainingRun, external_job_id: str
+) -> TrainingRun:
+    """Persist the provider-assigned external_job_id on the run (issue #74).
 
-    The original run is terminal and immutable — retry never mutates it. The new run
-    copies the original's config snapshot so it can be picked up by the worker exactly
-    like a fresh `create_training_run` row.
+    Called by the worker after TrainingProvider.submit() returns so the job can be
+    polled/cancelled via the provider contract. Caller commits.
     """
-
-    if failed_run.status != "FAILED":
-        raise ValueError(
-            f"Cannot retry training run {failed_run.training_run_id} in status "
-            f"{failed_run.status} (must be FAILED)"
-        )
-    training_run = TrainingRun(
-        training_run_id=f"run-{uuid.uuid4().hex[:6]}",
-        dataset_version_id=failed_run.dataset_version_id,
-        model_id=failed_run.model_id,
-        base_model=failed_run.base_model,
-        training_config=failed_run.training_config,
-        status="PENDING",
-        triggered_by=failed_run.triggered_by,
-        retry_of=failed_run.training_run_id,
-        created_at=datetime.now(timezone.utc),
-    )
-    db.add(training_run)
+    training_run.external_job_id = external_job_id
     db.flush()
     return training_run
 

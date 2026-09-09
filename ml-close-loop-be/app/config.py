@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # VLLMServingBackend against `vllm_url`. docker-compose's GPU serving profile starts vLLM.
     serving_backend: Literal["mock", "vllm"] = "mock"
     vllm_url: str = "http://localhost:8001"
+    # Per-environment vLLM URLs (issue #68, PRD §16.1/§19.4): comma-separated `env:url` pairs,
+    # e.g. `staging:http://staging-vllm:8001,production:http://prod-vllm:8001`. Lets a deploy to a
+    # named environment target a different host instead of the single `vllm_url` — changing a
+    # staging/prod host is a config change, not a code change. Empty (default) falls back to
+    # `vllm_url` for every environment (backward compatible).
+    vllm_url_by_env: str = ""
     vllm_api_key: str = ""
     vllm_timeout_seconds: float = 60.0
     # Base model the serving stack is actually running (issue #65). The `serving`
@@ -153,6 +159,19 @@ class Settings(BaseSettings):
     # Model artifact storage (issue #38). Location where each trained version is kept in an
     # immutable per-version directory. No longer a system temp dir — overridable via env.
     artifact_storage_dir: str = "data/artifacts"
+
+    # Artifact backend selection (issue #71, PRD §13.1). `local` uses
+    # LocalFilesystemArtifactStorage (dev / CI); `minio` uses MinioArtifactStorage for
+    # production object storage (PRD §13.2: PostgreSQL = metadata, MinIO/S3 = bytes).
+    artifact_backend: Literal["local", "minio"] = "local"
+
+    # MinIO / S3-compatible object storage settings (issue #71, PRD §13.1).
+    # All defaults match the compose-baseline minio service (PRD §32).
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "artifacts"
+    minio_secure: bool = False  # True = HTTPS to the MinIO/S3 endpoint
 
     # Real Unsloth training runner (issue #38). The worker spawns a standalone Unsloth
     # training script in a SEPARATE venv via subprocess (never in the app's own venv —

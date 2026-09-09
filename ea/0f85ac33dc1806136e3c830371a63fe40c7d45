@@ -1,0 +1,62 @@
+ml-close-loop-be/openapi.yaml
+  s_a89b4463bba6ca::t_9cf0791894181e 3757-3843
+  s_a89b4463bba6ca::t_12478471566545 3594-3667
+ml-close-loop-be/app/services/deployment_service.py
+  s_b57a06cd3f8e90::t_eaa27748cb3e2f 86
+  s_b57a06cd3f8e90::t_653f667e4c27ce 262-264
+  s_b57a06cd3f8e90::t_b310e520e32b46 12
+  s_b57a06cd3f8e90::t_8119b40cdab47a 82-85,87-108
+ml-close-loop-be/app/models/transfer.py
+  s_a89b4463bba6ca::t_e647f5626ded67 1-27
+ml-close-loop-be/alembic/versions/a1b2c3d4e5f6_add_artifact_transfers_table.py
+  s_a89b4463bba6ca::t_d9b6b27770c21e 1-46
+ml-close-loop-be/app/services/artifact_transfer.py
+  s_a89b4463bba6ca::t_5bf780efcf0653 45,158
+  s_a89b4463bba6ca::t_4ef13a9378eb33 1-44,46-103,108-141,162-165,175,183,185-200,205-210
+  s_a89b4463bba6ca::t_c84c9382432fca 104-107,142-148,159-161,201-204
+  s_b57a06cd3f8e90::t_b3999dca9ea157 166,174,176-177,184
+  s_b57a06cd3f8e90::t_98d3c0821b872d 149-157
+  s_b57a06cd3f8e90::t_eaa27748cb3e2f 168-173,178-182
+  s_b57a06cd3f8e90::t_643d1d35848a17 167
+ml-close-loop-be/app/models/__init__.py
+  s_a89b4463bba6ca::t_34c57593e4cd4e 9,14
+ml-close-loop-be/app/api/transfer.py
+  s_a89b4463bba6ca::t_5bf780efcf0653 5-10,101-103
+  s_a89b4463bba6ca::t_cbfebed6f4c1fa 1-4,11-100,104
+ml-close-loop-be/app/schemas/transfer.py
+  s_a89b4463bba6ca::t_332ce452c376d6 1-27
+ml-close-loop-be/README.md
+  s_a89b4463bba6ca::t_f73e0ce18bbb21 15
+ml-close-loop-be/app/main.py
+  s_a89b4463bba6ca::t_0457045c4d70bd 104
+  s_a89b4463bba6ca::t_9c692f06929931 25
+ml-close-loop-be/tests/test_artifact_transfer.py
+  s_a89b4463bba6ca::t_b402c475487cf4 6,62-63,83,100,116,141,148,150
+  s_a89b4463bba6ca::t_4ce765984c7c0b 10
+  s_a89b4463bba6ca::t_f3bcf8cf0cfb7e 1-5,7-9,11-61,64-82,84-99,101-115,117-140,142-147,149,151-167,171-228
+  s_a89b4463bba6ca::t_5bf780efcf0653 168-170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "ea0f85ac33dc1806136e3c830371a63fe40c7d45",
+  "prompts": {},
+  "sessions": {
+    "s_a89b4463bba6ca": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7aa9dde3ffetchqL1IvN18jDB",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": null
+    }
+  }
+}

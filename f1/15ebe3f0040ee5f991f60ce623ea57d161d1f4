@@ -1,0 +1,21 @@
+ml-close-loop-be/alembic/versions/b3c7d5e9f1a2_issue64_add_training_config_hash_to_model_versions.py
+  s_b57a06cd3f8e90::t_12cd6ab0a50593 34
+ml-close-loop-be/tests/test_model_service.py
+  s_b57a06cd3f8e90::t_81561eeb79d711 259-264,329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "f115ebe3f0040ee5f991f60ce623ea57d161d1f4",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

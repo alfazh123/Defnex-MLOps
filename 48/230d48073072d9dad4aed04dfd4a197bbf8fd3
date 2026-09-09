@@ -1,0 +1,45 @@
+ml-close-loop-be/README.md
+  s_a7842e0a749b52::t_16142bacb95592 15
+ml-close-loop-be/app/services/training_service.py
+  s_a7842e0a749b52::t_fa51d1b7ed7c6f 240-268
+ml-close-loop-be/alembic/versions/34cc778c7f78_add_retry_of_to_training_runs.py
+  s_a7842e0a749b52::t_8d5e5cc956b1c9 1-22,24,30-32,34-43
+  s_a7842e0a749b52::t_882ff8f03f9c5e 23,25-29,33
+README.md
+  s_a7842e0a749b52::t_b4c0e41a9e046a 20
+ml-close-loop-be/openapi.yaml
+  s_a7842e0a749b52::t_1af0df4b685bda 1115-1161
+ml-close-loop-be/tests/test_training_service.py
+  s_a7842e0a749b52::t_66ad519a475155 350-394
+  s_b398fae7f0331e::t_4d668768bd083d 395-396
+ml-close-loop-be/tests/test_training_api.py
+  s_a7842e0a749b52::t_f85aa966637dc7 485-565
+ml-close-loop-be/app/api/training.py
+  s_a7842e0a749b52::t_492d80a80bbaea 119-147
+ml-close-loop-be/app/models/training.py
+  s_a7842e0a749b52::t_e3df419ac58075 41-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "48230d48073072d9dad4aed04dfd4a197bbf8fd3",
+  "prompts": {},
+  "sessions": {
+    "s_a7842e0a749b52": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7baba06dffeDrIOffMllZjwPU",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_b398fae7f0331e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7bab4e93ffemh3uxagEUXsC62",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

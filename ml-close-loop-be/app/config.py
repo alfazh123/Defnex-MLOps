@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     vllm_url: str = "http://localhost:8001"
     vllm_api_key: str = ""
     vllm_timeout_seconds: float = 60.0
+    # Base model the serving stack is actually running (issue #65). The `serving`
+    # compose service loads this as its base model; deploy verifies the artifact's
+    # recorded base_model matches before moving the pointer (PRD §17.4: a base-model
+    # change is a controlled recreate/redeploy, never a silent hot-swap). Empty
+    # (default) disables the check so unconfigured/legacy setups keep deploying.
+    served_base_model: str = ""
 
     # Inference & smoke test (issue #41). Each smoke-test property is explicit and
     # configurable - not a magic number in code. The smoke test runs inside

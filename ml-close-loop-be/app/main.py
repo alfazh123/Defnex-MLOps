@@ -28,7 +28,7 @@ from app.config import settings
 from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.services.deployment_service import SmokeTestError
-from app.services.serving import ServingError
+from app.services.serving import BaseModelMismatchError, ServingError
 
 logger = structlog.get_logger(__name__)
 
@@ -161,6 +161,26 @@ async def smoke_test_error_handler(
     return JSONResponse(
         status_code=502,
         content={"error": {"code": "SMOKE_TEST_FAILED", "message": str(exc)}},
+    )
+
+
+@app.exception_handler(BaseModelMismatchError)
+async def base_model_mismatch_handler(
+    request: Request, exc: BaseModelMismatchError
+) -> JSONResponse:
+    """(issue #65) The artifact being deployed is trained on a different base model than the
+    serving stack is running, and the deploy was rejected before the pointer moved. 409 is a
+    client-side configuration conflict (misaligned served_base_model) that the operator resolves
+    by recreating/redeploying on the matching base (PRD §17.4) - never a server fault."""
+    logger.error(
+        "base_model_mismatch",
+        method=request.method,
+        path=request.url.path,
+        error=str(exc),
+    )
+    return JSONResponse(
+        status_code=409,
+        content={"error": {"code": "BASE_MODEL_MISMATCH", "message": str(exc)}},
     )
 
 

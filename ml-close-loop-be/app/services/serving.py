@@ -42,6 +42,34 @@ class InferenceError(Exception):
     it as "this adapter cannot serve traffic right now"."""
 
 
+class BaseModelMismatchError(Exception):
+    """The artifact being deployed was trained on a different base model than the one the
+    serving stack is currently running (issue #65). Deploy must reject this *before* the
+    pointer moves — a base-model change is a controlled recreate/redeploy (PRD §17.4), never
+    a silent adapter hot-swap onto a mismatched base."""
+
+
+def _validate_base_model(model_version: ModelVersion) -> None:
+    """(issue #65) Reject a deploy whose artifact's recorded `base_model` does not match the
+    base model the serving stack is actually running (`settings.served_base_model`).
+
+    Runs before any adapter load or pointer move. When `served_base_model` is empty (default)
+    the check is skipped so unconfigured / legacy setups keep deploying unchanged. When set,
+    a mismatch raises `BaseModelMismatchError` and the deploy is refused — the operator must
+    recreate the serving stack on the matching base rather than rely on a hot-swap (PRD §17.4).
+    """
+    served = settings.served_base_model
+    if not served:
+        return
+    if model_version.base_model != served:
+        raise BaseModelMismatchError(
+            f"cannot deploy model {model_version.model_id} v{model_version.version}: "
+            f"artifact base_model {model_version.base_model!r} does not match the served "
+            f"base model {served!r}; recreate/redeploy the serving stack on the matching "
+            "base model (PRD §17.4), do not hot-swap"
+        )
+
+
 class ServingBackend(Protocol):
     def deploy(self, model_version: ModelVersion) -> None:
         """Make `model_version`'s artifact serve traffic. Raises `ServingError` on failure

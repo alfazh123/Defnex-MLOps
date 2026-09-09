@@ -15,7 +15,11 @@ from app.services.artifact_storage import (
     ArtifactStorage,
     LocalFilesystemArtifactStorage,
 )
-from app.services.serving import ServingBackend, get_serving_backend
+from app.services.serving import (
+    ServingBackend,
+    _validate_base_model,
+    get_serving_backend,
+)
 from app.workers.gpu_lock import gpu_lock
 
 logger = structlog.get_logger(__name__)
@@ -212,6 +216,11 @@ def _deploy_locked(
     # here — nothing is loaded, nothing is unloaded, and the previous version stays DEPLOYED;
     # the failure is recorded as a log line.
     verify_artifact_checksum(model_version, artifact_storage)
+
+    # Issue #65: reject a deploy whose artifact base_model doesn't match the served base model
+    # (BaseModelMismatchError), before any load/pointer move. Skipped when served_base_model
+    # is unset (default), so unconfigured/legacy deploys behave as before.
+    _validate_base_model(model_version)
 
     backend.deploy(model_version)
 

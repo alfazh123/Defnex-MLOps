@@ -1,0 +1,36 @@
+ml-close-loop-be/.env.example
+  s_71b2cea89bfad5::t_5b4f838894ca43 36-41
+ml-close-loop-be/app/config.py
+  s_71b2cea89bfad5::t_c82959e71503b8 31-36
+ml-close-loop-be/app/services/deployment_service.py
+  s_71b2cea89bfad5::t_f82b27e820a1b8 220-224
+  s_71b2cea89bfad5::t_f06f4570ac70fa 18-22
+ml-close-loop-be/app/main.py
+  s_71b2cea89bfad5::t_16d8a469fa4405 31
+  s_71b2cea89bfad5::t_d7279d5dbd0008 167-186
+ml-close-loop-be/app/services/serving.py
+  s_71b2cea89bfad5::t_b24f09a422f940 45-51
+  s_71b2cea89bfad5::t_6b6331336680b7 52-72
+ml-close-loop-be/tests/test_base_model_compat.py
+  s_71b2cea89bfad5::t_628f635ac91def 35-49
+  s_71b2cea89bfad5::t_aa45fbeb38b936 22-25,50,53,83-85,88,92-94,102,106,110-114,126-128,134
+  s_71b2cea89bfad5::t_d848c252da6e6a 118-123,185
+  s_71b2cea89bfad5::t_36651a9f4a32b3 129-133,136-138
+  s_71b2cea89bfad5::t_1db62c57d72796 1-21,26-34,51-52,54-82,86-87,89-91,95-101,103-105,107-109,115-117,124-125,135,139-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "4960ad6b61cde55e38a275b36dd6a0fb1a433fef",
+  "prompts": {},
+  "sessions": {
+    "s_71b2cea89bfad5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7bab813affenj05ZfudOQweGC",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

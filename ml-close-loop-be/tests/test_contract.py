@@ -89,6 +89,10 @@ def _registered_model_version(client, admin_token):
 
 
 def _evaluated_model_version(client, admin_token):
+    """Issue #128: evaluation is triggered (async) and computed server-side, not submitted as
+    raw numbers - same "no HTTP trigger for the worker loop, call it directly" exception this
+    module's docstring already carves out for the training worker (see `_registered_model_version`
+    above, `process_next_job`)."""
     model_id, version = _registered_model_version(client, admin_token)
     h = auth_header(admin_token)
     resp = client.post(
@@ -97,41 +101,21 @@ def _evaluated_model_version(client, admin_token):
         headers=h,
     )
     assert resp.status_code == 201, resp.text
-    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
     eval_ref = {
         "eval_set_id": "domain-benchmark",
         "eval_set_version": resp.json()["version"],
     }
-    client.post(
-        url,
-        json={**eval_ref, "eval_loss_trend": {"this_version_eval_loss": 0.84}},
-        headers=h,
-    )
-    client.post(
-        url,
-        json={
-            **eval_ref,
-            "qualitative_comparison": {
-                "question_table_version": 1,
-                "wins": 13,
-                "losses": 5,
-                "ties": 2,
-                "total": 20,
-            },
-        },
-        headers=h,
-    )
-    client.post(
-        url,
-        json={
-            **eval_ref,
-            "general_domain_regression_check": {
-                "checked": True,
-                "regressions_found": [],
-            },
-        },
-        headers=h,
-    )
+    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
+    triggered = client.post(url, json=eval_ref, headers=h)
+    assert triggered.status_code == 200, triggered.text
+
+    with Session(client.engine) as db:
+        from app.workers.evaluation_worker import process_next_evaluation
+
+        processed = process_next_evaluation(db)
+        db.commit()
+        assert processed is not None
+
     return model_id, version
 
 

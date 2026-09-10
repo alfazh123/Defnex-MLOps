@@ -1874,7 +1874,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EvaluationUpdateRequest'
+              $ref: '#/components/schemas/EvaluationTriggerRequest'
       responses:
         '200':
           description: Successful Response
@@ -1882,6 +1882,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationSubmitResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
         '404':
           content:
             application/json:
@@ -3548,7 +3554,7 @@ components:
       title: EvaluationSubmitResponse
       description: Inline response shape for POST .../evaluation (openapi.yaml, not
         a named component).
-    EvaluationUpdateRequest:
+    EvaluationTriggerRequest:
       properties:
         eval_set_id:
           anyOf:
@@ -3560,34 +3566,19 @@ components:
           - type: integer
           - type: 'null'
           title: Eval Set Version
-        eval_loss_trend:
-          anyOf:
-          - $ref: '#/components/schemas/EvalLossTrend'
-          - type: 'null'
-        qualitative_comparison:
-          anyOf:
-          - $ref: '#/components/schemas/QualitativeComparison'
-          - type: 'null'
-        general_domain_regression_check:
-          anyOf:
-          - $ref: '#/components/schemas/GeneralDomainRegressionCheck'
-          - type: 'null'
+      additionalProperties: false
       type: object
-      title: EvaluationUpdateRequest
-      description: 'Partial evaluation payload (openapi.yaml EvaluationUpdateRequest)
-        - any subset of the
-
-        three signal fields may be submitted; the backend merges onto the existing
-        record.
-
-
-        `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals
-        were
-
-        measured against (issue #43); they are stored once, on the model version,
-        and may be
-
-        (re)submitted alongside any signal.'
+      title: EvaluationTriggerRequest
+      description: 'Request body for `POST .../evaluation` (issue #128). Trigger-only:
+        the endpoint no longer accepts caller-supplied signal numbers (`eval_loss_trend`,
+        `qualitative_comparison`, `general_domain_regression_check`) - those are now
+        computed server-side by the evaluation worker against the stored golden/eval
+        set (issue #43) via `ServingBackend`. `additionalProperties: false` makes a
+        request still shaped like the old manual payload fail with 422 rather than
+        silently accepting/ignoring caller-controlled evaluation results.
+        `eval_set_id`/`eval_set_version` (optional) name/override the golden set to
+        evaluate against; when omitted, the model version''s already-stored eval set
+        reference is used.'
     FeedbackCreateRequest:
       properties:
         model_id:

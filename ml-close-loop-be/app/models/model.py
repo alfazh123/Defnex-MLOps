@@ -74,6 +74,13 @@ class ModelVersion(Base):
     eval_set_id: Mapped[str | None] = mapped_column(String, nullable=True)
     eval_set_version: Mapped[int | None] = mapped_column(nullable=True)
 
+    # Issue #128: async evaluation queue flag. POST .../evaluation (app/api/models.py) sets
+    # this True instead of writing caller-supplied signal numbers directly; the evaluation
+    # worker (app/workers/evaluation_worker.py) claims it (CAS False), computes the three
+    # signals server-side via ServingBackend against the stored eval set, and applies them
+    # through the existing model_service.submit_evaluation merge/transition logic.
+    evaluation_requested: Mapped[bool] = mapped_column(default=False)
+
     created_at: Mapped[datetime] = mapped_column()
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
 

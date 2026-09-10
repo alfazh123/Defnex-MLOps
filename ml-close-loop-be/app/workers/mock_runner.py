@@ -20,4 +20,10 @@ class MockTrainingRunner:
         staging = Path(tempfile.mkdtemp(prefix="defnex-mock-"))
         (staging / "adapter_model.safetensors").write_bytes(b"fake")
         (staging / "adapter_config.json").write_text('{"mock": true}')
+        # Issue #128: the real UnslothTrainingRunner reports eval_loss during training
+        # (training_service.py:222); the mock stub matches that so a version registered
+        # through it has a real (if fake) training loss for evaluation_engine's
+        # eval_loss_trend to read - `training_run` is still RUNNING at this point (the
+        # worker flips it to COMPLETED after `run()` returns).
+        training_run.eval_loss = 0.84
         return str(staging)

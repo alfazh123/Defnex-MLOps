@@ -104,12 +104,12 @@ def register(
             400, "INVALID_ROLE", f'Role must be "admin" or "user", got "{body.role}"'
         )
 
-    # First user auto-becomes admin
+    # First user auto-becomes admin; subsequent registrations always get "user"
     from sqlalchemy import func, select
     from app.models.user import User
 
     user_count = db.scalar(select(func.count()).select_from(User))
-    role = "admin" if user_count == 0 else body.role
+    role = "admin" if user_count == 0 else "user"
 
     user = auth_service.create_user(db, body.username, body.password, role)
     db.commit()

@@ -416,17 +416,33 @@ class GPUVPSProvider:
                 check = host.execute(["test", "-f", f"{job.remote_staging_dir}/.done"])
                 if check.returncode == 0:
                     return JobStatus(status="COMPLETED")
-                # Check exit code from log
+                # Fallback: check remote process exit code from the PID log
+                exit_check = host.execute(
+                    [
+                        "sh",
+                        "-c",
+                        f"PID=$(grep -o '[0-9]*' {job.remote_staging_dir}/stdout.log | head -1); "
+                        f"wait $PID 2>/dev/null; echo $? 2>/dev/null || echo 1",
+                    ]
+                )
+                try:
+                    exit_code = int(exit_check.stdout.strip())
+                except (ValueError, TypeError):
+                    exit_code = 1
+                # Check stderr from log
                 err_check = host.execute(
                     ["cat", f"{job.remote_staging_dir}/stderr.log"]
                 )
-                if err_check.stdout.strip():
+                if exit_code != 0 or err_check.stdout.strip():
                     return JobStatus(
-                        status="FAILED", error_message=err_check.stdout.strip()[-500:]
+                        status="FAILED",
+                        error_message=(
+                            err_check.stdout.strip()[-500:]
+                            if err_check.stdout.strip()
+                            else f"Remote process exited with code {exit_code}"
+                        ),
                     )
-                return JobStatus(
-                    status="FAILED", error_message="Remote process exited unexpectedly"
-                )
+                return JobStatus(status="COMPLETED")
         except Exception as exc:
             job.failed = True
             job.error_message = f"SSH error: {exc}"

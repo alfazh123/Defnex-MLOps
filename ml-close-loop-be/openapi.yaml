@@ -3299,6 +3299,21 @@ components:
           - type: integer
           - type: 'null'
           title: Rollback Of Version
+        dataset_license:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dataset License
+        base_model_license:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Model License
+        license_warning:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: License Warning
       type: object
       required:
       - decision_id
@@ -3311,7 +3326,10 @@ components:
       description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
         promotion, rejection,
 
-        rollback, and the staging/production ladder steps with one schema.'
+        rollback, and the staging/production ladder steps with one schema. `dataset_license`/
+        `base_model_license`/`license_warning` (issue #134) surface the training dataset and
+        base model licenses and an explicit, human-facing (never auto-blocking) warning when a
+        non-commercial dataset license is heading toward production.'
     DeployRequest:
       properties:
         environment:

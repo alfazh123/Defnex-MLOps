@@ -410,6 +410,9 @@ def test_promotion_decision_returns_decision_shape(client, admin_token):
         "eval_set_version",
         "rationale",
         "rollback_of_version",
+        "dataset_license",
+        "base_model_license",
+        "license_warning",
     }
     assert data["decision"] == "PROMOTED"
     assert data["eval_set_id"] == "domain-benchmark"
@@ -417,6 +420,11 @@ def test_promotion_decision_returns_decision_shape(client, admin_token):
     assert isinstance(data["evidence_snapshot"], dict)
     assert data["rollback_of_version"] is None
     assert isinstance(data["decided_at"], str)
+    # issue #134: dataset has no license set by this fixture (None, not omitted); base model
+    # is Qwen/Qwen3.8-27B, configured as apache-2.0 (permissive) -> no warning.
+    assert data["dataset_license"] is None
+    assert data["base_model_license"] == "apache-2.0"
+    assert data["license_warning"] is None
 
 
 def test_deployment_result_returns_deploy_result_shape(client, admin_token):

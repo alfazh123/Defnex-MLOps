@@ -291,3 +291,46 @@ def test_rollback_deployment_409_when_target_row_version_is_current_live(
     )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "ROLLBACK_NOT_ALLOWED"
+
+
+def test_promote_production_warns_on_non_commercial_dataset_license(
+    client, admin_token
+):
+    """Issue #134: the ladder's actual production step (promote-production) is where a
+    STAGING/VALIDATED candidate reaches the production pointer - a non-commercial dataset
+    license must surface an explicit warning here too, not just on the legacy PROMOTED decision.
+    The promotion itself still succeeds; the warning requires reviewer acknowledgment, not a
+    hard block."""
+    from sqlalchemy import select
+
+    from app.models.dataset import DatasetVersion
+
+    model_id, version = _evaluated_model_version(client, admin_token)
+    with Session(client.engine) as session:
+        row = session.scalar(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == "no_robots",
+                DatasetVersion.version == 1,
+            )
+        )
+        row.license = "cc-by-nc-4.0"
+        session.commit()
+
+    h = auth_header(admin_token)
+    url = f"/api/v1/models/{model_id}/versions/{version}"
+    client.post(f"{url}/deploy-staging", json={"rationale": "stage v1"}, headers=h)
+    client.post(f"{url}/validate-staging", json={"rationale": "ok"}, headers=h)
+    promoted = client.post(
+        f"{url}/promote-production", json={"rationale": "ship it"}, headers=h
+    )
+
+    assert promoted.status_code == 201
+    body = promoted.json()
+    assert body["decision"] == "PRODUCTION"  # not blocked
+    assert body["dataset_license"] == "cc-by-nc-4.0"
+    assert body["base_model_license"] == "apache-2.0"
+    assert body["license_warning"] is not None
+    assert "non-commercial" in body["license_warning"]
+    assert (
+        _pointer(client, admin_token, model_id)["current_deployed_version"] == version
+    )

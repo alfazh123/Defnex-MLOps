@@ -236,6 +236,19 @@ class Settings(BaseSettings):
     eval_gate_require_no_general_regression: bool = True
     eval_gate_require_eval_loss_not_worse: bool = True
 
+    # License tracking (issue #134). `ModelVersion.base_model`/`TrainingRun.base_model` already
+    # record which base model a run used, so the license is a config lookup keyed by that string
+    # rather than a new DB column duplicating it. Comma-separated `base_model:license` pairs
+    # (same shape as `vllm_url_by_env`, `serving.py:150`); an unlisted base model resolves to
+    # None (unknown), never a guessed value.
+    base_model_licenses: str = "Qwen/Qwen3.8-27B:apache-2.0"
+    # Non-commercial license detection for the promotion warning below (issue #134 Open
+    # Decision): comma-separated substrings checked case-insensitively against a dataset
+    # version's `license`. This is a PLACEHOLDER heuristic pending governance's exact
+    # "commercial use" definition - it only ever drives a human-facing warning
+    # (`promotion_service._license_warning`), never an automatic block.
+    non_commercial_license_patterns: str = "cc-by-nc,noncommercial,non-commercial"
+
     # Rate limits for write endpoints (P2-3)
     rate_limit_training_create: str = "10/minute"
     rate_limit_intake_validate: str = "10/minute"

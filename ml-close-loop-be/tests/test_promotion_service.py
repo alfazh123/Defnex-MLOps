@@ -1,5 +1,6 @@
 import pytest
 
+from app.config import settings
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.schemas.model import (
     EvalLossTrend,
@@ -17,7 +18,10 @@ from app.services import (
 )
 
 
-def _evaluated_model_version(db_session):
+def _evaluated_model_version(db_session, *, dataset_license=None):
+    """`dataset_license` (issue #134) lets license-warning tests set the training dataset's
+    license without duplicating this whole fixture; default (None) keeps every existing call
+    site's behavior unchanged."""
     dataset_version = dataset_service.create_dataset_version(
         db_session,
         "no_robots",
@@ -28,6 +32,9 @@ def _evaluated_model_version(db_session):
             source_format="chatml",
         ),
     )
+    if dataset_license is not None:
+        dataset_version.license = dataset_license
+        db_session.flush()
     training_run = training_service.create_training_run(
         db_session,
         dataset_version,
@@ -302,3 +309,124 @@ def test_rejection_is_not_blocked_by_gate(db_session):
 
     assert decision.decision == "REJECTED"
     assert model_version.status == "REJECTED"
+
+
+# ── License tracking + promotion warning (issue #134) ──────────────────────────
+
+
+def test_base_model_license_known_and_unknown():
+    """Config lookup keyed by base_model (app/config.py BASE_MODEL_LICENSES default includes
+    the ticket's example: Qwen/Qwen3.8-27B -> apache-2.0). An unconfigured base model resolves
+    to None (unknown), never a guessed value."""
+    assert promotion_service._base_model_license("Qwen/Qwen3.8-27B") == "apache-2.0"
+    assert promotion_service._base_model_license("totally/unknown-model") is None
+
+
+@pytest.mark.parametrize(
+    "license_str,expected",
+    [
+        ("cc-by-nc-4.0", True),
+        ("CC-BY-NC-4.0", True),  # case-insensitive
+        ("apache-2.0", False),
+        ("mit", False),
+        (None, False),
+        ("", False),
+    ],
+)
+def test_is_non_commercial_license_placeholder_heuristic(license_str, expected):
+    """PLACEHOLDER heuristic (Open Decision, issue #134): only feeds the warning, never a
+    block. Confirms the configured pattern list matches the ticket's actual non-commercial
+    license (cc-by-nc-4.0) case-insensitively and does not flag a permissive/absent license."""
+    assert promotion_service._is_non_commercial_license(license_str) is expected
+
+
+def test_to_schema_surfaces_dataset_and_base_model_license_no_warning(db_session):
+    """Happy path: base model license is always surfaced; a dataset with no license recorded
+    and a permissive base model produces no warning."""
+    model_version = _evaluated_model_version(db_session)
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+
+    schema = promotion_service.to_schema(decision)
+
+    assert schema.dataset_license is None
+    assert schema.base_model_license == "apache-2.0"
+    assert schema.license_warning is None
+
+
+def test_promotion_request_warns_on_non_commercial_dataset_license(db_session):
+    """Issue #134 AC: a dataset with a non-commercial license (the ticket's actual Phase A
+    example, cc-by-nc-4.0) triggers an explicit warning on a promotion request - it must not
+    silently pass through. The decision itself still succeeds (warning, not a hard block)."""
+    model_version = _evaluated_model_version(db_session, dataset_license="cc-by-nc-4.0")
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+
+    assert decision.decision == "PROMOTED"  # not blocked
+    schema = promotion_service.to_schema(decision)
+    assert schema.dataset_license == "cc-by-nc-4.0"
+    assert schema.license_warning is not None
+    assert "non-commercial" in schema.license_warning
+    assert "production" in schema.license_warning
+
+
+def test_rejection_does_not_warn_even_with_non_commercial_license(db_session):
+    """A REJECTED decision is not heading toward production, so it never carries the warning
+    even when the dataset license would otherwise trigger one."""
+    model_version = _evaluated_model_version(db_session, dataset_license="cc-by-nc-4.0")
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="REJECTED", decided_by="reviewer-1", rationale="n/a"
+        ),
+    )
+
+    schema = promotion_service.to_schema(decision)
+    assert schema.dataset_license == "cc-by-nc-4.0"
+    assert schema.license_warning is None
+
+
+def test_promotion_no_warning_for_permissive_dataset_license(db_session):
+    model_version = _evaluated_model_version(db_session, dataset_license="mit")
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+
+    schema = promotion_service.to_schema(decision)
+    assert schema.license_warning is None
+
+
+def test_non_commercial_pattern_list_is_configurable(db_session, monkeypatch):
+    """The non-commercial pattern list is a config, not a hardcoded rule (issue #134 Open
+    Decision) - widening or narrowing it changes what warns, without a code change."""
+    monkeypatch.setattr(settings, "non_commercial_license_patterns", "some-custom-tag")
+    model_version = _evaluated_model_version(db_session, dataset_license="cc-by-nc-4.0")
+
+    decision = promotion_service.create_decision(
+        db_session,
+        model_version,
+        DecisionCreateRequest(
+            decision="PROMOTED", decided_by="reviewer-1", rationale="ok"
+        ),
+    )
+
+    # cc-by-nc-4.0 no longer matches the (replaced) pattern list -> no warning.
+    assert promotion_service.to_schema(decision).license_warning is None

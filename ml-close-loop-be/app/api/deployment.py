@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_model_version_or_404, require_admin
+from app.api.deps import get_current_user, get_model_version_or_404, require_permission
 from app.api.errors import APIError
 from app.config import settings
 from app.db.session import get_db
@@ -10,6 +10,7 @@ from app.limiter import limiter
 from app.models.environment import Environment
 from app.models.model import Model
 from app.models.user import User
+from app.rbac import DEPLOY
 from app.schemas.common import ErrorResponse
 from app.schemas.deployment import (
     DeployRequest,
@@ -34,7 +35,7 @@ def deploy_model_version(
     version: int,
     body: DeployRequest | None = None,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(DEPLOY)),
     x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)

@@ -8,6 +8,7 @@ from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.model import ModelVersion
 from app.models.user import User
+from app.rbac import has_permission
 from app.services import auth_service, model_service
 
 
@@ -116,3 +117,22 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise APIError(403, "FORBIDDEN", "Admin access required")
     return current_user
+
+
+def require_permission(permission: str):
+    """Return a dependency requiring the current user's role to hold `permission`
+    (app.rbac.ROLE_PERMISSIONS), for the critical endpoints (promote, deploy,
+    rollback, infra credential write) identified in issue #123. Replaces the binary
+    `require_admin` on those endpoints so a role beyond "admin" can be authorized
+    without touching the endpoint again."""
+
+    def _check(current_user: User = Depends(get_current_user)) -> User:
+        if not has_permission(current_user.role, permission):
+            raise APIError(
+                403,
+                "FORBIDDEN",
+                f'role "{current_user.role}" lacks permission "{permission}"',
+            )
+        return current_user
+
+    return _check

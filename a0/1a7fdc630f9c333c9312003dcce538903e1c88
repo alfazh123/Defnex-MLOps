@@ -1,0 +1,54 @@
+ml-close-loop-be/openapi.yaml
+  s_6a301ebd60619a::t_7aaa6826729551 94-117
+ml-close-loop-be/app/api/deps.py
+  s_6a301ebd60619a::t_25ba2ca5a1ba58 89-113
+ml-close-loop-be/app/api/deployment.py
+  s_6a301ebd60619a::t_922791cd151b9e 34,37-39
+  s_6a301ebd60619a::t_d6e1454c808dbb 1
+  s_6a301ebd60619a::t_485fb4fa6d93f3 92-96
+ml-close-loop-be/app/services/deployment_service.py
+  s_6a301ebd60619a::t_7bdbd0d29d2fcb 45-69
+  s_6a301ebd60619a::t_05e7893bdfe98b 1
+ml-close-loop-be/app/logging.py
+  s_6a301ebd60619a::t_52f7c9b3d8e326 2,7-18
+  s_6a301ebd60619a::t_7fdea133608b07 30
+  s_6a301ebd60619a::t_520afcf9abb0dd 19
+ml-close-loop-be/tests/test_security.py
+  s_6a301ebd60619a::t_3d4705b3ff78b1 421-428,430-432,434-435,437-438,442-443,446-448,450-509
+  s_6a301ebd60619a::t_e3e38c751cedd3 429,433,436,439-441,444-445,449
+ml-close-loop-be/app/api/auth.py
+  s_6a301ebd60619a::t_e3575e069e8be1 9
+  s_6a301ebd60619a::t_f496c42eef2a19 123-125,127-129
+  s_6a301ebd60619a::t_6d137c5306566d 5
+  s_6a301ebd60619a::t_61a7ded8813bb9 120-122,126
+ml-close-loop-be/app/config.py
+  s_6a301ebd60619a::t_52c8c0ff256652 115,123-133
+  s_6a301ebd60619a::t_95a4e818c80395 116-122
+  s_6a301ebd60619a::t_8c8e3485309a85 114
+ml-close-loop-be/README.md
+  s_6a301ebd60619a::t_c42df2de01c2c6 15
+ml-close-loop-be/app/services/auth_service.py
+  s_6a301ebd60619a::t_a8accc5481fe7d 14-15
+  s_6a301ebd60619a::t_1e40bf6142e861 43,46-48,53-75
+  s_6a301ebd60619a::t_f8a7df8791a3f3 2
+  s_6a301ebd60619a::t_cc3651e2956762 28,37
+  s_6a301ebd60619a::t_288f82f5365679 76-77
+ml-close-loop-be/tests/test_idempotency.py
+  s_6a301ebd60619a::t_72c53df7662a16 1-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a01a7fdc630f9c333c9312003dcce538903e1c88",
+  "prompts": {},
+  "sessions": {
+    "s_6a301ebd60619a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f76275ac8ffeFydEFcewP5QFKM",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

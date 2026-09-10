@@ -23,6 +23,7 @@ from app.api.inference import router as inference_router
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
+from app.api.transfer import router as transfer_router
 from app.api.users import router as users_router
 from app.api.validation import router as validation_router
 from app.config import settings
@@ -104,6 +105,7 @@ v1_router.include_router(eval_sets_router)
 v1_router.include_router(feedback_router)
 v1_router.include_router(validation_router)
 v1_router.include_router(training_router)
+v1_router.include_router(transfer_router)
 v1_router.include_router(compute_resources_router)
 v1_router.include_router(models_router)
 v1_router.include_router(promotion_router)

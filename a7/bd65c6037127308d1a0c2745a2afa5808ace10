@@ -1,0 +1,37 @@
+ml-close-loop-be/app/models/__init__.py
+  s_b57a06cd3f8e90::t_e693c085db73f7 10,15
+ml-close-loop-be/app/models/transfer.py
+  s_b57a06cd3f8e90::t_ac81cdc1415897 1-25
+ml-close-loop-be/app/schemas/transfer.py
+  s_b57a06cd3f8e90::t_03286147408abb 1-30
+ml-close-loop-be/app/api/transfer.py
+  s_b57a06cd3f8e90::t_5515bae1b6fd87 1-5,12-76
+  s_b57a06cd3f8e90::t_04daa5289b5c8d 6-11
+ml-close-loop-be/app/services/artifact_transfer.py
+  s_b57a06cd3f8e90::t_04daa5289b5c8d 165-170,175-179
+  s_b57a06cd3f8e90::t_8815158988a2d6 1-164,171-174,180-225
+ml-close-loop-be/app/main.py
+  s_b57a06cd3f8e90::t_2419d37051406e 108
+  s_b57a06cd3f8e90::t_d4df6352938880 26
+ml-close-loop-be/tests/test_artifact_transfer.py
+  s_b57a06cd3f8e90::t_5b1c47bae470a2 75,81
+  s_b57a06cd3f8e90::t_04daa5289b5c8d 4,48-51,53,60-62,76-80,82,88-94,116-119
+  s_b57a06cd3f8e90::t_21a16403aa2b83 105-106
+  s_b57a06cd3f8e90::t_eb3f22f4590072 1-3,5-47,52,54-59,63-74,83-87,95-104,107-115,120-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a7bd65c6037127308d1a0c2745a2afa5808ace10",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

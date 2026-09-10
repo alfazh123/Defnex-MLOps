@@ -43,6 +43,9 @@ class TrainingRun(Base):
     compute_resource_id: Mapped[int | None] = mapped_column(
         ForeignKey("compute_resources.id"), nullable=True, index=True
     )
+    retry_of: Mapped[str | None] = mapped_column(
+        String, ForeignKey("training_runs.training_run_id"), nullable=True, index=True
+    )
 
     dataset_version: Mapped["DatasetVersion"] = relationship(
         back_populates="training_runs"

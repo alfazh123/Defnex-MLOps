@@ -275,6 +275,35 @@ def set_external_job_id(
     return training_run
 
 
+def retry_training_run(db: Session, training_run: TrainingRun) -> TrainingRun:
+    """Create a new PENDING run as a retry of a FAILED run (issue #61, PRD §10.5).
+
+    The original run is never mutated; only FAILED runs are retryable.
+    """
+
+    if training_run.status != "FAILED":
+        raise ValueError(
+            f"Cannot retry training run {training_run.training_run_id} "
+            f"with status {training_run.status}: must be FAILED"
+        )
+
+    new_run = TrainingRun(
+        training_run_id=f"run-{uuid.uuid4().hex[:6]}",
+        dataset_version_id=training_run.dataset_version_id,
+        model_id=training_run.model_id,
+        base_model=training_run.base_model,
+        training_config=training_run.training_config,
+        status="PENDING",
+        triggered_by=training_run.triggered_by,
+        compute_resource_id=training_run.compute_resource_id,
+        retry_of=training_run.training_run_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(new_run)
+    db.flush()
+    return new_run
+
+
 def get_training_run(db: Session, training_run_id: str) -> TrainingRun | None:
     return db.get(TrainingRun, training_run_id)
 
@@ -336,4 +365,5 @@ def to_schema(training_run: TrainingRun) -> TrainingRunSchema:
         model_version=training_run.model_versions[-1].version
         if training_run.model_versions
         else None,
+        retry_of=training_run.retry_of,
     )

@@ -192,3 +192,102 @@ def test_multiple_validations_produce_separate_reports(db_session):
 
     assert len(reports) == 2
     assert {r.id for r in reports} == {first.id, second.id}
+
+
+# --- PII screening (issue #132): warning-only, must never reject a record ---------------
+
+
+def test_pii_email_produces_warning_not_rejection(db_session):
+    version = _make_version(db_session)
+    record = _record(
+        "r1",
+        user=f"{GOOD_ANSWER} hubungi saya di budi.santoso@example.com untuk detail",
+    )
+
+    report = validation_service.validate_dataset_version(db_session, version, [record])
+
+    # Still VALID/PASS - a PII match is a warning, not a hard-error.
+    assert report.status_counts == {"VALID": 1, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert report.gate_decision == "PASS"
+    assert report.per_record_errors == [[]]
+    assert report.warnings_summary["PII_EMAIL"] == 1
+    assert report.warnings_summary["total_warnings"] == 1
+    assert report.dataset_statistics["pii_screening"]["records_flagged"] == 1
+
+
+def test_pii_id_number_produces_warning_not_rejection(db_session):
+    version = _make_version(db_session)
+    # Synthetic 16-digit ID number pattern - not a real NIK.
+    record = _record(
+        "r1", user=f"{GOOD_ANSWER} NIK saya 3271010101990001 untuk verifikasi"
+    )
+
+    report = validation_service.validate_dataset_version(db_session, version, [record])
+
+    assert report.status_counts == {"VALID": 1, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert report.gate_decision == "PASS"
+    assert report.warnings_summary["PII_ID_NUMBER"] == 1
+
+
+def test_pii_phone_number_produces_warning_not_rejection(db_session):
+    version = _make_version(db_session)
+    record = _record(
+        "r1", user=f"{GOOD_ANSWER} hubungi 081234567890 kalau ada pertanyaan"
+    )
+
+    report = validation_service.validate_dataset_version(db_session, version, [record])
+
+    assert report.status_counts == {"VALID": 1, "INVALID": 0, "NEEDS_REVIEW": 0}
+    assert report.gate_decision == "PASS"
+    assert report.warnings_summary["PII_PHONE_NUMBER"] == 1
+
+
+def test_no_pii_produces_no_pii_warning(db_session):
+    version = _make_version(db_session)
+    record = _record("r1")
+
+    report = validation_service.validate_dataset_version(db_session, version, [record])
+
+    assert "PII_EMAIL" not in report.warnings_summary
+    assert "PII_ID_NUMBER" not in report.warnings_summary
+    assert "PII_PHONE_NUMBER" not in report.warnings_summary
+    assert report.warnings_summary["total_warnings"] == 0
+    assert report.dataset_statistics["pii_screening"] == {
+        "records_flagged": 0,
+        "pattern_counts": {"PII_EMAIL": 0, "PII_ID_NUMBER": 0, "PII_PHONE_NUMBER": 0},
+    }
+
+
+def test_multiple_pii_patterns_in_one_record_counted_once_each(db_session):
+    version = _make_version(db_session)
+    record = _record(
+        "r1",
+        user=(
+            f"{GOOD_ANSWER} email saya budi@example.com dan telepon 081234567890, "
+            "email cadangan budi.kedua@example.com juga"
+        ),
+    )
+
+    report = validation_service.validate_dataset_version(db_session, version, [record])
+
+    # Two emails in the same record still count as one PII_EMAIL hit for that record.
+    assert report.warnings_summary["PII_EMAIL"] == 1
+    assert report.warnings_summary["PII_PHONE_NUMBER"] == 1
+    assert report.warnings_summary["total_warnings"] == 2
+    assert report.dataset_statistics["pii_screening"]["records_flagged"] == 1
+
+
+def test_pii_warning_does_not_affect_h1_hard_error_records(db_session):
+    version = _make_version(db_session)
+    bad_record = _record("r1")
+    bad_record["metadata"] = {}  # triggers H1_missing_required_field
+    pii_record = _record("r2", user=f"{GOOD_ANSWER} email saya budi@example.com")
+
+    report = validation_service.validate_dataset_version(
+        db_session, version, [bad_record, pii_record]
+    )
+
+    assert report.status_counts == {"VALID": 1, "INVALID": 1, "NEEDS_REVIEW": 0}
+    assert report.per_record_errors[0] == ["H1_missing_required_field"]
+    assert report.per_record_errors[1] == []
+    assert report.warnings_summary["PII_EMAIL"] == 1

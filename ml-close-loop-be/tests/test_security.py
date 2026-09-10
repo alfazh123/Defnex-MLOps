@@ -481,10 +481,13 @@ def test_token_revocation_blocks_further_use(client):
     resp = client.get("/api/v1/datasets", headers=auth_header(token))
     assert resp.status_code == 200
 
-    # Revoke
+    # Revoke via the service using the same test DB engine
     import app.services.auth_service as svc
+    from sqlalchemy.orm import Session
 
-    svc.revoke_token(token)
+    with Session(client.engine) as db:
+        svc.revoke_token(token, db)
+        db.commit()
 
     resp = client.get("/api/v1/datasets", headers=auth_header(token))
     assert resp.status_code == 401

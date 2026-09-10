@@ -7,11 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-_REVOKED_TOKENS: set[str] = set()
 
 
 def hash_password(password: str) -> str:
@@ -38,38 +37,64 @@ def create_refresh_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_token(token: str) -> dict | None:
+def decode_token(token: str, db: Session | None = None) -> dict | None:
     try:
         payload = jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
-        if payload.get("jti") in _REVOKED_TOKENS:
-            return None
+        if db is not None and payload.get("jti"):
+            revoked = db.scalar(
+                select(RevokedToken).where(RevokedToken.jti == payload["jti"])
+            )
+            if revoked is not None:
+                return None
         return payload
     except JWTError:
         return None
 
 
-def revoke_token(token: str) -> None:
-    """Add a token's JTI to the revocation set."""
+def revoke_token(token: str, db: Session) -> None:
+    """Persist token revocation in DB (P2-1 durable revocation)."""
     try:
         payload = jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
         if payload and "jti" in payload:
-            _REVOKED_TOKENS.add(payload["jti"])
+            exp_ts = payload.get("exp")
+            expires_at = (
+                datetime.fromtimestamp(exp_ts, tz=timezone.utc)
+                if exp_ts
+                else datetime.now(timezone.utc) + timedelta(hours=1)
+            )
+            existing = db.scalar(
+                select(RevokedToken).where(RevokedToken.jti == payload["jti"])
+            )
+            if existing is None:
+                db.add(
+                    RevokedToken(
+                        jti=payload["jti"],
+                        revoked_at=datetime.now(timezone.utc),
+                        expires_at=expires_at,
+                    )
+                )
+                db.flush()
     except JWTError:
         pass
 
 
-def is_token_revoked(token: str) -> bool:
-    """Check if a token has been revoked."""
+def is_token_revoked(token: str, db: Session) -> bool:
+    """Check if a token has been revoked via DB (P2-1)."""
     try:
         payload = jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
         if payload and "jti" in payload:
-            return payload["jti"] in _REVOKED_TOKENS
+            return (
+                db.scalar(
+                    select(RevokedToken).where(RevokedToken.jti == payload["jti"])
+                )
+                is not None
+            )
     except JWTError:
         pass
     return False

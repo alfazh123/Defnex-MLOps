@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,9 @@ from app.api.deps import (
     get_pagination,
 )
 from app.api.errors import APIError
+from app.config import settings
 from app.db.session import get_db
+from app.limiter import limiter
 from app.models.user import User
 from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
@@ -26,19 +28,21 @@ router = APIRouter(tags=["Training"])
     status_code=201,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
+@limiter.limit(settings.rate_limit_training_create)
 async def create_training_run(
-    request: TrainingRunCreateRequest,
+    request: Request,
+    body: TrainingRunCreateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> TrainingRun:
     dataset_version = dataset_service.get_dataset_version(
-        db, request.dataset_id, request.dataset_version
+        db, body.dataset_id, body.dataset_version
     )
     if dataset_version is None:
         raise APIError(
             404,
             "DATASET_NOT_FOUND",
-            f'dataset_id "{request.dataset_id}" version {request.dataset_version} not found',
+            f'dataset_id "{body.dataset_id}" version {body.dataset_version} not found',
         )
 
     latest_report = validation_service.get_latest_validation_report(db, dataset_version)
@@ -46,25 +50,25 @@ async def create_training_run(
         raise APIError(
             409,
             "VALIDATION_REQUIRED",
-            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            f'Dataset version {body.dataset_version} of dataset_id "{body.dataset_id}" '
             "must have a validation report with gate_decision PASS before training.",
         )
     if latest_report.gate_decision == "FAIL":
         raise APIError(
             409,
             "VALIDATION_FAILED",
-            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            f'Dataset version {body.dataset_version} of dataset_id "{body.dataset_id}" '
             "failed validation and cannot be trained on.",
         )
     if latest_report.record_count == 0:
         raise APIError(
             409,
             "VALIDATION_FAILED",
-            f'Dataset version {request.dataset_version} of dataset_id "{request.dataset_id}" '
+            f'Dataset version {body.dataset_version} of dataset_id "{body.dataset_id}" '
             "has a validation report that examined no records and cannot be trained on.",
         )
 
-    training_run = training_service.create_training_run(db, dataset_version, request)
+    training_run = training_service.create_training_run(db, dataset_version, body)
     db.commit()
 
     return training_service.to_schema(training_run)

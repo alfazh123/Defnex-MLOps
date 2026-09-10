@@ -71,7 +71,7 @@ def get_current_user(
         )
 
     token = authorization.removeprefix("Bearer ").strip()
-    payload = auth_service.decode_token(token)
+    payload = auth_service.decode_token(token, db)
     if payload is None:
         raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")
 
@@ -96,7 +96,7 @@ def get_current_user_and_token(
         )
 
     token = authorization.removeprefix("Bearer ").strip()
-    payload = auth_service.decode_token(token)
+    payload = auth_service.decode_token(token, db)
     if payload is None:
         raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")
 

@@ -119,7 +119,7 @@ class Settings(BaseSettings):
         (not just ``debug=False``, which is also the default during tests).
         """
         env = getattr(self, "deployment_environment", "default")
-        if env != "production":
+        if env.lower() != "production":
             return self
         if self.jwt_secret == "dev-secret-change-in-production":
             import logging
@@ -233,6 +233,13 @@ class Settings(BaseSettings):
     eval_gate_require_qualitative_majority: bool = True
     eval_gate_require_no_general_regression: bool = True
     eval_gate_require_eval_loss_not_worse: bool = True
+
+    # Rate limits for write endpoints (P2-3)
+    rate_limit_training_create: str = "10/minute"
+    rate_limit_intake_validate: str = "10/minute"
+    rate_limit_intake_commit: str = "10/minute"
+    rate_limit_deploy: str = "5/minute"
+    rate_limit_promotion_decision: str = "5/minute"
 
 
 settings = Settings()

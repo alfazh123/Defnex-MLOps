@@ -17,7 +17,7 @@ integrating with [Unsloth Studio](https://github.com/unslothai/unsloth) as the t
                      │  REST API (JSON)
 ┌────────────────────▼─────────────────────────────────┐
 │                  FastAPI Backend  (:8000)            │
-│  43 routes · JWT auth (admin/user) · /api/v1/       │
+│  44 routes · JWT auth (admin/user) · /api/v1/       │
 │  ┌────────────────────┐  ┌────────────────────────┐  │
 │  │  SQLite + Alembic  │  │  structlog · slowapi   │  │
 │  └────────────────────┘  └────────────────────────┘  │

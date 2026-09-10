@@ -102,8 +102,13 @@ class TestExecuteTransfer:
 
 
 class TestVerifyTransfer:
-    @patch("app.services.artifact_transfer._compute_artifact_checksum", return_value="abc123")
-    def test_completed_transfer_passes(self, mock_checksum, db_session, sample_transfer):
+    @patch(
+        "app.services.artifact_transfer._compute_artifact_checksum",
+        return_value="abc123",
+    )
+    def test_completed_transfer_passes(
+        self, mock_checksum, db_session, sample_transfer
+    ):
         sample_transfer.status = "COMPLETED"
         db_session.commit()
         result = verify_transfer(db_session, "test-001")

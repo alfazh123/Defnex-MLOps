@@ -242,9 +242,16 @@ def get_provider_for_resource(resource):
 
     provider_type "local" → LocalSubprocessProvider (local subprocess)
     provider_type "gpu_vps" → GPUVPSProvider (SSH remote execution, issue #76)
+    provider_type "colab" → ColabProvider (ephemeral on-demand, issue #77)
     """
-    from app.providers.training_provider import GPUVPSProvider, LocalSubprocessProvider
+    from app.providers.training_provider import (
+        ColabProvider,
+        GPUVPSProvider,
+        LocalSubprocessProvider,
+    )
 
     if resource.provider_type == "gpu_vps":
         return GPUVPSProvider(resource)
+    if resource.provider_type == "colab":
+        return ColabProvider()
     return LocalSubprocessProvider()

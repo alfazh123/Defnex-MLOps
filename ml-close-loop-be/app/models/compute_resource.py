@@ -38,6 +38,7 @@ class ComputeResource(Base):
     ssh_username: Mapped[str | None] = mapped_column(String, nullable=True)
     # PRD §21/§43: credential reference, never plaintext secrets
     credential_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    notebook_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_healthy: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)

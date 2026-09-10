@@ -36,6 +36,7 @@ def create_compute_resource(
         ssh_port=request.ssh_port,
         ssh_username=request.ssh_username,
         credential_ref=request.credential_ref,
+        notebook_url=request.notebook_url,
         is_healthy=True,
     )
     db.add(resource)

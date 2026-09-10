@@ -2303,6 +2303,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
+  /api/v1/compute-resources/{resource_id}/runner-link:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Colab Runner Link
+      description: Get the Colab notebook runner link (PRD §34). Any authenticated user.
+      operationId: get_runner_link_api_v1_compute_resources__resource_id__runner_link_get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Runner Link Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
   /metrics:
     get:
       tags:

@@ -171,3 +171,36 @@ def get_compute_resource_health(
         )
     result = compute_resource_service.check_health(db, resource)
     return HealthStatus(**result)
+
+
+@router.get(
+    "/compute-resources/{resource_id}/runner-link",
+    response_model=dict,
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+def get_runner_link(
+    resource_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Get the Colab notebook runner link (PRD §34). Any authenticated user."""
+    resource = compute_resource_service.get_compute_resource(db, resource_id)
+    if resource is None:
+        raise APIError(
+            404,
+            "RESOURCE_NOT_FOUND",
+            f"compute resource {resource_id} not found",
+        )
+    if resource.provider_type != "colab":
+        raise APIError(
+            400,
+            "NOT_COLAB_RESOURCE",
+            f"resource {resource_id} is not a Colab provider",
+        )
+    if not resource.notebook_url:
+        raise APIError(
+            400,
+            "NO_NOTEBOOK_URL",
+            f"compute resource {resource_id} has no notebook URL configured",
+        )
+    return {"notebook_url": resource.notebook_url, "resource_id": resource.id}

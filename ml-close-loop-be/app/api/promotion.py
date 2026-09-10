@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+import structlog
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_model_version_or_404, require_admin
@@ -14,6 +15,8 @@ from app.schemas.promotion import (
     RollbackRequest,
 )
 from app.services import deployment_service, promotion_service
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Decisions"])
 
@@ -154,9 +157,18 @@ def promote_production_endpoint(
         decision = promotion_service.promote_to_production(db, model_version, request)
     except deployment_service.DeploymentLockTimeout as exc:
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
+    except promotion_service.StagingGateNotMet as exc:
+        raise APIError(409, "GATE_NOT_MET", str(exc)) from exc
     except ValueError as exc:
         raise _ladder_error(exc, "PRODUCTION_PROMOTION_NOT_ALLOWED") from exc
     db.commit()
+    logger.info(
+        "production_promotion",
+        model_id=model_id,
+        version=version,
+        decided_by=request.decided_by,
+        decision_id=decision.decision_id,
+    )
     return promotion_service.to_schema(decision)
 
 

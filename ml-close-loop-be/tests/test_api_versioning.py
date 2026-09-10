@@ -10,7 +10,9 @@ client_no_redirect = TestClient(app, follow_redirects=False)
 def test_health_under_v1():
     resp = client_no_redirect.get("/api/v1/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert "checks" in body
 
 
 def test_old_health_redirects_to_v1():

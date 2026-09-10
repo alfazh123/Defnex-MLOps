@@ -2303,6 +2303,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
+  /metrics:
+    get:
+      tags:
+      - Observability
+      summary: Prometheus Metrics
+      description: 'Prometheus-format metrics endpoint for monitoring (PRD §28). Returns
+        training_runs_total, deployments_total, training_duration_seconds, inference_latency_seconds,
+        active_training_runs, gpu_lock_wait_seconds, and FastAPI auto-instrumented metrics.'
+      operationId: metrics_endpoint
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
 components:
   schemas:
     Artifact:

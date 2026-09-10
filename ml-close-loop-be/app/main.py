@@ -37,6 +37,9 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging(log_level=settings.log_level, debug=settings.debug)
+    from app.telemetry import setup_telemetry
+
+    setup_telemetry(_app, engine=engine)
     logger.info("application_starting")
     yield
     logger.info("application_shutting_down")
@@ -212,3 +215,18 @@ async def rate_limit_exception_handler(
         window_stats = limiter.limiter.get_window_stats(limit_item, *args)
         response.headers["X-RateLimit-Reset"] = str(1 + window_stats[0])
     return response
+
+
+@app.get("/metrics")
+def metrics_endpoint() -> Response:
+    """Prometheus metrics endpoint (PRD §28)."""
+    from app.telemetry import get_prometheus_metrics
+
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST
+
+        content_type = CONTENT_TYPE_LATEST
+    except ImportError:
+        content_type = "text/plain; charset=utf-8"
+
+    return Response(content=get_prometheus_metrics(), media_type=content_type)

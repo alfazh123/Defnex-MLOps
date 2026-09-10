@@ -190,6 +190,10 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
 
+    # OpenTelemetry (PRD §28)
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+
     # Promotion eval gate (issue #43, model-promotion-approval-workflow.md §6).
     # All criteria are boolean toggles with documented, non-invented defaults; promote
     # still requires a human trigger (no automatic promotion on numeric thresholds).

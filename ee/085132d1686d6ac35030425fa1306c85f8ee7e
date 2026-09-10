@@ -1,0 +1,53 @@
+ml-close-loop-be/tests/test_idempotency.py
+  s_b4f3e9f8f45097::t_858420d0db1bb7 37-39,74-76,102-106,217-221,285-286
+  s_b4f3e9f8f45097::t_94a2a02a590166 15,22-29
+  s_b4f3e9f8f45097::t_ae861ef0b3f8db 1-14,16-21,30-36,40-60,62-73,77-86,88-101,107-115,117-216,222-256,258-260,263,266-272,274-284,289-291
+  s_b4f3e9f8f45097::t_0ea8432f6c562f 61,87,116,273
+ml-close-loop-be/alembic/versions/1a61b851415e_add_idempotency_keys_table.py
+  s_b4f3e9f8f45097::t_cd9c1abb9969fa 1-7,9-15,18-23,40-43
+  s_b4f3e9f8f45097::t_858420d0db1bb7 8,16-17,44
+  s_b4f3e9f8f45097::t_571892fd3278de 24-39,45
+ml-close-loop-be/app/services/deployment_service.py
+  s_b4f3e9f8f45097::t_5ae3307a4e9967 13
+  s_b4f3e9f8f45097::t_57d37c39124446 45,48-64,67-70,73-76,79-85
+ml-close-loop-be/app/models/idempotency.py
+  s_b4f3e9f8f45097::t_4fd157b6160378 1-31
+ml-close-loop-be/app/services/idempotency_service.py
+  s_b4f3e9f8f45097::t_027ddfe972e46b 1-68,72-108,112-115
+  s_b4f3e9f8f45097::t_858420d0db1bb7 69-71,109-111
+ml-close-loop-be/app/models/__init__.py
+  s_b4f3e9f8f45097::t_564bd950d6d041 7
+  s_b4f3e9f8f45097::t_fa0db9bc52ebc2 26
+ml-close-loop-be/tests/test_deployment_api.py
+  s_b4f3e9f8f45097::t_858420d0db1bb7 370-372,375-377,401-403,414-416
+  s_b4f3e9f8f45097::t_e504f81592a1cc 356-362,365-369,373-374,378-400,404-413,417-418
+  s_b4f3e9f8f45097::t_5ab90d6c6a1cbe 363-364
+ml-close-loop-be/tests/test_intake_validate.py
+  s_b4f3e9f8f45097::t_858420d0db1bb7 461-464,475-478
+  s_b4f3e9f8f45097::t_5328cf346dc08d 431-460,465-474,479-493
+ml-close-loop-be/app/api/intake_validate.py
+  s_b4f3e9f8f45097::t_e4649bd8ca4dbd 249-255
+  s_b4f3e9f8f45097::t_ea8e7ee36418b5 169-171,173-175
+  s_b4f3e9f8f45097::t_f176dbe90077af 20,25
+  s_b4f3e9f8f45097::t_e9c4b4a89ea704 258-268
+ml-close-loop-be/app/api/deployment.py
+  s_b4f3e9f8f45097::t_55c2146c301451 41-43
+  s_b4f3e9f8f45097::t_6a62f366fdc455 99-102,106
+  s_b4f3e9f8f45097::t_5921b1453515bf 104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ee085132d1686d6ac35030425fa1306c85f8ee7e",
+  "prompts": {},
+  "sessions": {
+    "s_b4f3e9f8f45097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c5bbd9-b302-426b-991d-cca07f14b33e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

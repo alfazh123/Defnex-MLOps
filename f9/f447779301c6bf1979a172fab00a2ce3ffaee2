@@ -1,0 +1,33 @@
+ml-close-loop-be/app/services/validation_service.py
+  s_b4f3e9f8f45097::t_fc3cbae485c548 36-67
+  s_b4f3e9f8f45097::t_7ec6d3a0fcf391 159-163
+  s_b4f3e9f8f45097::t_2cadcfd9cf590c 259,261-262,274-276
+  s_b4f3e9f8f45097::t_45ea50bdb6058b 260
+  s_b4f3e9f8f45097::t_21a4539778bee2 211-220
+  s_b4f3e9f8f45097::t_a2052f27766679 277
+ml-close-loop-be/app/config.py
+  s_b4f3e9f8f45097::t_3d25df25ccf682 246-257
+ml-close-loop-be/.env.example
+  s_b4f3e9f8f45097::t_a4d5b69916160d 227-235
+ml-close-loop-be/tests/test_validation_service.py
+  s_b4f3e9f8f45097::t_45ea50bdb6058b 203-204,221-223,234-236
+  s_b4f3e9f8f45097::t_bd407e4914ea5b 195-202,205-220,224-233,237-293
+ml-close-loop-be/docs/dataset/retention-policy.md
+  s_b4f3e9f8f45097::t_20a0e301ba8cc6 1-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f9f447779301c6bf1979a172fab00a2ce3ffaee2",
+  "prompts": {},
+  "sessions": {
+    "s_b4f3e9f8f45097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c5bbd9-b302-426b-991d-cca07f14b33e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

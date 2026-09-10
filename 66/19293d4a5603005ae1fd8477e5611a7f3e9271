@@ -1,0 +1,19 @@
+README.md
+  s_b57a06cd3f8e90::t_c0e001145d12a3 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6619293d4a5603005ae1fd8477e5611a7f3e9271",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

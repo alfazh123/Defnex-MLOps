@@ -1,0 +1,27 @@
+ml-close-loop-be/scripts/backup/minio_backup_sync.sh
+  s_11aa633c51e794::t_f5f16b03563439 1-52
+ml-close-loop-be/scripts/backup/pg_backup.sh
+  s_11aa633c51e794::t_4c3e60ca0b70cc 1-59
+docs/governance/restore-runbook.md
+  s_11aa633c51e794::t_ac4ee5730e1931 1-130
+docs/governance/backup-dr-policy.md
+  s_11aa633c51e794::t_28df53a29b8ccc 1-97
+DEFNEX_MLOps_Multi_Server_Architecture_v2_PRD.md
+  s_11aa633c51e794::t_2013fc77a47d73 2140-2145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8adafe7322413989304dcb1115f4cf9a7df84446",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

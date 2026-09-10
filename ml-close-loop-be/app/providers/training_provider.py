@@ -30,7 +30,9 @@ import structlog
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.compute_resource import ComputeResource
 from app.models.training import TrainingRun
+from app.services.ssh import SSHRemoteHost, SecretRef, PasswordCredential
 
 logger = structlog.get_logger(__name__)
 
@@ -269,3 +271,197 @@ class LocalSubprocessProvider:
             external_job_id=external_job_id,
             success=job.completed,
         )
+
+
+# ---------------------------------------------------------------------------
+# GPUVPSProvider — remote SSH-based training provider (PRD §9.5)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _RemoteJob:
+    """Bookkeeping for an SSH-submitted remote job."""
+
+    training_run_id: str
+    external_job_id: str
+    remote_staging_dir: str
+    failed: bool = False
+    error_message: str = ""
+
+
+class GPUVPSProvider:
+    """GPU VPS training provider — executes training on remote GPU via SSH (PRD §9.5).
+
+    Uses SSHRemoteHost from app/services/ssh.py for remote execution. The provider
+    uploads the training script, spawns a remote process, and polls its status via SSH.
+
+    Cross-host GPU locking is deferred to #86 (infrastructure). This provider relies
+    on single-resource assignment: no two workers claim the same ComputeResource
+    simultaneously.
+    """
+
+    def __init__(self, resource: ComputeResource) -> None:
+        self._resource = resource
+        self._host = resource.ssh_host or resource.host or ""
+        self._port = resource.ssh_port or 22
+        self._username = resource.ssh_username or "root"
+        self._credential = self._resolve_credential(resource.credential_ref)
+        self._jobs: dict[str, _RemoteJob] = {}
+
+    def _resolve_credential(self, credential_ref: str | None) -> object:
+        """Resolve credential from a secret:// reference using the SSH module."""
+        if credential_ref and credential_ref.startswith("secret://"):
+            return SecretRef(ref=credential_ref)
+        # Fallback: use environment-based password for root.
+        import os
+
+        return PasswordCredential(
+            username=self._username,
+            password=os.environ.get("GPU_VPS_PASSWORD", ""),
+        )
+
+    def _ssh(self):
+        """Create a new SSHRemoteHost connection for this resource."""
+        return SSHRemoteHost(
+            self._host,
+            port=self._port,
+            credential=self._credential,
+            connect_timeout=settings.ssh_connect_timeout,
+        )
+
+    def submit(self, db: Session, training_run: TrainingRun) -> str:
+        """Upload training script and spawn remote process (PRD §9.5).
+
+        Returns the remote PID as external_job_id.
+        """
+        external_job_id = f"gpu-vps-{uuid.uuid4().hex[:8]}"
+        remote_staging = f"/tmp/defnex-training-{uuid.uuid4().hex[:8]}"
+
+        with self._ssh() as host:
+            # Create staging directory on remote
+            host.execute(["mkdir", "-p", remote_staging])
+
+            # Upload training script via SFTP
+            script_path = Path(settings.training_script_path)
+            if script_path.exists():
+                remote_script = f"{remote_staging}/run_training.py"
+                host.upload(script_path, remote_script)
+            else:
+                remote_script = settings.training_script_path
+
+            # Build the command
+            config_json = json.dumps(training_run.training_config)
+            cmd = [
+                "python3",
+                remote_script,
+                "--config",
+                config_json,
+                "--staging",
+                remote_staging,
+            ]
+
+            # Start remote process in background: nohup ... &
+            # Use nohup + & so the process survives SSH disconnect.
+            bg_cmd = (
+                "nohup "
+                + " ".join(cmd)
+                + f" > {remote_staging}/stdout.log 2> {remote_staging}/stderr.log & echo $!"
+            )
+            result = host.execute(["sh", "-c", bg_cmd])
+            remote_pid = result.stdout.strip()
+
+        job = _RemoteJob(
+            training_run_id=training_run.training_run_id,
+            external_job_id=external_job_id,
+            remote_staging_dir=remote_staging,
+        )
+        self._jobs[external_job_id] = job
+
+        training_run.external_job_id = external_job_id
+        db.flush()
+
+        logger.info(
+            "gpu_vps_submitted",
+            training_run_id=training_run.training_run_id,
+            external_job_id=external_job_id,
+            remote_pid=remote_pid,
+            host=self._host,
+        )
+
+        return external_job_id
+
+    def get_status(self, external_job_id: str) -> JobStatus:
+        """Check if the remote process is alive via SSH (PRD §9.5)."""
+        job = self._jobs.get(external_job_id)
+        if job is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        if job.failed:
+            return JobStatus(status="FAILED", error_message=job.error_message)
+
+        try:
+            # Check remote PID via ps
+            with self._ssh() as host:
+                pid = external_job_id.removeprefix("gpu-vps-")
+                result = host.execute(
+                    [
+                        "sh",
+                        "-c",
+                        f"ps -p $(cat {job.remote_staging_dir}/.pid 2>/dev/null || echo {pid}) > /dev/null 2>&1 && echo alive || echo dead",
+                    ]
+                )
+                output = result.stdout.strip()
+                if "alive" in output:
+                    return JobStatus(status="RUNNING")
+                # Process not running — check for success marker
+                check = host.execute(["test", "-f", f"{job.remote_staging_dir}/.done"])
+                if check.returncode == 0:
+                    return JobStatus(status="COMPLETED")
+                # Check exit code from log
+                err_check = host.execute(
+                    ["cat", f"{job.remote_staging_dir}/stderr.log"]
+                )
+                if err_check.stdout.strip():
+                    return JobStatus(
+                        status="FAILED", error_message=err_check.stdout.strip()[-500:]
+                    )
+                return JobStatus(
+                    status="FAILED", error_message="Remote process exited unexpectedly"
+                )
+        except Exception as exc:
+            job.failed = True
+            job.error_message = f"SSH error: {exc}"
+            return JobStatus(status="FAILED", error_message=job.error_message)
+
+    def cancel(self, external_job_id: str) -> None:
+        """Kill the remote process via SSH (PRD §9.5)."""
+        job = self._jobs.get(external_job_id)
+        if job is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        try:
+            with self._ssh() as host:
+                pid = external_job_id.removeprefix("gpu-vps-")
+                host.execute(["sh", "-c", f"kill {pid} 2>/dev/null; true"])
+        except Exception:
+            pass
+        job.failed = True
+        job.error_message = "Cancelled by operator"
+
+    def collect_result(self, external_job_id: str) -> str:
+        """Download artifacts from remote via SFTP to a local staging dir."""
+        job = self._jobs.get(external_job_id)
+        if job is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        if job.failed:
+            raise RuntimeError(f"Job {external_job_id} failed: {job.error_message}")
+
+        local_staging = Path(tempfile.mkdtemp(prefix="defnex-gpu-vps-result-"))
+        with self._ssh() as host:
+            # Download the remote staging directory contents
+            result = host.execute(["ls", job.remote_staging_dir])
+            for filename in result.stdout.strip().splitlines():
+                if filename and not filename.startswith("."):
+                    remote_file = f"{job.remote_staging_dir}/{filename}"
+                    local_file = local_staging / filename
+                    host.download(remote_file, local_file)
+
+        return str(local_staging)

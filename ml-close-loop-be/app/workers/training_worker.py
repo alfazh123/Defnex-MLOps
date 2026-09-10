@@ -235,3 +235,16 @@ if __name__ == "__main__":
     # LocalSubprocessProvider wraps UnslothTrainingRunner with the submit/get_status/
     # collect_result contract so future GPU VPS / Colab providers can be swapped in.
     run_forever(LocalSubprocessProvider())
+
+
+def get_provider_for_resource(resource):
+    """Return the appropriate TrainingProvider based on ComputeResource.provider_type.
+
+    provider_type "local" → LocalSubprocessProvider (local subprocess)
+    provider_type "gpu_vps" → GPUVPSProvider (SSH remote execution, issue #76)
+    """
+    from app.providers.training_provider import GPUVPSProvider, LocalSubprocessProvider
+
+    if resource.provider_type == "gpu_vps":
+        return GPUVPSProvider(resource)
+    return LocalSubprocessProvider()

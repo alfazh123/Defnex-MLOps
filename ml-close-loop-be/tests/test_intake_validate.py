@@ -428,6 +428,69 @@ def test_idempotency_key_returns_cached(client, admin_token, fake_storage):
     assert resp2.json() == resp1.json()
 
 
+def test_idempotency_key_replay_does_not_double_create_dataset_version(
+    client, admin_token, fake_storage
+):
+    """Issue #124: the commit endpoint's `X-Idempotency-Key` cache is now the durable
+    `idempotency_keys` table (app.services.idempotency_service), not an in-process dict.
+    A replayed commit must not create a second DatasetVersion row for the same job."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    from app.models.dataset import DatasetVersion
+
+    info = _stage_records(client, admin_token, fake_storage, [VALID_RECORD])
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        val_resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={"staging_id": info["staging_id"], "dataset_id": "idempotent_ds_2"},
+            headers=auth_header(admin_token),
+        )
+        report_id = val_resp.json()["validation_report_id"]
+
+    info2 = _stage_records(client, admin_token, fake_storage, [VALID_RECORD])
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        client.post(
+            "/api/v1/datasets/intake/commit",
+            json={
+                "staging_id": info2["staging_id"],
+                "dataset_id": "idempotent_ds_2",
+                "validation_report_id": report_id,
+            },
+            headers={
+                **auth_header(admin_token),
+                "X-Idempotency-Key": "commit-replay-key",
+            },
+        )
+
+    info3 = _stage_records(client, admin_token, fake_storage, [VALID_RECORD])
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        client.post(
+            "/api/v1/datasets/intake/commit",
+            json={
+                "staging_id": info3["staging_id"],
+                "dataset_id": "idempotent_ds_2",
+                "validation_report_id": report_id,
+            },
+            headers={
+                **auth_header(admin_token),
+                "X-Idempotency-Key": "commit-replay-key",
+            },
+        )
+
+    with Session(client.engine) as session:
+        versions = session.scalars(
+            select(DatasetVersion).where(
+                DatasetVersion.dataset_id == "idempotent_ds_2",
+                DatasetVersion.status == "PROCESSED",
+            )
+        ).all()
+        assert len(versions) == 1, (
+            "a replayed idempotent commit must not create a second committed DatasetVersion"
+        )
+
+
 def test_staging_uses_directory_layout(client, admin_token):
     """P0-1: verify stage_upload creates _staging/{id}/file, not _staging/{id}_file."""
     storage = DatasetStorage()

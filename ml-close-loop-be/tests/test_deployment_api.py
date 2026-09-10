@@ -353,3 +353,66 @@ def test_deploy_requires_admin_role(client, admin_token, user_token):
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_deploy_replays_cached_result_for_same_idempotency_key(client, admin_token):
+    """Issue #124: the deploy endpoint's `X-Idempotency-Key` is now backed by the durable
+    `idempotency_keys` table (app.services.idempotency_service) instead of an in-process dict.
+    Sending the same key twice must return the exact same body and must not create a second
+    `Deployment` row / re-run the deploy (a real request replay, not just "a 200 both times")."""
+    from sqlalchemy import select
+
+    from app.models.deployment import Deployment
+
+    model_id, version = _promoted_model_version(client, admin_token)
+    h = {**auth_header(admin_token), "X-Idempotency-Key": "deploy-replay-key"}
+
+    resp1 = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h
+    )
+    assert resp1.status_code == 200, resp1.text
+
+    resp2 = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert resp2.json() == resp1.json()
+
+    with Session(client.engine) as session:
+        deployments = session.scalars(
+            select(Deployment).where(Deployment.model_id == model_id)
+        ).all()
+        assert len(deployments) == 1, (
+            "a replayed idempotent request must not create a second Deployment row"
+        )
+
+
+def test_deploy_idempotency_cache_survives_a_fresh_session(client, admin_token):
+    """Same guarantee as above, but explicitly checked against a brand-new `Session` (no
+    connection/object reused from the request that wrote it) - the point of #124 is that the
+    cache is a DB row lookup, not a variable that would reset on a worker restart."""
+    from sqlalchemy import select as sa_select
+
+    from app.models.idempotency import IdempotencyKey
+
+    model_id, version = _promoted_model_version(client, admin_token)
+    h = {**auth_header(admin_token), "X-Idempotency-Key": "deploy-restart-key"}
+
+    resp1 = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h
+    )
+    assert resp1.status_code == 200, resp1.text
+
+    with Session(client.engine) as fresh:
+        rows = fresh.scalars(
+            sa_select(IdempotencyKey).where(
+                IdempotencyKey.endpoint == "deploy_model_version"
+            )
+        ).all()
+        assert len(rows) == 1
+
+    resp2 = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/deploy", headers=h
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert resp2.json() == resp1.json()

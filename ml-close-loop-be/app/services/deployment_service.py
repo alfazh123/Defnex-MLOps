@@ -1,4 +1,3 @@
-import time
 import uuid
 from datetime import datetime, timezone
 
@@ -11,6 +10,7 @@ from app.config import settings
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
+from app.services import idempotency_service
 from app.services.artifact_storage import (
     ArtifactChecksumError,
     ArtifactStorage,
@@ -42,29 +42,47 @@ _DEPLOYED_CONFLICT_MESSAGE = (
 )
 
 
-_DEPLOY_IDEMPOTENCY_CACHE: dict[str, tuple[dict, float]] = {}
-_IDEMPOTENCY_TTL = 3600  # 1 hour
+_DEPLOY_IDEMPOTENCY_ENDPOINT = "deploy_model_version"
 
 
-def check_idempotency(key: str | None, model_version_id: int) -> dict | None:
-    """Check if this deploy was already executed with the same idempotency key."""
+def _idempotency_key(key: str, model_version_id: int) -> str:
+    """Namespace the caller-supplied `X-Idempotency-Key` by `model_version_id`, matching the
+    pre-#124 in-process cache's behavior: the same header value reused against two different
+    model versions is two independent requests, not a replay."""
+    return f"{key}:{model_version_id}"
+
+
+def check_idempotency(
+    db: Session, key: str | None, model_version_id: int
+) -> dict | None:
+    """Check if this deploy was already executed with the same idempotency key.
+
+    Issue #124: backed by the durable `idempotency_keys` Postgres table
+    (`app.services.idempotency_service`) instead of an in-process dict, so the "same request ->
+    same job" guarantee holds across API worker processes and survives a restart within the TTL
+    window.
+    """
     if key is None:
         return None
-    cache_key = f"{key}:{model_version_id}"
-    if cache_key in _DEPLOY_IDEMPOTENCY_CACHE:
-        result, timestamp = _DEPLOY_IDEMPOTENCY_CACHE[cache_key]
-        if time.time() - timestamp < _IDEMPOTENCY_TTL:
-            return result
-        del _DEPLOY_IDEMPOTENCY_CACHE[cache_key]
-    return None
+    cached = idempotency_service.get_cached_response(
+        db, _idempotency_key(key, model_version_id)
+    )
+    return cached.body if cached is not None else None
 
 
-def store_idempotency(key: str | None, model_version_id: int, result: dict) -> None:
-    """Store deploy result for idempotency replay."""
+def store_idempotency(
+    db: Session, key: str | None, model_version_id: int, result: dict
+) -> None:
+    """Store deploy result for idempotency replay (issue #124: durable Postgres row)."""
     if key is None:
         return
-    cache_key = f"{key}:{model_version_id}"
-    _DEPLOY_IDEMPOTENCY_CACHE[cache_key] = (result, time.time())
+    idempotency_service.store_response(
+        db,
+        _idempotency_key(key, model_version_id),
+        endpoint=_DEPLOY_IDEMPOTENCY_ENDPOINT,
+        status=200,
+        body=result,
+    )
 
 
 class SmokeTestError(Exception):

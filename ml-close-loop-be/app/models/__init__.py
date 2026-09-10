@@ -4,6 +4,7 @@ from app.models.deployment import Deployment
 from app.models.eval_set import EvalSet, EvalSetVersion
 from app.models.environment import Environment
 from app.models.feedback import Feedback
+from app.models.idempotency import IdempotencyKey
 from app.models.model import Model, ModelVersion
 from app.models.promotion import PromotionDecision
 from app.models.revoked_refresh_token import RevokedRefreshToken
@@ -22,6 +23,7 @@ __all__ = [
     "EvalSetVersion",
     "Environment",
     "Feedback",
+    "IdempotencyKey",
     "Model",
     "ModelVersion",
     "PromotionDecision",

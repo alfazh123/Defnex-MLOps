@@ -57,6 +57,79 @@ _ROLLBACK_TARGET_STATUSES = (
 )
 
 
+# Decision types that put a candidate on a path toward the production pointer (issue #134):
+# PROMOTED is the legacy EVALUATED -> PROMOTED --deploy--> DEPLOYED path (_VALID_TRANSITIONS
+# above), PRODUCTION is the ladder's explicit promote_to_production step. STAGING/VALIDATED stay
+# on the staging side of the ladder and ROLLBACK/REJECTED never move toward production, so none
+# of those warrant a license warning.
+_PRODUCTION_BOUND_DECISIONS = {"PROMOTED", "PRODUCTION"}
+
+
+def _parse_csv_pairs(raw: str) -> dict[str, str]:
+    """Parse `key:value` pairs, comma-separated, into a mapping (same shape as
+    `serving.py:parse_vllm_url_by_env`). Split on the *first* colon only; blank or malformed
+    entries are skipped rather than raising - license metadata is advisory, not routing-critical,
+    so a typo in the config should degrade to "unknown license", not break promotion."""
+    mapping: dict[str, str] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if not pair or ":" not in pair:
+            continue
+        key, _, value = pair.partition(":")
+        key, value = key.strip(), value.strip()
+        if key and value:
+            mapping[key] = value
+    return mapping
+
+
+def _base_model_license(base_model: str) -> str | None:
+    """License for `base_model` from `settings.base_model_licenses` (issue #134). An unlisted
+    base model resolves to None (unknown) rather than a guessed value."""
+    return _parse_csv_pairs(settings.base_model_licenses).get(base_model)
+
+
+def _is_non_commercial_license(license_str: str | None) -> bool:
+    """PLACEHOLDER heuristic (issue #134 Open Decision - exact "commercial use" definition
+    needs governance sign-off): a license counts as non-commercial if it contains one of the
+    configurable, case-insensitive substrings in `settings.non_commercial_license_patterns`.
+    Feeds only `_license_warning` below - never a block."""
+    if not license_str:
+        return False
+    lowered = license_str.lower()
+    patterns = (
+        p.strip().lower()
+        for p in settings.non_commercial_license_patterns.split(",")
+        if p.strip()
+    )
+    return any(p in lowered for p in patterns)
+
+
+def _dataset_license(model_version: ModelVersion) -> str | None:
+    """The license of the dataset version a model version's training run was trained on
+    (issue #134). None when the run predates the `DatasetVersion.license` column or the field
+    was never set."""
+    training_run = model_version.training_run
+    dataset_version = training_run.dataset_version if training_run else None
+    return dataset_version.license if dataset_version else None
+
+
+def _license_warning(decision: str, dataset_license: str | None) -> str | None:
+    """Explicit, human-facing warning (issue #134) - not an automatic block - shown when a
+    decision heading toward production (`_PRODUCTION_BOUND_DECISIONS`) carries a dataset license
+    that matches the configurable non-commercial pattern list. A reviewer must judge whether the
+    target use is actually commercial; this function never raises and never changes the
+    decision's outcome."""
+    if decision not in _PRODUCTION_BOUND_DECISIONS:
+        return None
+    if not _is_non_commercial_license(dataset_license):
+        return None
+    return (
+        f"dataset license {dataset_license!r} appears non-commercial and this decision is "
+        "heading toward production; confirm the target use is not commercial before "
+        "proceeding (issue #134 - reviewer acknowledgment required, not an automatic block)"
+    )
+
+
 class EvalGateBlocked(Exception):
     """Raised when a PROMOTED decision fails the eval gate (issue #43).
 
@@ -357,6 +430,7 @@ def rollback(
 
 def to_schema(decision: PromotionDecision) -> DecisionRecord:
     model_version = decision.model_version
+    dataset_license = _dataset_license(model_version)
     return DecisionRecord(
         decision_id=decision.decision_id,
         model_id=model_version.model_id,
@@ -369,4 +443,7 @@ def to_schema(decision: PromotionDecision) -> DecisionRecord:
         eval_set_version=decision.eval_set_version,
         rationale=decision.rationale,
         rollback_of_version=decision.rollback_of_version,
+        dataset_license=dataset_license,
+        base_model_license=_base_model_license(model_version.base_model),
+        license_warning=_license_warning(decision.decision, dataset_license),
     )

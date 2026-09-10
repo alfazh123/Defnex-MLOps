@@ -49,3 +49,13 @@ class DecisionRecord(BaseModel):
     eval_set_version: int | None = None
     rationale: str
     rollback_of_version: int | None = None
+    # License info (issue #134): the training dataset's license and the base model's license,
+    # surfaced on every decision so a reviewer can see them without a separate lookup.
+    # `license_warning` is populated only for a decision heading toward production (PROMOTED or
+    # the ladder's PRODUCTION step) whose dataset license matches a configurable non-commercial
+    # pattern (`settings.non_commercial_license_patterns`) - a human-facing warning requiring
+    # reviewer acknowledgment, never an automatic block (the "commercial use" definition itself
+    # is an open governance decision, not something this code decides).
+    dataset_license: str | None = None
+    base_model_license: str | None = None
+    license_warning: str | None = None

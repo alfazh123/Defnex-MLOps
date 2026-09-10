@@ -46,6 +46,12 @@ class DatasetVersion(Base):
         String, nullable=True
     )
     source_format: Mapped[str] = mapped_column(String)
+    # Dataset license for this version (issue #134): e.g. "cc-by-nc-4.0", "apache-2.0". Nullable
+    # for versions created before this column existed. Not enforced automatically - surfaced by
+    # the promotion flow (promotion_service.py) as a human-facing warning when a non-commercial
+    # license is heading toward a production promotion; the exact "commercial use" definition is
+    # an open governance decision, so nothing here silently blocks a promotion on this value.
+    license: Mapped[str | None] = mapped_column(String, nullable=True)
     seed: Mapped[int | None] = mapped_column(nullable=True)
     row_count: Mapped[int | None] = mapped_column(nullable=True)
     cleaning_steps_applied: Mapped[list[str]] = mapped_column(JSON, default=list)

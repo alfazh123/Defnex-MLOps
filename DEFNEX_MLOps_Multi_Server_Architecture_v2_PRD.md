@@ -2137,8 +2137,12 @@ Colab is an on-demand runner. The product should not imply guaranteed persistent
 
 These decisions should be finalized only when implementation requires them:
 
-1. Exact PostgreSQL deployment location and backup policy.
-2. MinIO single-node vs redundant deployment.
+1. ~~Exact PostgreSQL deployment location and backup policy.~~ **Resolved**:
+   single-node PostgreSQL, daily `pg_dump` with 7 daily + 4 weekly rolling
+   retention. See `docs/governance/backup-dr-policy.md`.
+2. ~~MinIO single-node vs redundant deployment.~~ **Resolved**: single-node
+   MinIO, hourly application-level mirror to a second bucket/endpoint. See
+   `docs/governance/backup-dr-policy.md`.
 3. Exact distributed locking mechanism for multi-GPU servers.
 4. Exact secret backend used in production.
 5. Exact SSH library/connector implementation.

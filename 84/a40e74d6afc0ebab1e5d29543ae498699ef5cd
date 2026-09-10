@@ -1,0 +1,43 @@
+ml-close-loop-be/openapi.yaml
+  s_7d31df0d57932c::t_a9dff9b93e9e70 2306-2346
+ml-close-loop-be/app/providers/training_provider.py
+  s_7d31df0d57932c::t_bdc7556f1d85d0 468-474,485-491,496-497,500-509,513-525,529,539-542,545,551-552,554-557,564
+  s_7d31df0d57932c::t_ed930c7f8dff61 475-484,492-495,498-499,510-512,526-528,530-538,543-544,546-550,553,558-563,565-579
+ml-close-loop-be/app/providers/__init__.py
+  s_7d31df0d57932c::t_8c809917e5a63e 1-5,7
+ml-close-loop-be/app/schemas/compute_resource.py
+  s_7d31df0d57932c::t_80698324cc1f8d 58
+  s_7d31df0d57932c::t_afaf48455a6fbd 22,38
+ml-close-loop-be/README.md
+  s_7d31df0d57932c::t_508757564d28ed 15
+ml-close-loop-be/app/services/compute_resource_service.py
+  s_7d31df0d57932c::t_646396a803fe4a 39
+ml-close-loop-be/app/models/compute_resource.py
+  s_7d31df0d57932c::t_1efff207ba9886 41
+ml-close-loop-be/app/workers/training_worker.py
+  s_7d31df0d57932c::t_dc9a20f753eabb 245,247-251,255-256
+ml-close-loop-be/app/api/compute_resources.py
+  s_7d31df0d57932c::t_4ba6babc82ea8d 174-206
+ml-close-loop-be/alembic/versions/f4a7c8e2d1b3_add_notebook_url_to_compute_resources.py
+  s_7d31df0d57932c::t_b7cfda1de61d5d 1-29
+ml-close-loop-be/tests/test_colab_provider.py
+  s_7d31df0d57932c::t_1854be4571f202 7-13
+  s_7d31df0d57932c::t_c9fdc5368a7d46 1-6,14-92,94-108,110-120,122-131,133-152,154-280
+  s_7d31df0d57932c::t_2ae425d866a72b 93,109,121,132,153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "84a40e74d6afc0ebab1e5d29543ae498699ef5cd",
+  "prompts": {},
+  "sessions": {
+    "s_7d31df0d57932c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7627cdbdffe5rF6ziT5tgLqF3",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

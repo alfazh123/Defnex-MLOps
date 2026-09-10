@@ -85,7 +85,7 @@ def validate_intake(
 
     dataset_service.register_dataset(db, intake_request.dataset_id)
 
-    version_num = dataset_service._next_version(db, intake_request.dataset_id)
+    version_num = dataset_service._allocate_version(db, intake_request.dataset_id)
     dv = DatasetVersion(
         dataset_id=intake_request.dataset_id,
         version=version_num,
@@ -198,7 +198,7 @@ def commit_intake(
         )
 
     dataset_service.register_dataset(db, intake_request.dataset_id)
-    version_num = dataset_service._next_version(db, intake_request.dataset_id)
+    version_num = dataset_service._allocate_version(db, intake_request.dataset_id)
 
     canonical_uri = storage.commit_file(
         intake_request.staging_id, intake_request.dataset_id, version_num

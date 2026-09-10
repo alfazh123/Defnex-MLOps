@@ -1,3 +1,5 @@
+import pytest
+
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.services import dataset_service
 
@@ -79,3 +81,100 @@ def test_to_schema_composes_nested_manifest(db_session):
     assert schema.status == "PROCESSED"
     assert schema.manifest.source_url_or_hf_id == "HuggingFaceH4/no_robots"
     assert schema.manifest.source_format == "chatml"
+
+
+def test_update_dataset_version_rejects_processed(db_session):
+    """P2-4: updating a PROCESSED version must raise ValueError."""
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
+    with pytest.raises(ValueError, match="already processed"):
+        dataset_service.update_dataset_version(db_session, version, seed=42)
+
+
+def test_delete_dataset_version_rejects_processed(db_session):
+    """P2-4: deleting a PROCESSED version must raise ValueError."""
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
+    with pytest.raises(ValueError, match="already processed"):
+        dataset_service.delete_dataset_version(db_session, version)
+
+
+def test_update_dataset_version_allows_non_processed(db_session):
+    """P2-4: a non-PROCESSED version can be updated."""
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
+    version.status = "PENDING"
+    db_session.flush()
+
+    updated = dataset_service.update_dataset_version(db_session, version, seed=42)
+    assert updated.seed == 42
+
+
+def test_delete_dataset_version_allows_non_processed(db_session):
+    """P2-4: a non-PROCESSED version can be deleted."""
+    version = dataset_service.create_dataset_version(
+        db_session, "no_robots", _create_request()
+    )
+    version.status = "PENDING"
+    db_session.flush()
+
+    dataset_service.delete_dataset_version(db_session, version)
+    assert dataset_service.get_dataset_version(db_session, "no_robots", 1) is None
+
+
+def test_next_version_concurrent_creates_unique_versions(tmp_path):
+    """P2-5: two concurrent _next_version calls must not produce the same version number."""
+    import threading
+
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import Session
+
+    from app.db.base import Base
+
+    db_path = str(tmp_path / "concurrent_ds.db")
+
+    def _make_engine():
+        eng = create_engine(f"sqlite:///{db_path}", connect_args={"timeout": 30})
+
+        @event.listens_for(eng, "connect")
+        def _wal(dbapi_conn, _):
+            dbapi_conn.execute("PRAGMA journal_mode=WAL")
+
+        return eng
+
+    engine = _make_engine()
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as setup:
+        dataset_service.register_dataset(setup, "no_robots")
+        setup.commit()
+    engine.dispose()
+
+    versions = []
+    errors = []
+
+    def create_version():
+        try:
+            eng = _make_engine()
+            try:
+                with Session(eng) as session:
+                    v = dataset_service.create_dataset_version(
+                        session, "no_robots", _create_request()
+                    )
+                    versions.append(v.version)
+            finally:
+                eng.dispose()
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=create_version) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert errors == [], f"concurrent creates failed: {errors}"
+    assert sorted(versions) == [1, 2]

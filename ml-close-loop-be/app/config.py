@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     # worker never leaves it stuck RUNNING.
     heartbeat_interval_seconds: int = 10
     stale_threshold_seconds: int = 60
+    # Maximum times a STALE run can be reclaimed before it is forced to FAILED (P2-6).
+    max_stale_retries: int = 3
 
     # Cross-service GPU coordination (issue #39): before training starts, the serving
     # service is stopped and VRAM verified free, then restarted after training ends —

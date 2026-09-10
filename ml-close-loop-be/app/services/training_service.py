@@ -72,8 +72,22 @@ def claim_training_run(db: Session, training_run: TrainingRun) -> bool:
     both selected the same PENDING row can then not both win; the loser gets
     `False` and must not execute the runner. Works on SQLite (where
     `SELECT ... FOR UPDATE` is a no-op) and on PostgreSQL. STALE is re-claimable so
-    a timed-out run can be retried (issue #60).
+    a timed-out run can be retried (issue #60), up to `settings.max_stale_retries`
+    times before the run is forced to FAILED (P2-6).
     """
+
+    was_stale = training_run.status == "STALE"
+    if was_stale:
+        new_count = (training_run.retry_count or 0) + 1
+        if new_count > settings.max_stale_retries:
+            training_run.status = "FAILED"
+            training_run.error_message = (
+                f"Exceeded max stale retries ({settings.max_stale_retries})"
+            )
+            training_run.finished_at = datetime.now(timezone.utc)
+            db.flush()
+            return False
+        training_run.retry_count = new_count
 
     result = db.execute(
         update(TrainingRun)

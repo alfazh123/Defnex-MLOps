@@ -46,6 +46,7 @@ class TrainingRun(Base):
     retry_of: Mapped[str | None] = mapped_column(
         String, ForeignKey("training_runs.training_run_id"), nullable=True, index=True
     )
+    retry_count: Mapped[int] = mapped_column(default=0)
 
     dataset_version: Mapped["DatasetVersion"] = relationship(
         back_populates="training_runs"

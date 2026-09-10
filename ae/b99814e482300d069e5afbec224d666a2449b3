@@ -1,0 +1,34 @@
+ml-close-loop-be/app/services/promotion_service.py
+  s_dc9f3a4620448d::t_bcddf09c207a2f 43
+  s_dc9f3a4620448d::t_2df09d3dfe4a50 41-42,44
+  s_dc9f3a4620448d::t_3af3e9f187d052 262-278,291
+ml-close-loop-be/app/api/promotion.py
+  s_dc9f3a4620448d::t_bd00c60dc8cee7 2,19
+  s_dc9f3a4620448d::t_a5121ce39620d5 160-161
+  s_dc9f3a4620448d::t_51cf0a35848a8d 165-171
+  s_dc9f3a4620448d::t_2f8795821fcd45 20
+ml-close-loop-be/.github/workflows/cd.yml
+  s_dc9f3a4620448d::t_80e0f176e9eaac 1-45
+ml-close-loop-be/tests/test_staging_gate.py
+  s_dc9f3a4620448d::t_9df3ed0fb94c0c 52-55,163-166
+  s_dc9f3a4620448d::t_7188203b2c4f12 1-51,56-162
+ml-close-loop-be/tests/test_promotion_ladder.py
+  s_dc9f3a4620448d::t_fa47cb0f000ff6 122-125
+  s_dc9f3a4620448d::t_985067162f9acc 138-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "aeb99814e482300d069e5afbec224d666a2449b3",
+  "prompts": {},
+  "sessions": {
+    "s_dc9f3a4620448d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f76d186a2ffeQVyhFi0teCBaiP",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

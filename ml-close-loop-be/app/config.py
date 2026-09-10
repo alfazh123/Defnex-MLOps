@@ -180,6 +180,9 @@ class Settings(BaseSettings):
     # immutable per-version directory. No longer a system temp dir — overridable via env.
     artifact_storage_dir: str = "data/artifacts"
 
+    # Dataset intake staging + permanent storage (issue #42).
+    dataset_storage_dir: str = "data/datasets"
+
     # Artifact backend selection (issue #71, PRD §13.1). `local` uses
     # LocalFilesystemArtifactStorage (dev / CI); `minio` uses MinioArtifactStorage for
     # production object storage (PRD §13.2: PostgreSQL = metadata, MinIO/S3 = bytes).

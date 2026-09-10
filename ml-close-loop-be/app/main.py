@@ -20,6 +20,7 @@ from app.api.health import router as health_router
 from app.db.session import engine
 from app.limiter import limiter
 from app.api.inference import router as inference_router
+from app.api.intake_validate import router as intake_validate_router
 from app.api.models import router as models_router
 from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
@@ -111,6 +112,7 @@ v1_router.include_router(models_router)
 v1_router.include_router(promotion_router)
 v1_router.include_router(deployment_router)
 v1_router.include_router(inference_router)
+v1_router.include_router(intake_validate_router)
 
 app.include_router(v1_router)
 

@@ -1,0 +1,41 @@
+ml-close-loop-be/app/api/deps.py
+  s_11aa633c51e794::t_0f447faebd3417 11
+  s_11aa633c51e794::t_ae079a939101ea 120-138
+ml-close-loop-be/app/api/deployment.py
+  s_11aa633c51e794::t_8e5d4e1c1606a4 5,13
+  s_11aa633c51e794::t_874116cf72eb48 38
+ml-close-loop-be/app/rbac.py
+  s_11aa633c51e794::t_3ee37d90d78777 1-54
+ml-close-loop-be/app/api/promotion.py
+  s_11aa633c51e794::t_3b54d9ad83c203 155
+  s_11aa633c51e794::t_e6696b3a7ba8f0 194
+  s_11aa633c51e794::t_750c113b0b420b 40
+  s_11aa633c51e794::t_7d73eac28295dc 63
+  s_11aa633c51e794::t_f7feb19e926a49 98
+  s_11aa633c51e794::t_8827062138964e 5,12
+  s_11aa633c51e794::t_c0ba610a216b07 125
+ml-close-loop-be/app/api/compute_resources.py
+  s_11aa633c51e794::t_3bdb9451929b95 15,20
+  s_11aa633c51e794::t_9a13d7a8d34fa6 42
+  s_11aa633c51e794::t_b282eba8c6311a 141
+  s_11aa633c51e794::t_9cd41143cb6a56 113
+ml-close-loop-be/tests/test_rbac_policy.py
+  s_11aa633c51e794::t_3d49b8d126f064 1-62,68-277
+  s_11aa633c51e794::t_92affe3aabe2c4 63-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "27052a7ff3408b5a890477a488ccce0051e9a584",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

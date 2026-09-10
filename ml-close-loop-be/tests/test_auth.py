@@ -323,3 +323,103 @@ def test_register_empty_username_accepted(client):
     )
     assert resp.status_code == 201
     assert resp.json()["username"] == ""
+
+
+# ------------------------------------------------------------------
+# Refresh-token rotation + reuse detection (issue #125)
+# ------------------------------------------------------------------
+
+
+def test_access_token_ttl_is_short(client):
+    """Access tokens must be short-lived (~15 min) since they're never
+    revocation-checked (issue #125) - natural expiry is the only guard."""
+    from app.config import settings
+
+    assert settings.jwt_expire_minutes <= 15
+
+
+def test_refresh_rotates_and_invalidates_old_refresh_token(client):
+    client.post(
+        "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
+    )
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    old_refresh = login_resp.json()["refresh_token"]
+
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 200
+    new_refresh = resp.json()["refresh_token"]
+    assert new_refresh != old_refresh
+
+    # A legitimate second rotation, using the *new* token, keeps working.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": new_refresh})
+    assert resp.status_code == 200
+    assert resp.json()["refresh_token"] != new_refresh
+
+    # But replaying the original (now stale) refresh token is rejected.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_refresh_reuse_revokes_entire_token_family(client):
+    """Reusing an already-rotated refresh token is a theft indicator: the
+    whole family must die, including the legitimate token nobody has used
+    yet (issue #125 reuse detection)."""
+    client.post(
+        "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
+    )
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    old_refresh = login_resp.json()["refresh_token"]
+
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 200
+    new_refresh = resp.json()["refresh_token"]
+
+    # Attacker (or a client with a stale token) replays the already-used token.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 401
+
+    # The legitimate, never-yet-used new_refresh must also be dead now, since
+    # the whole family was revoked - not just the specific reused jti.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": new_refresh})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_refresh_revocation_persists_across_fresh_db_session(client):
+    """Simulates an API process restart: revocation must be readable from a
+    brand-new DB session that shares no Python state with the request that
+    wrote it - proving it's durable in the DB, not an in-process cache."""
+    from jose import jwt
+    from sqlalchemy.orm import Session
+
+    from app.config import settings
+    import app.services.auth_service as svc
+
+    client.post(
+        "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
+    )
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "Pass1234"}
+    )
+    old_refresh = login_resp.json()["refresh_token"]
+
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 200
+
+    # Fresh Session over the same persistent engine, no shared Python objects
+    # with the request above (equivalent to a different worker process).
+    jti = jwt.decode(
+        old_refresh, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+    )["jti"]
+    with Session(client.engine) as fresh_db:
+        assert svc._is_refresh_jti_used(fresh_db, jti) is True
+
+    # And a fresh API request (itself a brand-new Session, see conftest.client)
+    # still rejects the rotated-out token.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert resp.status_code == 401

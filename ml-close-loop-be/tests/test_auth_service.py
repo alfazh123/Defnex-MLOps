@@ -92,6 +92,92 @@ def test_delete_user_removes_user(db_session):
     assert auth_service.get_user_by_id(db_session, user.id) is None
 
 
+def test_issue_token_pair_shares_family_id(db_session):
+    user = auth_service.create_user(db_session, "bob", "Secret123")
+    db_session.flush()
+
+    access, refresh = auth_service.issue_token_pair(user)
+    access_payload = auth_service.decode_token(access)
+    refresh_payload = auth_service.decode_token(refresh)
+
+    assert access_payload["family_id"] == refresh_payload["family_id"]
+    assert access_payload["jti"] != refresh_payload["jti"]
+
+
+def test_decode_token_never_checks_revocation_for_access_tokens(db_session):
+    """Access tokens are never checked against any revocation store (#125):
+    even after the token's family is revoked, decode_token still returns it."""
+    user = auth_service.create_user(db_session, "bob", "Secret123")
+    db_session.flush()
+
+    access, _ = auth_service.issue_token_pair(user)
+    family_id = auth_service.decode_token(access)["family_id"]
+
+    auth_service.revoke_refresh_family(db_session, family_id)
+    db_session.flush()
+
+    assert auth_service.decode_token(access, db_session) is not None
+
+
+def test_rotate_refresh_token_rejects_access_token_type(db_session):
+    user = auth_service.create_user(db_session, "bob", "Secret123")
+    db_session.flush()
+
+    access, _ = auth_service.issue_token_pair(user)
+    assert auth_service.rotate_refresh_token(access, db_session) is None
+
+
+def test_rotate_refresh_token_rejects_unknown_user(db_session):
+    token = auth_service.create_refresh_token({"sub": "99999", "role": "user"})
+    assert auth_service.rotate_refresh_token(token, db_session) is None
+
+
+def test_rotate_refresh_token_normal_rotation(db_session):
+    user = auth_service.create_user(db_session, "bob", "Secret123")
+    db_session.flush()
+
+    _, refresh = auth_service.issue_token_pair(user)
+    result = auth_service.rotate_refresh_token(refresh, db_session)
+
+    assert result is not None
+    rotated_user, new_access, new_refresh = result
+    assert rotated_user.id == user.id
+    assert new_refresh != refresh
+    # Same family carried forward.
+    assert (
+        auth_service.decode_token(new_refresh)["family_id"]
+        == auth_service.decode_token(refresh)["family_id"]
+    )
+
+
+def test_rotate_refresh_token_reuse_kills_whole_family(db_session):
+    user = auth_service.create_user(db_session, "bob", "Secret123")
+    db_session.flush()
+
+    _, old_refresh = auth_service.issue_token_pair(user)
+    result = auth_service.rotate_refresh_token(old_refresh, db_session)
+    assert result is not None
+    _, _, new_refresh = result
+
+    # Reuse of the already-rotated token is rejected...
+    assert auth_service.rotate_refresh_token(old_refresh, db_session) is None
+    # ...and revokes the sibling token that was never itself reused.
+    assert auth_service.rotate_refresh_token(new_refresh, db_session) is None
+
+
+def test_revoke_refresh_family_from_access_token_is_noop_on_garbage(db_session):
+    """Must not raise on a malformed/garbage access token (best-effort logout)."""
+    auth_service.revoke_refresh_family_from_access_token("not.a.token", db_session)
+
+
+def test_revoke_refresh_family_is_idempotent(db_session):
+    """Revoking an already-revoked family must not raise (e.g. double logout)."""
+    auth_service.revoke_refresh_family(db_session, "fam-1")
+    db_session.flush()
+    auth_service.revoke_refresh_family(db_session, "fam-1")
+    db_session.flush()
+
+
 def test_access_token_expired_decodes_to_none(db_session):
     from jose import jwt
 

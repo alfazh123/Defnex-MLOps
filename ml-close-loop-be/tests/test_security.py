@@ -473,40 +473,57 @@ def test_secret_scrubbing_redacts_token_in_logs():
     assert result["user_id"] == 1
 
 
-def test_token_revocation_blocks_further_use(client):
-    """A revoked token must not be accepted for API calls."""
+def test_access_token_revocation_via_family_does_not_block_current_token(client):
+    """Access tokens are short-lived and NEVER checked against a revocation
+    store (issue #125) - natural expiry is the only guard. Revoking the
+    refresh-token family (what logout does) must not affect an already-issued
+    access token; it stays valid until it expires on its own."""
     from tests.conftest import auth_header
 
-    token = _register_and_login(client)
-    resp = client.get("/api/v1/datasets", headers=auth_header(token))
-    assert resp.status_code == 200
-
-    # Revoke via the service using the same test DB engine
     import app.services.auth_service as svc
     from sqlalchemy.orm import Session
 
-    with Session(client.engine) as db:
-        svc.revoke_token(token, db)
-        db.commit()
-
-    resp = client.get("/api/v1/datasets", headers=auth_header(token))
-    assert resp.status_code == 401
-    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
-
-
-def test_logout_revokes_current_token(client):
-    """POST /auth/logout must invalidate the access token."""
-    from tests.conftest import auth_header
-
     token = _register_and_login(client)
-    # Verify token works
     resp = client.get("/api/v1/datasets", headers=auth_header(token))
     assert resp.status_code == 200
 
-    # Logout
+    payload = svc.decode_token(token)
+    with Session(client.engine) as db:
+        svc.revoke_refresh_family(db, payload["family_id"])
+        db.commit()
+
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 200
+
+
+def test_logout_revokes_refresh_token_not_access_token(client):
+    """POST /auth/logout revokes the refresh-token family (blocks future
+    refresh) but leaves the just-issued access token usable until it expires
+    naturally (issue #125 - access tokens are never revocation-checked)."""
+    from tests.conftest import auth_header
+
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "admin", "password": "Admin1234", "role": "admin"},
+    )
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "Admin1234"}
+    )
+    token = login_resp.json()["access_token"]
+    refresh_token = login_resp.json()["refresh_token"]
+
+    # Access token works before logout.
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 200
+
     resp = client.post("/api/v1/auth/logout", headers=auth_header(token))
     assert resp.status_code == 204
 
-    # Token must no longer work
+    # Access token still works (not revocation-checked) ...
     resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 200
+
+    # ... but the refresh token can no longer mint new tokens.
+    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"

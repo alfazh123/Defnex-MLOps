@@ -96,7 +96,9 @@ paths:
       tags:
       - Auth
       summary: Logout
-      description: Revoke the current access token (#86 Security Hardening).
+      description: Revoke the refresh-token family tied to the current access
+        token; the access token itself remains valid until its short natural
+        expiry (#125).
       operationId: logout_api_v1_auth_logout_post
       parameters:
       - name: authorization

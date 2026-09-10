@@ -330,6 +330,36 @@ def test_remote_worker_reports_heartbeat(tmp_path):
     mock_client.post.assert_called_once_with("/api/v1/training-runs/run-xyz/heartbeat")
 
 
+@patch("app.providers.training_provider.SSHRemoteHost")
+def test_gpu_vps_get_status_completed_without_done_marker(mock_ssh_cls, db, resource):
+    """get_status returns COMPLETED when process exited OK but .done is missing (P1-3)."""
+    mock_host = MagicMock()
+    mock_host.execute.side_effect = [
+        ExecResult(stdout="", stderr="", returncode=0),  # submit: mkdir
+        ExecResult(stdout="42\n", stderr="", returncode=0),  # submit: spawn
+        ExecResult(stdout="dead\n", stderr="", returncode=1),  # get_status: ps → dead
+        ExecResult(
+            stdout="", stderr="", returncode=1
+        ),  # get_status: test -f .done → missing
+        ExecResult(
+            stdout="0\n", stderr="", returncode=0
+        ),  # get_status: exit code check → 0
+        ExecResult(
+            stdout="", stderr="", returncode=0
+        ),  # get_status: stderr.log → empty
+    ]
+    mock_host.__enter__ = MagicMock(return_value=mock_host)
+    mock_host.__exit__ = MagicMock(return_value=False)
+    mock_ssh_cls.return_value = mock_host
+
+    run = _create_run(db)
+    provider = GPUVPSProvider(resource)
+    eid = provider.submit(db, run)
+
+    status = provider.get_status(eid)
+    assert status.status == "COMPLETED"
+
+
 # --- SSH connection error test ---
 
 

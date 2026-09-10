@@ -14,13 +14,26 @@ def test_register_first_user_becomes_admin(client):
     assert data["username"] == "admin"
 
 
-def test_register_second_user_gets_requested_role(client):
+def test_register_second_user_gets_user_role(client):
     client.post(
         "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
     )
     resp = client.post(
         "/api/v1/auth/register",
         json={"username": "bob", "password": "Pass1234", "role": "user"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "user"
+
+
+def test_register_second_user_cannot_request_admin_role(client):
+    """After bootstrap, requesting admin role must not grant admin (P1-4)."""
+    client.post(
+        "/api/v1/auth/register", json={"username": "admin", "password": "Pass1234"}
+    )
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"username": "attacker", "password": "Pass1234", "role": "admin"},
     )
     assert resp.status_code == 201
     assert resp.json()["role"] == "user"

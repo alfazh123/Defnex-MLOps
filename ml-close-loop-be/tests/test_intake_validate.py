@@ -9,6 +9,8 @@ import pytest
 
 from tests.conftest import auth_header
 
+from app.services.dataset_storage import DatasetStorage
+
 
 VALID_RECORD = {
     "id": "rec-001",
@@ -76,13 +78,42 @@ class _FakeStorage:
     def resolve_staged(self, staging_id: str) -> Path | None:
         return self._files.get(staging_id)
 
-    def read_records(self, path: Path) -> list[dict]:
-        records = []
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-        return records
+    def read_records(self, path: Path, source_format: str = "jsonl") -> list[dict]:
+        if source_format == "jsonl":
+            records = []
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+            return records
+        if source_format == "json":
+            data = json.loads(path.read_text())
+            if not isinstance(data, list):
+                return []
+            return [r for r in data if isinstance(r, dict)]
+        if source_format == "csv":
+            import csv
+            import io
+
+            text = path.read_text()
+            reader = csv.DictReader(io.StringIO(text))
+            return [row for row in reader]
+        if source_format == "xlsx":
+            import io
+
+            try:
+                import openpyxl
+            except ImportError:
+                raise FileNotFoundError("openpyxl not installed")
+            wb = openpyxl.load_workbook(str(path), read_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            wb.close()
+            if not rows:
+                return []
+            headers = [str(h) for h in rows[0]]
+            return [dict(zip(headers, row)) for row in rows[1:]]
+        raise ValueError(f"Unsupported format: {source_format}")
 
     def compute_checksum(self, path: Path) -> str:
         import hashlib
@@ -395,3 +426,96 @@ def test_idempotency_key_returns_cached(client, admin_token, fake_storage):
 
     assert resp2.status_code == 200
     assert resp2.json() == resp1.json()
+
+
+def test_staging_uses_directory_layout(client, admin_token):
+    """P0-1: verify stage_upload creates _staging/{id}/file, not _staging/{id}_file."""
+    storage = DatasetStorage()
+    data = b'{"q":"a","a":"b"}\n'
+    info = storage.stage_upload("test.jsonl", data)
+
+    from pathlib import Path
+
+    staged_path = Path(info["path"])
+    assert staged_path.is_file()
+    assert staged_path.parent.name == info["staging_id"]
+    assert staged_path.name == "test.jsonl"
+    assert not (storage._staging / f"{info['staging_id']}_test.jsonl").exists()
+
+
+def test_validate_csv_records(client, admin_token, fake_storage):
+    csv_content = b"id,q,a\nrec-1,what is defnex,it is a platform\nrec-2,hello,hi\n"
+    info = fake_storage.stage_upload("data.csv", csv_content)
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={
+                "staging_id": info["staging_id"],
+                "dataset_id": "csv_ds",
+                "source_format": "csv",
+            },
+            headers=auth_header(admin_token),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "PASS"
+    assert body["total_records"] == 2
+    assert body["preview"][0]["id"] == "rec-1"
+
+
+def test_validate_json_records(client, admin_token, fake_storage):
+    json_content = json.dumps([VALID_RECORD, VALID_RECORD]).encode()
+    info = fake_storage.stage_upload("data.json", json_content)
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={
+                "staging_id": info["staging_id"],
+                "dataset_id": "json_ds",
+                "source_format": "json",
+            },
+            headers=auth_header(admin_token),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "PASS"
+    assert body["total_records"] == 2
+
+
+def test_validate_xlsx_records(client, admin_token, fake_storage):
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["id", "q", "a"])
+    ws.append(["rec-1", "what is defnex", "it is a platform"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    xlsx_bytes = buf.read()
+    wb.close()
+
+    info = fake_storage.stage_upload("data.xlsx", xlsx_bytes)
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={
+                "staging_id": info["staging_id"],
+                "dataset_id": "xlsx_ds",
+                "source_format": "xlsx",
+            },
+            headers=auth_header(admin_token),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "PASS"
+    assert body["total_records"] == 1
+    assert body["preview"][0]["id"] == "rec-1"

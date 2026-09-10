@@ -63,7 +63,7 @@ def validate_intake(
             404, "STAGING_NOT_FOUND", f"Staging {request.staging_id} not found"
         )
 
-    records = storage.read_records(staged_path)
+    records = storage.read_records(staged_path, source_format=request.source_format)
     if not records:
         raise APIError(400, "EMPTY_DATASET", "No records found in staged file")
 

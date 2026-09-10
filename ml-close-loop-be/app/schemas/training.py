@@ -133,3 +133,4 @@ class TrainingRun(BaseModel):
     train_loss: float | None = None
     eval_loss: float | None = None
     model_version: int | None = None
+    retry_of: str | None = None

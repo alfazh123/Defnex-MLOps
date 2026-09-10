@@ -9,3 +9,4 @@ data/*.lock
 # Issue #38: immutable per-version model artifacts (configurable via ARTIFACT_STORAGE_DIR)
 data/artifacts/
 .venv
+data/

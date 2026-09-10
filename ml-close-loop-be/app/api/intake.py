@@ -6,17 +6,15 @@ import csv
 import hashlib
 import io
 import json
-import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel
 
 from app.api.deps import require_admin
 from app.api.errors import APIError
-from app.config import settings
 from app.models.user import User
 from app.schemas.common import ErrorResponse
+from app.services.dataset_storage import DatasetStorage
 
 router = APIRouter(tags=["Dataset Intake"])
 
@@ -80,23 +78,6 @@ def _count_records(content: bytes, fmt: str) -> int:
     return 0
 
 
-def _stage_file(filename: str, content: bytes) -> dict:
-    """Stage an uploaded file to disk."""
-    staging_id = str(uuid.uuid4())
-    base = Path(settings.dataset_storage_dir) / "_staging"
-    base.mkdir(parents=True, exist_ok=True)
-    path = base / f"{staging_id}_{filename}"
-    path.write_bytes(content)
-    checksum = hashlib.sha256(content).hexdigest()
-    return {
-        "staging_id": staging_id,
-        "filename": filename,
-        "file_size": len(content),
-        "checksum_sha256": checksum,
-        "path": str(path),
-    }
-
-
 @router.post(
     "/datasets/intake/inspect",
     response_model=DatasetInspectResponse,
@@ -149,16 +130,18 @@ async def inspect_dataset_source(
     if sample_count == 0:
         raise APIError(400, "EMPTY_DATASET", "File contains no records")
 
-    staged = _stage_file(filename, content)
+    storage = DatasetStorage()
+    staged = storage.stage_upload(filename, content)
+    checksum = hashlib.sha256(content).hexdigest()
 
     return DatasetInspectResponse(
         staging_id=staged["staging_id"],
         filename=filename,
-        file_size=staged["file_size"],
+        file_size=staged["size_bytes"],
         detected_format=fmt,
         normalized_format="jsonl",
         detected_sample_count=sample_count,
-        checksum_sha256=staged["checksum_sha256"],
+        checksum_sha256=checksum,
         parse_status="ok",
         error=None,
     )

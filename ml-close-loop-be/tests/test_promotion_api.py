@@ -3,6 +3,12 @@
 
 from sqlalchemy.orm import Session
 
+from app.schemas.model import (
+    EvalLossTrend,
+    EvaluationUpdateRequest,
+    GeneralDomainRegressionCheck,
+    QualitativeComparison,
+)
 from tests.conftest import auth_header
 
 DATASET_CREATE_REQUEST = {
@@ -94,6 +100,15 @@ def _evaluated_model_version(
         "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
     ).json()
 
+    # Issue #128: POST .../evaluation is now a trigger (async, server-computed signals) and no
+    # longer accepts caller-supplied signal numbers - this fixture still needs full control over
+    # those numbers to exercise the eval gate's win/loss/eval-loss scenarios (test_promotion_gate.py
+    # etc.), so it drives `model_service.submit_evaluation` directly, the same internal entry
+    # point the evaluation worker uses once it has computed a real result.
+    loss_trend = EvalLossTrend(
+        this_version_eval_loss=this_version_eval_loss,
+        previous_version_eval_loss=previous_version_eval_loss,
+    )
     with Session(client.engine) as db:
         training_run = training_service.get_training_run(db, created["training_run_id"])
         training_service.start_training_run(db, training_run)
@@ -102,44 +117,27 @@ def _evaluated_model_version(
             db, training_run, artifact_uri=artifact_uri
         )
         model_version = model_service.register_model_version(db, training_run)
+        model_service.submit_evaluation(
+            db,
+            model_version,
+            EvaluationUpdateRequest(
+                eval_set_id=eval_set_id,
+                eval_set_version=eval_set_version if eval_set_id is not None else None,
+                eval_loss_trend=loss_trend,
+                qualitative_comparison=QualitativeComparison(
+                    question_table_version=1,
+                    wins=wins,
+                    losses=losses,
+                    ties=20 - wins - losses,
+                    total=20,
+                ),
+                general_domain_regression_check=GeneralDomainRegressionCheck(
+                    checked=True, regressions_found=regressions_found or []
+                ),
+            ),
+        )
         db.commit()
         model_id, version = model_version.model_id, model_version.version
-
-    eval_ref = {}
-    if eval_set_id is not None:
-        eval_ref = {"eval_set_id": eval_set_id, "eval_set_version": eval_set_version}
-
-    loss_trend = {"this_version_eval_loss": this_version_eval_loss}
-    if previous_version_eval_loss is not None:
-        loss_trend["previous_version_eval_loss"] = previous_version_eval_loss
-
-    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
-    client.post(url, json={"eval_loss_trend": loss_trend, **eval_ref}, headers=h)
-    client.post(
-        url,
-        json={
-            "qualitative_comparison": {
-                "question_table_version": 1,
-                "wins": wins,
-                "losses": losses,
-                "ties": 20 - wins - losses,
-                "total": 20,
-            },
-            **eval_ref,
-        },
-        headers=h,
-    )
-    client.post(
-        url,
-        json={
-            "general_domain_regression_check": {
-                "checked": True,
-                "regressions_found": regressions_found or [],
-            },
-            **eval_ref,
-        },
-        headers=h,
-    )
     return model_id, version
 
 

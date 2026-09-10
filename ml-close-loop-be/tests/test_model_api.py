@@ -170,10 +170,25 @@ def test_get_evaluation_is_all_null_before_any_submission(client, admin_token):
     }
 
 
+def _eval_set_version(
+    client, admin_token, eval_set_id="domain-benchmark", records=None
+):
+    """Create a golden/eval set version via the real API (issue #43) for trigger tests."""
+    if records is None:
+        records = [{"messages": [{"role": "user", "content": "eval-probe-1"}]}]
+    resp = client.post(
+        f"/api/v1/eval-sets/{eval_set_id}/versions",
+        json={"records": records},
+        headers=auth_header(admin_token),
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["version"]
+
+
 def test_submit_evaluation_returns_404_when_missing(client, admin_token):
     response = client.post(
         "/api/v1/models/no-such-model/versions/1/evaluation",
-        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        json={},
         headers=auth_header(admin_token),
     )
 
@@ -181,66 +196,142 @@ def test_submit_evaluation_returns_404_when_missing(client, admin_token):
     assert response.json()["error"]["code"] == "MODEL_NOT_FOUND"
 
 
-def test_submit_evaluation_partial_payload_stays_registered(client, admin_token):
+def test_submit_evaluation_rejects_manual_signal_payload(client, admin_token):
+    """Issue #128: the old jalur lama (manual caller-supplied signal numbers) must be
+    rejected, not silently applied - `EvaluationTriggerRequest` forbids those fields."""
     model_id, version = _registered_model_version(client, admin_token)
 
     response = client.post(
         f"/api/v1/models/{model_id}/versions/{version}/evaluation",
-        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        json={"eval_loss_trend": {"this_version_eval_loss": 0.01}},
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 422
+    # Nothing was applied: the evaluation stays untouched and the status unchanged.
+    evaluation = client.get(
+        f"/api/v1/models/{model_id}/versions/{version}/evaluation",
+        headers=auth_header(admin_token),
+    ).json()
+    assert evaluation["eval_loss_trend"] is None
+    lineage = client.get(
+        f"/api/v1/models/{model_id}/versions/{version}",
+        headers=auth_header(admin_token),
+    ).json()
+    assert lineage["status"] == "REGISTERED"
+
+
+def test_submit_evaluation_rejects_manual_qualitative_payload(client, admin_token):
+    model_id, version = _registered_model_version(client, admin_token)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/evaluation",
+        json={
+            "qualitative_comparison": {
+                "question_table_version": 1,
+                "wins": 999,
+                "losses": 0,
+                "ties": 0,
+                "total": 999,
+            }
+        },
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 422
+
+
+def test_trigger_evaluation_requires_eval_set_reference(client, admin_token):
+    model_id, version = _registered_model_version(client, admin_token)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/evaluation",
+        json={},
+        headers=auth_header(admin_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "EVAL_SET_REQUIRED"
+
+
+def test_trigger_evaluation_stays_registered_until_worker_runs(client, admin_token):
+    """Triggering is async (issue #128): the response reflects the pre-trigger state, not a
+    synchronously-computed result."""
+    model_id, version = _registered_model_version(client, admin_token)
+    eval_version = _eval_set_version(client, admin_token)
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/evaluation",
+        json={"eval_set_id": "domain-benchmark", "eval_set_version": eval_version},
         headers=auth_header(admin_token),
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "REGISTERED"
-    assert body["evaluation"]["eval_loss_trend"]["this_version_eval_loss"] == 0.84
-    assert body["evaluation"]["qualitative_comparison"] is None
+    assert body["evaluation"]["eval_loss_trend"] is None
+
+    with Session(client.engine) as db:
+        from sqlalchemy import select
+
+        from app.models.model import ModelVersion
+
+        row = db.scalar(
+            select(ModelVersion).where(
+                ModelVersion.model_id == model_id, ModelVersion.version == version
+            )
+        )
+        assert row.evaluation_requested is True
+        assert row.eval_set_id == "domain-benchmark"
+        assert row.eval_set_version == eval_version
 
 
-def test_submit_evaluation_all_three_signals_transitions_to_evaluated(
+def test_trigger_evaluation_worker_computes_signals_and_transitions_to_evaluated(
     client, admin_token
 ):
+    """End-to-end: trigger via the API, run the evaluation worker (same shape the
+    training_worker.process_next_job poll uses), and assert the server-computed signals -
+    real generation via MockServingBackend against the stored golden set - drove the
+    REGISTERED -> EVALUATED transition."""
     model_id, version = _registered_model_version(client, admin_token)
-    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
+    eval_version = _eval_set_version(
+        client,
+        admin_token,
+        records=[
+            {"messages": [{"role": "user", "content": "q1"}]},
+            {"messages": [{"role": "user", "content": "q2"}]},
+        ],
+    )
     h = auth_header(admin_token)
 
-    client.post(
-        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
-    )
-    client.post(
-        url,
-        json={
-            "qualitative_comparison": {
-                "question_table_version": 1,
-                "wins": 13,
-                "losses": 5,
-                "ties": 2,
-                "total": 20,
-            }
-        },
+    trigger = client.post(
+        f"/api/v1/models/{model_id}/versions/{version}/evaluation",
+        json={"eval_set_id": "domain-benchmark", "eval_set_version": eval_version},
         headers=h,
     )
-    response = client.post(
-        url,
-        json={
-            "general_domain_regression_check": {
-                "checked": True,
-                "regressions_found": [],
-            }
-        },
-        headers=h,
-    )
+    assert trigger.status_code == 200
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "EVALUATED"
-    assert body["evaluation"]["qualitative_comparison"]["wins"] == 13
+    with Session(client.engine) as db:
+        from app.workers.evaluation_worker import process_next_evaluation
+
+        processed = process_next_evaluation(db)
+        db.commit()
+        assert processed is not None
 
     lineage = client.get(
         f"/api/v1/models/{model_id}/versions/{version}", headers=h
     ).json()
     assert lineage["status"] == "EVALUATED"
+    assert lineage["evaluation"]["qualitative_comparison"]["wins"] == 2
+    assert lineage["evaluation"]["qualitative_comparison"]["losses"] == 0
     assert lineage["evaluation"]["general_domain_regression_check"]["checked"] is True
+    assert (
+        lineage["evaluation"]["general_domain_regression_check"]["regressions_found"]
+        == []
+    )
+    # MockTrainingRunner reports a fake training eval_loss (issue #128); the trigger endpoint
+    # itself never accepted this number from the caller.
+    assert lineage["evaluation"]["eval_loss_trend"]["this_version_eval_loss"] == 0.84
 
 
 def test_submit_evaluation_returns_409_once_promoted(client, admin_token):
@@ -255,7 +346,7 @@ def test_submit_evaluation_returns_409_once_promoted(client, admin_token):
 
     response = client.post(
         f"/api/v1/models/{model_id}/versions/{version}/evaluation",
-        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        json={},
         headers=auth_header(admin_token),
     )
 

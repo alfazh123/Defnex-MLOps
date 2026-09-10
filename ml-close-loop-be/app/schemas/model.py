@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.training import TrainingConfig
 
@@ -56,18 +56,41 @@ class EvaluationObject(BaseModel):
 
 
 class EvaluationUpdateRequest(BaseModel):
-    """Partial evaluation payload (openapi.yaml EvaluationUpdateRequest) - any subset of the
-    three signal fields may be submitted; the backend merges onto the existing record.
+    """Partial evaluation payload - any subset of the three signal fields may be submitted;
+    the backend merges onto the existing record (`model_service.submit_evaluation`).
 
     `eval_set_id`/`eval_set_version` name the stored golden/eval set the signals were
     measured against (issue #43); they are stored once, on the model version, and may be
-    (re)submitted alongside any signal."""
+    (re)submitted alongside any signal.
+
+    Issue #128: no longer reachable from the public API with caller-supplied signal values -
+    `POST .../evaluation` now takes `EvaluationTriggerRequest` instead. This schema is kept as
+    the internal shape `model_service.submit_evaluation` accepts, used by the evaluation worker
+    (app/workers/evaluation_worker.py, once it has computed real signals via ServingBackend) and
+    by tests that build fixtures directly through the service layer."""
 
     eval_set_id: str | None = None
     eval_set_version: int | None = None
     eval_loss_trend: EvalLossTrend | None = None
     qualitative_comparison: QualitativeComparison | None = None
     general_domain_regression_check: GeneralDomainRegressionCheck | None = None
+
+
+class EvaluationTriggerRequest(BaseModel):
+    """Request body for `POST .../evaluation` (issue #128, openapi.yaml EvaluationUpdateRequest).
+
+    Trigger-only: the endpoint no longer accepts caller-supplied signal numbers (`eval_loss_trend`,
+    `qualitative_comparison`, `general_domain_regression_check`) - those are now computed
+    server-side by the evaluation worker against the stored golden/eval set (issue #43) via
+    `ServingBackend`. `extra="forbid"` makes a request still shaped like the old manual payload
+    fail with 422 rather than silently accepting/ignoring caller-controlled evaluation results.
+    `eval_set_id`/`eval_set_version` (optional) name/override the golden set to evaluate against;
+    when omitted, the model version's already-stored eval set reference is used."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eval_set_id: str | None = None
+    eval_set_version: int | None = None
 
 
 class EvaluationSubmitResponse(BaseModel):

@@ -309,6 +309,34 @@ def submit_evaluation(
     return model_version
 
 
+def trigger_evaluation(
+    db: Session,
+    model_version: ModelVersion,
+    *,
+    eval_set_id: str | None = None,
+    eval_set_version: int | None = None,
+) -> ModelVersion:
+    """Queue a model version for async server-side evaluation (issue #128, PRD §15.2/§48
+    InferenceTarget) instead of accepting caller-supplied signal numbers directly.
+
+    Persists the eval-set reference when provided (same fields `submit_evaluation` used to
+    accept from the caller) and flips `evaluation_requested` so the evaluation worker
+    (`app/workers/evaluation_worker.py`) - polling the same way `training_worker.py` polls
+    `TrainingRun` - claims this version, runs real inference through the existing
+    `ServingBackend`/`InferenceTarget` against the stored golden/eval set (#43), and applies
+    the computed result through `submit_evaluation` (unchanged: still the merge +
+    REGISTERED -> EVALUATED transition). Caller (API layer) is responsible for the 409 "not
+    editable" guard and for requiring an eval-set reference to exist before triggering."""
+
+    if eval_set_id is not None:
+        model_version.eval_set_id = eval_set_id
+    if eval_set_version is not None:
+        model_version.eval_set_version = eval_set_version
+    model_version.evaluation_requested = True
+    db.flush()
+    return model_version
+
+
 # issue #66: ARCHIVED is a distinct, reversible state - "pernah valid/dipakai tapi tidak lagi
 # aktif". Unlike REJECTED (a failed candidate kept on record), ARCHIVED removes a version from
 # active listing/deployment consideration without deleting its artifact (PRD §8.4, §43).

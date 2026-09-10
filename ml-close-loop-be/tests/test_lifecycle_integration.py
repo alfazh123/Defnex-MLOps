@@ -175,38 +175,36 @@ def _run_lifecycle(client, admin_token, serving_backend=None, training_request=N
         {"model_id": MODEL_ID, "latest_version": model_version, "status": "REGISTERED"}
     ]
 
-    # --- Evaluation ------------------------------------------------------------------------
+    # --- Evaluation (issue #128: server-side, against a real golden/eval set) --------------
+    eval_set_resp = client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={"records": [{"messages": [{"role": "user", "content": "eval-probe-1"}]}]},
+        headers=h,
+    )
+    assert eval_set_resp.status_code == 201, eval_set_resp.text
+    eval_set_version = eval_set_resp.json()["version"]
+
     evaluation_url = f"/api/v1/models/{MODEL_ID}/versions/{model_version}/evaluation"
-    partial = client.post(
+    triggered = client.post(
         evaluation_url,
-        json={"eval_loss_trend": {"this_version_eval_loss": 0.84}},
+        json={"eval_set_id": "domain-benchmark", "eval_set_version": eval_set_version},
         headers=h,
     )
-    assert (
-        partial.json()["status"] == "REGISTERED"
-    )  # partial evaluation does not qualify
-    client.post(
-        evaluation_url,
-        json={
-            "qualitative_comparison": {
-                "question_table_version": 1,
-                "wins": 13,
-                "losses": 5,
-                "ties": 2,
-                "total": 20,
-            }
-        },
-        headers=h,
-    )
-    response = client.post(
-        evaluation_url,
-        json={
-            "general_domain_regression_check": {
-                "checked": True,
-                "regressions_found": [],
-            }
-        },
-        headers=h,
+    assert triggered.status_code == 200
+    assert triggered.json()["status"] == "REGISTERED"  # evaluation runs asynchronously
+
+    # The evaluation worker: same "call the poll function once" pattern used above for the
+    # training worker - computes the signals server-side via MockServingBackend against the
+    # golden set just created, instead of trusting a caller-supplied payload.
+    with Session(client.engine) as db:
+        from app.workers.evaluation_worker import process_next_evaluation
+
+        processed_evaluation = process_next_evaluation(db)
+        db.commit()
+        assert processed_evaluation is not None
+
+    response = client.get(
+        f"/api/v1/models/{MODEL_ID}/versions/{model_version}", headers=h
     )
     assert response.status_code == 200
     assert response.json()["status"] == "EVALUATED"

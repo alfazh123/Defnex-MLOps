@@ -104,35 +104,36 @@ def _registered_model_version(client, admin_token):
 
 
 def _promoted_model_version(client, admin_token):
+    # Issue #128: POST .../evaluation is a trigger now, not a caller-supplied-number sink;
+    # this fixture applies the evaluation signals directly through the service layer (the
+    # same internal entry point the evaluation worker uses once it has computed a real
+    # result), matching tests/test_promotion_api.py's `_evaluated_model_version`.
+    from app.schemas.model import (
+        EvalLossTrend,
+        EvaluationUpdateRequest,
+        GeneralDomainRegressionCheck,
+        QualitativeComparison,
+    )
+    from app.services import model_service
+
     model_id, version = _registered_model_version(client, admin_token)
     h = auth_header(admin_token)
-    url = f"/api/v1/models/{model_id}/versions/{version}/evaluation"
-    client.post(
-        url, json={"eval_loss_trend": {"this_version_eval_loss": 0.84}}, headers=h
-    )
-    client.post(
-        url,
-        json={
-            "qualitative_comparison": {
-                "question_table_version": 1,
-                "wins": 13,
-                "losses": 5,
-                "ties": 2,
-                "total": 20,
-            }
-        },
-        headers=h,
-    )
-    client.post(
-        url,
-        json={
-            "general_domain_regression_check": {
-                "checked": True,
-                "regressions_found": [],
-            }
-        },
-        headers=h,
-    )
+    with Session(client.engine) as db:
+        model_version = model_service.get_model_version(db, model_id, version)
+        model_service.submit_evaluation(
+            db,
+            model_version,
+            EvaluationUpdateRequest(
+                eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.84),
+                qualitative_comparison=QualitativeComparison(
+                    question_table_version=1, wins=13, losses=5, ties=2, total=20
+                ),
+                general_domain_regression_check=GeneralDomainRegressionCheck(
+                    checked=True, regressions_found=[]
+                ),
+            ),
+        )
+        db.commit()
     client.post(
         f"/api/v1/models/{model_id}/versions/{version}/decisions",
         json={

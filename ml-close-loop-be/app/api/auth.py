@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 import structlog
 
+from app.api.deps import get_current_user_and_token
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.limiter import limiter
+from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     RefreshRequest,
@@ -115,3 +117,13 @@ def register(
     return UserResponse(
         id=user.id, username=user.username, role=user.role, created_at=user.created_at
     )
+
+
+@router.post("/auth/logout", status_code=204)
+def logout(
+    user_and_token: tuple[User, str] = Depends(get_current_user_and_token),
+) -> None:
+    """Revoke the current access token (#86 Security Hardening)."""
+    user, token = user_and_token
+    auth_service.revoke_token(token)
+    logger.info("logout_success", user_id=user.id)

@@ -1,3 +1,4 @@
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -39,6 +40,31 @@ _DEPLOYED_CONFLICT_MESSAGE = (
     "another version of this model is already DEPLOYED; only one can hold the production "
     "pointer at a time (a concurrent deploy won the race)."
 )
+
+
+_DEPLOY_IDEMPOTENCY_CACHE: dict[str, tuple[dict, float]] = {}
+_IDEMPOTENCY_TTL = 3600  # 1 hour
+
+
+def check_idempotency(key: str | None, model_version_id: int) -> dict | None:
+    """Check if this deploy was already executed with the same idempotency key."""
+    if key is None:
+        return None
+    cache_key = f"{key}:{model_version_id}"
+    if cache_key in _DEPLOY_IDEMPOTENCY_CACHE:
+        result, timestamp = _DEPLOY_IDEMPOTENCY_CACHE[cache_key]
+        if time.time() - timestamp < _IDEMPOTENCY_TTL:
+            return result
+        del _DEPLOY_IDEMPOTENCY_CACHE[cache_key]
+    return None
+
+
+def store_idempotency(key: str | None, model_version_id: int, result: dict) -> None:
+    """Store deploy result for idempotency replay."""
+    if key is None:
+        return
+    cache_key = f"{key}:{model_version_id}"
+    _DEPLOY_IDEMPOTENCY_CACHE[cache_key] = (result, time.time())
 
 
 class SmokeTestError(Exception):

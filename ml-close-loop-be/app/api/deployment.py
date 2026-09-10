@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -31,8 +31,12 @@ def deploy_model_version(
     body: DeployRequest | None = None,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)
+    cached = deployment_service.check_idempotency(x_idempotency_key, model_version.id)
+    if cached is not None:
+        return DeployResult(**cached)
     # Batch 3 (issues #69/#70): environment-aware deploy gate for the staging/production
     # promotion ladder (PRD §16.2 "Promotion Ladder", §41 Principle 4 "Staging Before Production").
     #   - default/None  : legacy gate, PROMOTED only (unchanged; backward compatible).
@@ -85,7 +89,11 @@ def deploy_model_version(
         # A concurrent deploy won the race for this model_id (partial unique index
         # uq_model_versions_one_deployed) - a real conflict, not a fake success.
         raise APIError(409, "DEPLOY_CONFLICT", str(exc)) from exc
-    return deployment_service.to_deploy_result(deployment, previous)
+    result = deployment_service.to_deploy_result(deployment, previous)
+    deployment_service.store_idempotency(
+        x_idempotency_key, model_version.id, result.model_dump()
+    )
+    return result
 
 
 @router.get(

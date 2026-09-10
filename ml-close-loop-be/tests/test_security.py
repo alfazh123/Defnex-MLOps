@@ -418,3 +418,92 @@ def test_rate_limit_window_resets(client):
         ).status_code
         == 201
     )
+
+
+# ----------------------------------------------------------------
+# Issue #86 — Security Hardening
+# ----------------------------------------------------------------
+
+
+def test_jwt_secret_default_fails_fast_in_production(monkeypatch):
+    """jwt_secret == dev default AND deployment_environment=production must raise SystemExit."""
+    import app.config as config_mod
+
+    monkeypatch.setenv("JWT_SECRET", "dev-secret-change-in-production")
+    monkeypatch.setenv("DEPLOYMENT_ENVIRONMENT", "production")
+    try:
+        config_mod.Settings()
+    except SystemExit:
+        pass  # expected
+    else:
+        raise AssertionError(
+            "expected SystemExit for insecure jwt_secret in production"
+        )
+
+
+def test_jwt_secret_default_allowed_in_non_prod(monkeypatch):
+    """jwt_secret == dev default is fine when not in production environment."""
+    import app.config as config_mod
+
+    monkeypatch.setenv("JWT_SECRET", "dev-secret-change-in-production")
+    monkeypatch.setenv("DEPLOYMENT_ENVIRONMENT", "default")
+    s = config_mod.Settings()
+    assert s.jwt_secret == "dev-secret-change-in-production"
+
+
+def test_secret_scrubbing_redacts_password_in_logs(capfd):
+    """Structlog events with 'password' key are redacted."""
+    import logging
+
+    from app.logging import _scrub_secrets
+
+    bound = logging.Logger("test")
+    event = {"password": "hunter2", "username": "admin"}
+    result = _scrub_secrets(bound, "info", event)
+    assert result["password"] == "***REDACTED***"
+    assert result["username"] == "admin"
+
+
+def test_secret_scrubbing_redacts_token_in_logs():
+    from app.logging import _scrub_secrets
+
+    event = {"token": "secret-value", "user_id": 1}
+    result = _scrub_secrets(None, None, event)
+    assert result["token"] == "***REDACTED***"
+    assert result["user_id"] == 1
+
+
+def test_token_revocation_blocks_further_use(client):
+    """A revoked token must not be accepted for API calls."""
+    from tests.conftest import auth_header
+
+    token = _register_and_login(client)
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 200
+
+    # Revoke
+    import app.services.auth_service as svc
+
+    svc.revoke_token(token)
+
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+def test_logout_revokes_current_token(client):
+    """POST /auth/logout must invalidate the access token."""
+    from tests.conftest import auth_header
+
+    token = _register_and_login(client)
+    # Verify token works
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 200
+
+    # Logout
+    resp = client.post("/api/v1/auth/logout", headers=auth_header(token))
+    assert resp.status_code == 204
+
+    # Token must no longer work
+    resp = client.get("/api/v1/datasets", headers=auth_header(token))
+    assert resp.status_code == 401

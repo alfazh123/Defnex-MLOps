@@ -1,7 +1,21 @@
 import logging
+import re
 import sys
 
 import structlog
+
+_SECRET_PATTERNS = re.compile(
+    r"(password|token|jwt_secret|api_key|credential|secret_key|secret|access_key)",
+    re.IGNORECASE,
+)
+
+
+def _scrub_secrets(logger, method_name, event_dict):
+    """Redact secret fields from structured log events."""
+    for key in list(event_dict.keys()):
+        if _SECRET_PATTERNS.search(str(key)):
+            event_dict[key] = "***REDACTED***"
+    return event_dict
 
 
 def configure_logging(log_level: str = "INFO", debug: bool = False) -> None:
@@ -13,6 +27,7 @@ def configure_logging(log_level: str = "INFO", debug: bool = False) -> None:
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
+        _scrub_secrets,
     ]
 
     if debug:

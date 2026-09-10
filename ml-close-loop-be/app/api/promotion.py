@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 import structlog
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_model_version_or_404, require_admin
 from app.api.errors import APIError
+from app.config import settings
 from app.db.session import get_db
+from app.limiter import limiter
 from app.models.deployment import Deployment
 from app.models.user import User
 from app.schemas.common import ErrorResponse
@@ -27,16 +29,18 @@ router = APIRouter(tags=["Decisions"])
     status_code=201,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
+@limiter.limit(settings.rate_limit_promotion_decision)
 def create_decision(
+    request: Request,
     model_id: str,
     version: int,
-    request: DecisionCreateRequest,
+    body: DecisionCreateRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> DecisionRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     try:
-        decision = promotion_service.create_decision(db, model_version, request)
+        decision = promotion_service.create_decision(db, model_version, body)
     except promotion_service.EvalGateBlocked as exc:
         raise APIError(409, "PROMOTION_GATE_BLOCKED", str(exc)) from exc
     except ValueError as exc:

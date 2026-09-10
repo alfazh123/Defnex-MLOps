@@ -5,13 +5,15 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.api.errors import APIError
+from app.config import settings
 from app.db.session import get_db
+from app.limiter import limiter
 from app.models.dataset import Dataset, DatasetVersion
 from app.models.user import User
 from app.models.validation import ValidationReport
@@ -49,43 +51,47 @@ class IntakeCommitRequest(BaseModel):
     response_model=dict,
     responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
+@limiter.limit(settings.rate_limit_intake_validate)
 def validate_intake(
-    request: IntakeValidateRequest,
+    request: Request,
+    intake_request: IntakeValidateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
 ) -> dict:
     """Validate a staged dataset file (Step 4). Returns H1-H9 validation results."""
     storage = DatasetStorage()
 
-    staged_path = storage.resolve_staged(request.staging_id)
+    staged_path = storage.resolve_staged(intake_request.staging_id)
     if staged_path is None:
         raise APIError(
-            404, "STAGING_NOT_FOUND", f"Staging {request.staging_id} not found"
+            404, "STAGING_NOT_FOUND", f"Staging {intake_request.staging_id} not found"
         )
 
-    records = storage.read_records(staged_path, source_format=request.source_format)
+    records = storage.read_records(
+        staged_path, source_format=intake_request.source_format
+    )
     if not records:
         raise APIError(400, "EMPTY_DATASET", "No records found in staged file")
 
     eval_records = None
-    if request.eval_set_id and request.eval_set_version:
+    if intake_request.eval_set_id and intake_request.eval_set_version:
         from app.services import eval_set_service
 
         eval_ver = eval_set_service.get_eval_set_version(
-            db, request.eval_set_id, request.eval_set_version
+            db, intake_request.eval_set_id, intake_request.eval_set_version
         )
         if eval_ver:
             eval_records = eval_ver.records
 
-    dataset_service.register_dataset(db, request.dataset_id)
+    dataset_service.register_dataset(db, intake_request.dataset_id)
 
-    version_num = dataset_service._next_version(db, request.dataset_id)
+    version_num = dataset_service._next_version(db, intake_request.dataset_id)
     dv = DatasetVersion(
-        dataset_id=request.dataset_id,
+        dataset_id=intake_request.dataset_id,
         version=version_num,
         status="PENDING",
         source_type="file_upload",
-        source_format=request.source_format,
+        source_format=intake_request.source_format,
         row_count=len(records),
         created_at=datetime.now(UTC),
         raw_file_uri=str(staged_path),
@@ -138,9 +144,9 @@ def validate_intake(
         "preview": records[:5],
         "checksum_sha256": checksum,
         "normalized_format": "jsonl",
-        "schema_version": request.schema_name,
+        "schema_version": intake_request.schema_name,
         "validation_report_id": report.id,
-        "staging_id": request.staging_id,
+        "staging_id": intake_request.staging_id,
     }
 
 
@@ -153,8 +159,10 @@ def validate_intake(
         403: {"model": ErrorResponse},
     },
 )
+@limiter.limit(settings.rate_limit_intake_commit)
 def commit_intake(
-    request: IntakeCommitRequest,
+    request: Request,
+    intake_request: IntakeCommitRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
     x_idempotency_key: str | None = Header(None),
@@ -169,13 +177,13 @@ def commit_intake(
 
     storage = DatasetStorage()
 
-    staged_path = storage.resolve_staged(request.staging_id)
+    staged_path = storage.resolve_staged(intake_request.staging_id)
     if staged_path is None:
         raise APIError(
-            404, "STAGING_NOT_FOUND", f"Staging {request.staging_id} not found"
+            404, "STAGING_NOT_FOUND", f"Staging {intake_request.staging_id} not found"
         )
 
-    vr = db.get(ValidationReport, request.validation_report_id)
+    vr = db.get(ValidationReport, intake_request.validation_report_id)
     if vr is None:
         raise APIError(
             404, "VALIDATION_REPORT_NOT_FOUND", "Validation report not found"
@@ -189,19 +197,19 @@ def commit_intake(
             409, "CHECKSUM_MISMATCH", "File checksum changed since validation"
         )
 
-    dataset_service.register_dataset(db, request.dataset_id)
-    version_num = dataset_service._next_version(db, request.dataset_id)
+    dataset_service.register_dataset(db, intake_request.dataset_id)
+    version_num = dataset_service._next_version(db, intake_request.dataset_id)
 
     canonical_uri = storage.commit_file(
-        request.staging_id, request.dataset_id, version_num
+        intake_request.staging_id, intake_request.dataset_id, version_num
     )
 
     dv = DatasetVersion(
-        dataset_id=request.dataset_id,
+        dataset_id=intake_request.dataset_id,
         version=version_num,
         status="PROCESSED",
-        source_type=request.source_type,
-        source_format=request.source_format,
+        source_type=intake_request.source_type,
+        source_format=intake_request.source_format,
         row_count=vr.record_count,
         created_at=datetime.now(UTC),
         created_by=_user.username,
@@ -212,26 +220,30 @@ def commit_intake(
     db.flush()
 
     manifest = {
-        "dataset_id": request.dataset_id,
+        "dataset_id": intake_request.dataset_id,
         "version": version_num,
-        "source_type": request.source_type,
-        "source_format": request.source_format,
+        "source_type": intake_request.source_type,
+        "source_format": intake_request.source_format,
         "row_count": vr.record_count,
         "checksum_sha256": checksum,
         "created_at": datetime.now(UTC).isoformat(),
         "created_by": _user.username,
     }
-    storage.write_validation_report(request.dataset_id, version_num, manifest)
+    storage.write_validation_report(intake_request.dataset_id, version_num, manifest)
     storage.write_schema(
-        request.dataset_id, version_num, {"schema": "defnex_scenario_v1"}
+        intake_request.dataset_id, version_num, {"schema": "defnex_scenario_v1"}
     )
 
-    if request.display_name:
-        dataset_obj = db.get(Dataset, request.dataset_id)
+    if intake_request.display_name:
+        dataset_obj = db.get(Dataset, intake_request.dataset_id)
         if dataset_obj and hasattr(dataset_obj, "display_name"):
-            dataset_obj.display_name = request.display_name
-        if dataset_obj and request.description and hasattr(dataset_obj, "description"):
-            dataset_obj.description = request.description
+            dataset_obj.display_name = intake_request.display_name
+        if (
+            dataset_obj
+            and intake_request.description
+            and hasattr(dataset_obj, "description")
+        ):
+            dataset_obj.description = intake_request.description
 
     db.commit()
 

@@ -6,6 +6,7 @@ from app.models.environment import Environment
 from app.models.feedback import Feedback
 from app.models.model import Model, ModelVersion
 from app.models.promotion import PromotionDecision
+from app.models.revoked_token import RevokedToken
 from app.models.training import TrainingRun
 from app.models.transfer import ArtifactTransfer
 from app.models.user import User
@@ -24,6 +25,7 @@ __all__ = [
     "Model",
     "ModelVersion",
     "PromotionDecision",
+    "RevokedToken",
     "TrainingRun",
     "User",
     "ValidationReport",

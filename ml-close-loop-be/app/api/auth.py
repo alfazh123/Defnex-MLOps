@@ -57,7 +57,7 @@ def login(
 
 @router.post("/auth/refresh", response_model=TokenResponse)
 def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    payload = auth_service.decode_token(body.refresh_token)
+    payload = auth_service.decode_token(body.refresh_token, db)
     if payload is None or payload.get("type") != "refresh":
         raise APIError(401, "INVALID_REFRESH_TOKEN", "Invalid or expired refresh token")
 
@@ -122,8 +122,10 @@ def register(
 @router.post("/auth/logout", status_code=204)
 def logout(
     user_and_token: tuple[User, str] = Depends(get_current_user_and_token),
+    db: Session = Depends(get_db),
 ) -> None:
     """Revoke the current access token (#86 Security Hardening)."""
     user, token = user_and_token
-    auth_service.revoke_token(token)
+    auth_service.revoke_token(token, db)
+    db.commit()
     logger.info("logout_success", user_id=user.id)

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_model_version_or_404, require_admin
 from app.api.errors import APIError
+from app.config import settings
 from app.db.session import get_db
+from app.limiter import limiter
 from app.models.environment import Environment
 from app.models.model import Model
 from app.models.user import User
@@ -25,7 +27,9 @@ router = APIRouter(tags=["Deployment"])
     response_model=DeployResult,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
+@limiter.limit(settings.rate_limit_deploy)
 def deploy_model_version(
+    request: Request,
     model_id: str,
     version: int,
     body: DeployRequest | None = None,

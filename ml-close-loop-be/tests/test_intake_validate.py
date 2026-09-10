@@ -1,4 +1,5 @@
 """Tests for the dataset intake validate + commit endpoints."""
+
 import json
 import tempfile
 from pathlib import Path
@@ -65,7 +66,12 @@ class _FakeStorage:
         p = d / filename
         p.write_bytes(content)
         self._files[sid] = p
-        return {"staging_id": sid, "path": str(p), "filename": filename, "size_bytes": len(content)}
+        return {
+            "staging_id": sid,
+            "path": str(p),
+            "filename": filename,
+            "size_bytes": len(content),
+        }
 
     def resolve_staged(self, staging_id: str) -> Path | None:
         return self._files.get(staging_id)
@@ -80,6 +86,7 @@ class _FakeStorage:
 
     def compute_checksum(self, path: Path) -> str:
         import hashlib
+
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def commit_file(self, staging_id: str, dataset_id: str, version: int) -> str:
@@ -90,6 +97,7 @@ class _FakeStorage:
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / src.name
         import shutil
+
         shutil.move(str(src), str(dest))
         return str(dest)
 
@@ -201,9 +209,12 @@ def test_validate_leakage_detected(client, admin_token, fake_storage):
 
     from app.services import eval_set_service
 
-    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage), \
-         patch.object(eval_set_service, "get_eval_set_version") as mock_get:
+    with (
+        patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage),
+        patch.object(eval_set_service, "get_eval_set_version") as mock_get,
+    ):
         from types import SimpleNamespace
+
         mock_get.return_value = SimpleNamespace(records=[EVAL_RECORD])
 
         resp = client.post(

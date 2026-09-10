@@ -1,0 +1,53 @@
+ml-close-loop-be/app/workers/remote_worker.py
+  s_fbaed9504700c0::t_21d1e98ca28dd9 25
+  s_fbaed9504700c0::t_f70b2316b95965 1-24,26-206
+ml-close-loop-be/tests/test_gpu_vps_provider.py
+  s_fbaed9504700c0::t_9607ad0963e9da 174,176-177
+  s_fbaed9504700c0::t_0addc431905fbc 17
+  s_fbaed9504700c0::t_c614097abcd7cd 21
+  s_fbaed9504700c0::t_a1985309794b6e 1-16,18-20,22-173,175,184-234,236-338,355-362
+  s_fbaed9504700c0::t_6441f391a99c0d 178-183
+  s_fbaed9504700c0::t_27579051c283ad 339-354
+  s_fbaed9504700c0::t_90611dc40b9b6a 235
+ml-close-loop-be/app/config.py
+  s_fbaed9504700c0::t_3730f421bfb741 189-194
+ml-close-loop-be/.env.example
+  s_fbaed9504700c0::t_06118ad8f22ec5 183-188
+ml-close-loop-be/app/workers/gpu_lock.py
+  s_fbaed9504700c0::t_771c84428ec9c5 20-26
+ml-close-loop-be/app/workers/training_worker.py
+  s_fbaed9504700c0::t_5ba99bdb41f3a7 238-250
+ml-close-loop-be/app/providers/training_provider.py
+  s_fbaed9504700c0::t_0bf2f3db4b5370 33
+  s_fbaed9504700c0::t_02c219cadd6f95 35
+  s_fbaed9504700c0::t_e20ee48e4d9247 274-364,366-408,410-467
+  s_dc9f3a4620448d::t_7c8ec75681fa04 365,409
+ml-close-loop-be/app/providers/__init__.py
+  s_fbaed9504700c0::t_702e31afc41e43 1-3
+ml-close-loop-be/.gitignore
+  s_fbaed9504700c0::t_a57ec4fcac14fe 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "93d36b9e4b1418e46b5d091d1ff24998fad250dd",
+  "prompts": {},
+  "sessions": {
+    "s_dc9f3a4620448d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f76d186a2ffeQVyhFi0teCBaiP",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_fbaed9504700c0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f76d1d332ffex5M7r3sBIziJ5L",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

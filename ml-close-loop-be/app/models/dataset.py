@@ -12,6 +12,8 @@ class Dataset(Base):
     __tablename__ = "datasets"
 
     dataset_id: Mapped[str] = mapped_column(String, primary_key=True)
+    display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
 
     versions: Mapped[list["DatasetVersion"]] = relationship(
         back_populates="dataset", order_by="DatasetVersion.version"
@@ -49,6 +51,8 @@ class DatasetVersion(Base):
     cleaning_steps_applied: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column()
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_file_uri: Mapped[str | None] = mapped_column(String, nullable=True)
+    canonical_file_uri: Mapped[str | None] = mapped_column(String, nullable=True)
 
     dataset: Mapped["Dataset"] = relationship(back_populates="versions")
     validation_reports: Mapped[list["ValidationReport"]] = relationship(

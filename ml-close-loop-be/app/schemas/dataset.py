@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-DatasetSourceFormat = Literal["alpaca", "sharegpt", "chatml", "other"]
+DatasetSourceFormat = Literal["alpaca", "sharegpt", "chatml", "jsonl", "other"]
 DatasetVersionStatus = Literal["PENDING", "PROCESSING", "PROCESSED", "FAILED"]
 # Broader than DatasetVersionCreateRequest.source_type below: "feedback" versions are never
 # created through that request (issue #42's separate from-feedback endpoint), but the manifest

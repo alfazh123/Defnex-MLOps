@@ -1,0 +1,67 @@
+ml-close-loop-be/tests/test_failure_recovery.py
+  s_e6b64e01b510a4::t_221e0c70900786 201-207,213,216-219,221
+  s_e6b64e01b510a4::t_21f8c17a5b1ab8 458-461,621-622,627
+  s_e6b64e01b510a4::t_d38606b0943ea5 595
+  s_e6b64e01b510a4::t_49c84085cb0089 196,198-200,208-212,214-215,220
+  s_e6b64e01b510a4::t_f435b41568bad1 25-31
+  s_e6b64e01b510a4::t_4698edf0a9129d 107-108
+  s_e6b64e01b510a4::t_b3802bbb9b4270 1-21,23-24,32-53,67-106,109-195,197,222-457,462-536,540-549,551-567,572-594,596-620,623-626,628-693
+  s_e6b64e01b510a4::t_86b59336f67dcd 54-66
+  s_e6b64e01b510a4::t_b300b203a5d34e 537-539,568-571
+  s_e6b64e01b510a4::t_70da0c8ea995a3 550
+  s_e6b64e01b510a4::t_1b5ac5eceaf768 22
+ml-close-loop-be/app/workers/gpu_lock.py
+  s_e6b64e01b510a4::t_ed01f33f40e6db 49,54-57
+ml-close-loop-be/tests/test_telemetry.py
+  s_e6b64e01b510a4::t_3e93011610a863 228-229
+  s_e6b64e01b510a4::t_fc57a074358f97 264
+  s_e6b64e01b510a4::t_21f8c17a5b1ab8 235
+  s_e6b64e01b510a4::t_4627d0dda3901e 135-227,230-234,236-241,243,247-250,253-263,265-278,283-286
+  s_e6b64e01b510a4::t_77f0fedd0ff5ff 244-245,252,279-282
+  s_e6b64e01b510a4::t_ef573595a8a4b5 36-48
+  s_e6b64e01b510a4::t_9ab324979d95ff 242,246,251
+  s_e6b64e01b510a4::t_e92e08bd471fbe 49-53
+ml-close-loop-be/.env.example
+  s_e6b64e01b510a4::t_fe4119aa1024b4 202-206
+ml-close-loop-be/tests/test_alerting.py
+  s_e6b64e01b510a4::t_1835dcb3ea9d30 83
+  s_e6b64e01b510a4::t_19ed49bc6b3b0f 5,7,27,95,139-162
+  s_e6b64e01b510a4::t_7df6d750e5e2a4 6,22,32-48,56,61-62,64-67,73,78-82,84,98,103-113,121,126-136
+  s_e6b64e01b510a4::t_59c7a9c2d90673 19,28-30,91,93-94,114,137
+  s_e6b64e01b510a4::t_e087d33cb846dd 1-4,8-18,20-21,26,31,49-55,57-60,63,68-72,74-77,85-90,92,96-97,99-102,115-120,122-125,138
+  s_e6b64e01b510a4::t_21f8c17a5b1ab8 23-25
+ml-close-loop-be/app/services/training_service.py
+  s_e6b64e01b510a4::t_ce50c9cdbf05b0 179-183,186-192
+  s_e6b64e01b510a4::t_93fce3d181e795 236-239,255-258
+  s_e6b64e01b510a4::t_a94ce4600d603f 259-260
+  s_e6b64e01b510a4::t_2d372309858a33 163
+  s_e6b64e01b510a4::t_21f8c17a5b1ab8 184-185,261
+ml-close-loop-be/app/services/deployment_service.py
+  s_e6b64e01b510a4::t_52554ec9ff567c 305-314
+  s_e6b64e01b510a4::t_1e67962455d807 343-348,363-371
+ml-close-loop-be/app/config.py
+  s_e6b64e01b510a4::t_0ede38ea274345 203-205
+ml-close-loop-be/app/workers/training_worker.py
+  s_e6b64e01b510a4::t_9076c4673a73ef 139-140,150-151,168,188-193
+ml-close-loop-be/app/services/alerting.py
+  s_e6b64e01b510a4::t_14a97eadb6730c 1-47,49-50,79,83,85-88,92-93,95,102
+  s_e6b64e01b510a4::t_203f0468154a97 51-77,80-82,84,89,91,96-101,103
+  s_e6b64e01b510a4::t_7c1247151d7d99 78,90,94
+  s_e6b64e01b510a4::t_a52e6e5f997fcd 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5e4f6ab715bb84aaf75af9ecadf7b861bccf7a2f",
+  "prompts": {},
+  "sessions": {
+    "s_e6b64e01b510a4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f762709d7ffeBlGXyUEqGmsDRm",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

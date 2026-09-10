@@ -1,0 +1,26 @@
+ml-close-loop-be/app/main.py
+  s_11aa633c51e794::t_e97da7a42eda93 34
+  s_11aa633c51e794::t_cc757c263459ce 101-105
+ml-close-loop-be/tests/test_security_headers.py
+  s_11aa633c51e794::t_b18f9f2e1c5c90 7-10
+  s_11aa633c51e794::t_65abd1dde3d30e 1-6,11-28
+ml-close-loop-be/app/middleware/security_headers.py
+  s_11aa633c51e794::t_c5f1e10aa145c7 2,8-13,34
+  s_11aa633c51e794::t_af2c6de75555bd 1,3-7,14-33,35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f03f829e1e7910eb450bff6b7dac40c0daef589",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

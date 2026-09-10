@@ -1,0 +1,52 @@
+ml-close-loop-be/openapi.yaml
+  s_11aa633c51e794::t_8ef53bb1a3cca4 99-101
+ml-close-loop-be/app/models/__init__.py
+  s_11aa633c51e794::t_2f41b8064adc0e 9
+  s_11aa633c51e794::t_8af76fd50542e8 28
+ml-close-loop-be/app/api/auth.py
+  s_11aa633c51e794::t_a7bfed46ee9f2a 120-126,128
+  s_11aa633c51e794::t_0f2e3cc5f91916 57-61,64-65,67-68
+  s_11aa633c51e794::t_2f7e6c97422ea0 42,44-45
+ml-close-loop-be/app/models/revoked_refresh_token.py
+  s_11aa633c51e794::t_c270c2deabdab4 1-31
+ml-close-loop-be/.env.example
+  s_11aa633c51e794::t_3bb0f18991ccdb 77-80
+ml-close-loop-be/tests/test_security.py
+  s_11aa633c51e794::t_b468e0350b5005 476-480,483-485,490,492,496,499-502,505-515,522,524-527,529
+ml-close-loop-be/app/config.py
+  s_11aa633c51e794::t_63ba4de08f1983 59
+ml-close-loop-be/README.md
+  s_11aa633c51e794::t_5513b8b92acbd5 320-321
+ml-close-loop-be/alembic/versions/489a47ac4d8d_merge_heads_before_revoked_refresh_.py
+  s_11aa633c51e794::t_10af31f357bf93 1-7,9-12,15-26
+  s_11aa633c51e794::t_ddcd172fc3195b 8,13-14
+ml-close-loop-be/tests/test_auth.py
+  s_11aa633c51e794::t_5ec0f57b979007 326-354,361-425
+  s_11aa633c51e794::t_58ad88049bb0c2 355-360
+ml-close-loop-be/alembic/versions/7ec17e63ceda_add_revoked_refresh_tokens_table.py
+  s_11aa633c51e794::t_832c9f5f0b6cf2 23-30,56
+  s_11aa633c51e794::t_ddcd172fc3195b 8,16-17,31-45,47-52,57-63
+  s_11aa633c51e794::t_4317afadfcf114 1-7,9-15,18-22,46,53-55
+ml-close-loop-be/tests/test_auth_service.py
+  s_11aa633c51e794::t_0b70df4a7408c3 95-146,151-180
+  s_11aa633c51e794::t_ddcd172fc3195b 147-150
+ml-close-loop-be/app/services/auth_service.py
+  s_11aa633c51e794::t_ddcd172fc3195b 79,98-100,104-105
+  s_11aa633c51e794::t_3b9e0ef51c932f 8,11,14-15,27-28,32-35,39-41,46-53,57-66,68-77,86-97,101-103,106-112,114-143,145-148,150-153,159-190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "02f9cfa848fa50c748b0858503de2b52b4e57119",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

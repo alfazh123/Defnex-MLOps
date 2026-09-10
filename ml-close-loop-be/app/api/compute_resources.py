@@ -12,11 +12,12 @@ from app.api.deps import (
     PaginationParams,
     get_current_user,
     get_pagination,
-    require_admin,
+    require_permission,
 )
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
+from app.rbac import INFRA_CREDENTIAL_WRITE
 from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.compute_resource import (
     ComputeResource,
@@ -38,7 +39,7 @@ router = APIRouter(tags=["Compute Resources"])
 def create_compute_resource(
     request: ComputeResourceCreateRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(INFRA_CREDENTIAL_WRITE)),
 ) -> ComputeResource:
     """Register a new compute resource (PRD §19.4). Admin only."""
     try:
@@ -109,7 +110,7 @@ def update_compute_resource(
     resource_id: int,
     request: ComputeResourceUpdateRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(INFRA_CREDENTIAL_WRITE)),
 ) -> ComputeResource:
     """Partial update of a compute resource. Admin only."""
     resource = compute_resource_service.get_compute_resource(db, resource_id)
@@ -137,7 +138,7 @@ def update_compute_resource(
 def delete_compute_resource(
     resource_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(INFRA_CREDENTIAL_WRITE)),
 ) -> None:
     """Delete a compute resource. Admin only."""
     resource = compute_resource_service.get_compute_resource(db, resource_id)

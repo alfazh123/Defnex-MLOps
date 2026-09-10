@@ -2,13 +2,14 @@ from fastapi import APIRouter, Depends, Request
 import structlog
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_model_version_or_404, require_admin
+from app.api.deps import get_model_version_or_404, require_permission
 from app.api.errors import APIError
 from app.config import settings
 from app.db.session import get_db
 from app.limiter import limiter
 from app.models.deployment import Deployment
 from app.models.user import User
+from app.rbac import DEPLOY, PROMOTE, ROLLBACK, VALIDATE_STAGING
 from app.schemas.common import ErrorResponse
 from app.schemas.promotion import (
     DecisionCreateRequest,
@@ -36,7 +37,7 @@ def create_decision(
     version: int,
     body: DecisionCreateRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(PROMOTE)),
 ) -> DecisionRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     try:
@@ -59,7 +60,7 @@ def rollback_model(
     model_id: str,
     request: RollbackRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(ROLLBACK)),
 ) -> DecisionRecord:
     target = get_model_version_or_404(db, model_id, request.rollback_of_version)
     try:
@@ -94,7 +95,7 @@ def deploy_to_staging_endpoint(
     version: int,
     request: LadderActionRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(DEPLOY)),
 ) -> DecisionRecord:
     """Ladder step 1 (issue #69 AC 1), PRD §16.2: deploy an EVALUATED candidate to staging without
     touching the production pointer. Records the STAGING decision; smoke test runs automatically as
@@ -121,7 +122,7 @@ def validate_staging_endpoint(
     version: int,
     request: LadderActionRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(VALIDATE_STAGING)),
 ) -> DecisionRecord:
     """Ladder step 2 (issue #69 AC 2/3): the human quality-gate approval that the staged candidate
     passed integration validation. Only a STAGING version may be validated, which structurally
@@ -151,7 +152,7 @@ def promote_production_endpoint(
     version: int,
     request: LadderActionRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(PROMOTE)),
 ) -> DecisionRecord:
     """Ladder step 3 (issue #69 AC 2/4/5): the authorized controlled promotion of a VALIDATED
     (or legacy PROMOTED) candidate to the production pointer. Records the PRODUCTION decision;
@@ -190,7 +191,7 @@ def rollback_deployment(
     deployment_id: str,
     request: LadderActionRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(ROLLBACK)),
 ) -> DecisionRecord:
     """Issue #70, PRD §14.4 "Rollback": restore the previous immutable version for a deployment
     target, discovered by the deployment row (POST .../deployments/{id}/rollback, PRD §25). The

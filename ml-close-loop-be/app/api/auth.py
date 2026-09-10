@@ -39,13 +39,10 @@ def login(
         raise APIError(401, "INVALID_CREDENTIALS", "Username or password is incorrect")
 
     logger.info("login_success", username=body.username)
-    token = auth_service.create_access_token({"sub": str(user.id), "role": user.role})
-    refresh = auth_service.create_refresh_token(
-        {"sub": str(user.id), "role": user.role}
-    )
+    access_token, refresh_token = auth_service.issue_token_pair(user)
     return TokenResponse(
-        access_token=token,
-        refresh_token=refresh,
+        access_token=access_token,
+        refresh_token=refresh_token,
         user=UserResponse(
             id=user.id,
             username=user.username,
@@ -57,22 +54,18 @@ def login(
 
 @router.post("/auth/refresh", response_model=TokenResponse)
 def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    payload = auth_service.decode_token(body.refresh_token, db)
-    if payload is None or payload.get("type") != "refresh":
+    """Rotate the refresh token: the old one is invalidated and a new pair is
+    issued. Reuse of an already-rotated token revokes the whole family (#125)."""
+    result = auth_service.rotate_refresh_token(body.refresh_token, db)
+    if result is None:
+        db.commit()  # persist any reuse-detection revocation even on failure
         raise APIError(401, "INVALID_REFRESH_TOKEN", "Invalid or expired refresh token")
 
-    user_id = int(payload["sub"])
-    user = auth_service.get_user_by_id(db, user_id)
-    if user is None:
-        raise APIError(401, "INVALID_REFRESH_TOKEN", "Invalid or expired refresh token")
-
-    token = auth_service.create_access_token({"sub": str(user.id), "role": user.role})
-    refresh = auth_service.create_refresh_token(
-        {"sub": str(user.id), "role": user.role}
-    )
+    user, access_token, refresh_token = result
+    db.commit()
     return TokenResponse(
-        access_token=token,
-        refresh_token=refresh,
+        access_token=access_token,
+        refresh_token=refresh_token,
         user=UserResponse(
             id=user.id,
             username=user.username,
@@ -124,8 +117,14 @@ def logout(
     user_and_token: tuple[User, str] = Depends(get_current_user_and_token),
     db: Session = Depends(get_db),
 ) -> None:
-    """Revoke the current access token (#86 Security Hardening)."""
+    """Revoke the refresh-token family tied to the current access token (#125).
+
+    The access token itself is short-lived and never revocation-checked (see
+    auth_service.decode_token), so it stays technically valid until it expires
+    naturally; logout's real effect is that the refresh token can no longer be
+    used to mint new access tokens, forcing re-login once it expires.
+    """
     user, token = user_and_token
-    auth_service.revoke_token(token, db)
+    auth_service.revoke_refresh_family_from_access_token(token, db)
     db.commit()
     logger.info("logout_success", user_id=user.id)

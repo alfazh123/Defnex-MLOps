@@ -317,8 +317,8 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `INFERENCE_MAX_TOKENS` | `128` | Max tokens for a generation (smoke test + inference endpoint) |
 | `JWT_SECRET` | `dev-secret-change-in-production` | JWT signing secret (**change in prod**) |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
-| `JWT_EXPIRE_MINUTES` | `1440` (24h) | Access token lifetime |
-| `JWT_REFRESH_EXPIRE_MINUTES` | `10080` (7d) | Refresh token lifetime |
+| `JWT_EXPIRE_MINUTES` | `15` | Access token lifetime. Kept short because access tokens are never checked against a revocation store - natural expiry is the only guard (#125) |
+| `JWT_REFRESH_EXPIRE_MINUTES` | `10080` (7d) | Refresh token lifetime. Refresh tokens rotate on every `/auth/refresh` call; the used token is persisted in `revoked_refresh_tokens` and reuse of it revokes the whole token family (#125) |
 | `DB_POOL_SIZE` | `5` | Connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | Max overflow connections |
 | `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a connection |

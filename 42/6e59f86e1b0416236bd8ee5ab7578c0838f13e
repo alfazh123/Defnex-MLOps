@@ -1,0 +1,38 @@
+ml-close-loop-be/tests/test_auth.py
+  s_faa7afb7b52104::t_af29540bd0a054 17,29-37
+  s_d5dcb7397883f2::t_e01ad0fe1adf85 38-41
+ml-close-loop-be/app/providers/training_provider.py
+  s_faa7afb7b52104::t_8d2f8d085419fb 439-443
+  s_faa7afb7b52104::t_ee4eab739f543d 419-432,436,438,445
+ml-close-loop-be/tests/test_gpu_vps_provider.py
+  s_faa7afb7b52104::t_8d2f8d085419fb 347-349
+  s_faa7afb7b52104::t_1d13099665be02 333-346,350-362
+ml-close-loop-be/app/api/auth.py
+  s_faa7afb7b52104::t_c5694e9440807b 107,112
+ml-close-loop-be/uv.lock
+  s_faa7afb7b52104::t_54a2a10461919b 4-8,55-63,94-121,229-375,394-512,593-601,618-647,711-761,771-794,866-885,904-921,1030,1043-1065,1072,1074-1084,1086,1089,1091-1092,1098-1324,1335-1349,1373-1396,1555-1589,1606-1631,1660-1668,1724-1738,1751-1762,1848-1913,1935-1943
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "426e59f86e1b0416236bd8ee5ab7578c0838f13e",
+  "prompts": {},
+  "sessions": {
+    "s_d5dcb7397883f2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f755c9229ffeJch01x91ggQLuM",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    },
+    "s_faa7afb7b52104": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f755c7705ffe12zl9BIRV9W75A",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+ml-close-loop-be/app/models/training.py
+  s_d5dcb7397883f2::t_24497d15293226 46-48
+ml-close-loop-be/app/schemas/training.py
+  s_d5dcb7397883f2::t_5483b0bfc1c358 136
+ml-close-loop-be/app/services/training_service.py
+  s_d5dcb7397883f2::t_76e877c66aa767 278-306
+  s_d5dcb7397883f2::t_1b83950fba40b8 368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6208463e7b96b03abcc1bfe8dccaca0e510bb76c",
+  "prompts": {},
+  "sessions": {
+    "s_d5dcb7397883f2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f755c9229ffeJch01x91ggQLuM",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

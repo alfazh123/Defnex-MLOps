@@ -1,0 +1,31 @@
+ml-close-loop-be/tests/test_intake_validate.py
+  s_b57a06cd3f8e90::t_ab130d1ef78a8e 2,69-74,89,100,212-215,217
+ml-close-loop-be/app/api/intake.py
+  s_b57a06cd3f8e90::t_b46c567058529f 1,3-164
+  s_b57a06cd3f8e90::t_ab130d1ef78a8e 2
+ml-close-loop-be/tests/test_intake_inspect.py
+  s_b57a06cd3f8e90::t_3a3ffb543013d2 1,3,5-73,81-89
+  s_b57a06cd3f8e90::t_adaea983027049 4
+  s_b57a06cd3f8e90::t_ab130d1ef78a8e 2,74-80
+ml-close-loop-be/app/api/intake_validate.py
+  s_b57a06cd3f8e90::t_ab130d1ef78a8e 2
+ml-close-loop-be/app/main.py
+  s_b57a06cd3f8e90::t_8f9ec34cb81715 23
+  s_b57a06cd3f8e90::t_750a1e7a9d3e44 116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cee624bad206a7a2e0fc99c45f50999b62b063cc",
+  "prompts": {},
+  "sessions": {
+    "s_b57a06cd3f8e90": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f85723349ffePKHDaG0Jp0iJMx",
+        "model": "big-pickle"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

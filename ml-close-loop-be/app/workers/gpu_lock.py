@@ -17,6 +17,13 @@ import os
 import time
 
 
+# ponytail: Cross-host GPU lock deferred to #86 (infrastructure).
+# Local flock in this module protects single-host only.
+# Remote GPU VPS training relies on single-resource assignment
+# (no two workers claim the same resource simultaneously).
+# If multi-GPU on same VPS is needed, add distributed lock via DB row lock (#86).
+
+
 @contextlib.contextmanager
 def gpu_lock(lock_file: str, timeout: float):
     """Hold an exclusive flock on `lock_file` until the block exits.

@@ -35,6 +35,8 @@ class DatasetVersionCreateRequest(BaseModel):
     source_dataset: str | None = None
     source_commit_or_snapshot_date: str | None = None
     source_format: DatasetSourceFormat
+    display_name: str | None = None
+    description: str | None = None
 
 
 class DatasetVersion(BaseModel):

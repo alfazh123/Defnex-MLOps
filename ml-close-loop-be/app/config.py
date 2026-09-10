@@ -179,6 +179,8 @@ class Settings(BaseSettings):
     # Model artifact storage (issue #38). Location where each trained version is kept in an
     # immutable per-version directory. No longer a system temp dir — overridable via env.
     artifact_storage_dir: str = "data/artifacts"
+    dataset_storage_dir: str = "data/datasets"
+    max_dataset_upload_bytes: int = 100 * 1024 * 1024  # 100MB
 
     # Artifact backend selection (issue #71, PRD §13.1). `local` uses
     # LocalFilesystemArtifactStorage (dev / CI); `minio` uses MinioArtifactStorage for

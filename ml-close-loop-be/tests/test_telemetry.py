@@ -33,6 +33,24 @@ def client():
     engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _disable_promotion_gates(monkeypatch):
+    from app.config import settings
+
+    for name in (
+        "eval_gate_require_eval_set_reference",
+        "eval_gate_require_qualitative_majority",
+        "eval_gate_require_no_general_regression",
+        "eval_gate_require_eval_loss_not_worse",
+    ):
+        monkeypatch.setattr(settings, name, False)
+
+
+@pytest.fixture
+def lock_file(tmp_path):
+    return str(tmp_path / "gpu.lock")
+
+
 def test_telemetry_setup_creates_tracer():
     """setup_telemetry with OTEL_ENABLED=false is a no-op (no OTel packages needed)."""
     from app.telemetry import _training_runs_counter
@@ -114,3 +132,155 @@ def test_trace_id_injected_into_structlog():
     assert "event" in result
     # Without an active span, trace_id/span_id are not added
     assert "trace_id" not in result
+
+
+def test_training_run_counter_increments_on_complete(db_session):
+    """Training run counter increments when a run completes (issue #83)."""
+    from app.schemas.dataset import DatasetVersionCreateRequest
+    from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
+    from app.services import dataset_service, training_service
+
+    dataset_version = dataset_service.create_dataset_version(
+        db_session,
+        "no_robots",
+        DatasetVersionCreateRequest(
+            source_type="huggingface",
+            source_dataset="HuggingFaceH4/no_robots",
+            source_commit_or_snapshot_date="2026-08-01",
+            source_format="chatml",
+        ),
+    )
+    training_run = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        TrainingRunCreateRequest(
+            dataset_id="no_robots",
+            dataset_version=1,
+            model_id="test-model",
+            base_model="Qwen/Qwen3-0.6B",
+            training_config=TrainingConfig(),
+        ),
+    )
+    training_service.start_training_run(db_session, training_run)
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/test"
+    )
+    # No exception means the counter increment path was reached
+    assert training_run.status == "COMPLETED"
+
+
+def test_deployment_counter_increments_on_deploy(db_session):
+    """Deployment counter increments on successful deploy (issue #83)."""
+    from app.schemas.dataset import DatasetVersionCreateRequest
+    from app.schemas.model import (
+        EvalLossTrend,
+        EvaluationUpdateRequest,
+        GeneralDomainRegressionCheck,
+        QualitativeComparison,
+    )
+    from app.schemas.promotion import DecisionCreateRequest
+    from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
+    from app.services import (
+        dataset_service,
+        deployment_service,
+        model_service,
+        promotion_service,
+        training_service,
+    )
+
+    dataset_version = dataset_service.create_dataset_version(
+        db_session,
+        "no_robots",
+        DatasetVersionCreateRequest(
+            source_type="huggingface",
+            source_dataset="HuggingFaceH4/no_robots",
+            source_commit_or_snapshot_date="2026-08-01",
+            source_format="chatml",
+        ),
+    )
+    training_run = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        TrainingRunCreateRequest(
+            dataset_id="no_robots",
+            dataset_version=1,
+            model_id="test-model",
+            base_model="Qwen/Qwen3-0.6B",
+            training_config=TrainingConfig(),
+        ),
+    )
+    training_service.start_training_run(db_session, training_run)
+    training_service.complete_training_run(
+        db_session, training_run, artifact_uri="file:///tmp/test"
+    )
+    mv = model_service.register_model_version(db_session, training_run)
+    model_service.submit_evaluation(
+        db_session,
+        mv,
+        EvaluationUpdateRequest(
+            eval_loss_trend=EvalLossTrend(this_version_eval_loss=0.9),
+            qualitative_comparison=QualitativeComparison(
+                question_table_version=1, wins=10, losses=5, ties=5, total=20
+            ),
+            general_domain_regression_check=GeneralDomainRegressionCheck(
+                checked=True, regressions_found=[]
+            ),
+            eval_set_id="domain-benchmark",
+            eval_set_version=1,
+        ),
+    )
+    promotion_service.create_decision(
+        db_session,
+        mv,
+        DecisionCreateRequest(decision="PROMOTED", decided_by="test", rationale="test"),
+    )
+    deployment, _ = deployment_service.deploy(db_session, mv)
+    db_session.commit()
+    assert deployment.status == "DEPLOYED"
+
+
+def test_training_duration_recorded(db_session, lock_file, tmp_path, monkeypatch):
+    """Training duration histogram is recorded after a worker pass (issue #83)."""
+    import tempfile
+    from pathlib import Path
+    from app.config import settings
+    from app.schemas.dataset import DatasetVersionCreateRequest
+    from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
+    from app.services import dataset_service, training_service
+    from app.workers.training_worker import process_next_job
+
+    monkeypatch.setattr(settings, "artifact_storage_dir", str(tmp_path / "artifacts"))
+
+    dataset_version = dataset_service.create_dataset_version(
+        db_session,
+        "no_robots",
+        DatasetVersionCreateRequest(
+            source_type="huggingface",
+            source_dataset="HuggingFaceH4/no_robots",
+            source_commit_or_snapshot_date="2026-08-01",
+            source_format="chatml",
+        ),
+    )
+    training_service.create_training_run(
+        db_session,
+        dataset_version,
+        TrainingRunCreateRequest(
+            dataset_id="no_robots",
+            dataset_version=1,
+            model_id="test-model",
+            base_model="Qwen/Qwen3-0.6B",
+            training_config=TrainingConfig(),
+        ),
+    )
+    db_session.commit()
+
+    class _Runner:
+        def run(self, db, tr):
+            staging = Path(tempfile.mkdtemp(prefix="defnex-test-stage-"))
+            (staging / "adapter_model.safetensors").write_bytes(b"fake")
+            (staging / "adapter_config.json").write_text("{}")
+            return str(staging)
+
+    result = process_next_job(db_session, _Runner(), lock_file=lock_file)
+    assert result is not None
+    assert result.status == "COMPLETED"

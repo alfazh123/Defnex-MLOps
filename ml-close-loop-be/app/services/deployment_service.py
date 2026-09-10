@@ -302,6 +302,16 @@ def _deploy_locked(
                 exc_info=True,
             )
         raise ValueError(_DEPLOYED_CONFLICT_MESSAGE) from exc
+    from app.telemetry import _deployments_counter
+
+    if _deployments_counter is not None:
+        _deployments_counter.add(
+            1,
+            {
+                "environment": environment or settings.deployment_environment,
+                "result": "success",
+            },
+        )
     return deployment, previous
 
 
@@ -330,6 +340,12 @@ def _run_smoke_test(backend: ServingBackend, model_version: ModelVersion) -> Non
             error=str(exc),
         )
         _unload_after_smoke_failure(backend, model_id, version)
+        from app.services.alerting import alert_deploy_failed
+
+        alert_deploy_failed(
+            version=str(version),
+            error=f"smoke test generation error: {exc}",
+        )
         raise SmokeTestError(
             f"smoke test failed for model_id {model_id!r} version {version}: "
             f"generation error: {exc}"
@@ -344,6 +360,15 @@ def _run_smoke_test(backend: ServingBackend, model_version: ModelVersion) -> Non
             min_chars=settings.inference_smoke_min_chars,
         )
         _unload_after_smoke_failure(backend, model_id, version)
+        from app.services.alerting import alert_deploy_failed
+
+        alert_deploy_failed(
+            version=str(version),
+            error=(
+                f"smoke test output too short: {len(output)} chars "
+                f"(min {settings.inference_smoke_min_chars})"
+            ),
+        )
         raise SmokeTestError(
             f"smoke test failed for model_id {model_id!r} version {version}: "
             f"generated {len(output)} chars, below the configured minimum "

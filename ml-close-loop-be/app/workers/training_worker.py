@@ -136,6 +136,8 @@ def process_next_job(
         return None
 
     coordinator = coordinator or make_coordinator()
+    from app.telemetry import _active_training_runs
+
     try:
         with gpu_lock(
             lock_file or settings.gpu_lock_file,
@@ -145,6 +147,8 @@ def process_next_job(
                 with coordinator.cycle():
                     if not training_service.claim_training_run(db, training_run):
                         return None
+                    if _active_training_runs is not None:
+                        _active_training_runs.add(1)
                     interval = (
                         heartbeat_interval
                         if heartbeat_interval is not None
@@ -161,6 +165,7 @@ def process_next_job(
                         daemon=True,
                     )
                     heartbeat.start()
+                    run_start = time.monotonic()
                     try:
                         staging_dir = runner.run(db, training_run)
                     except Exception as exc:
@@ -180,6 +185,12 @@ def process_next_job(
                             db, training_run, staging_dir=staging_dir
                         )
                     finally:
+                        if _active_training_runs is not None:
+                            _active_training_runs.add(-1)
+                        from app.telemetry import _training_duration
+
+                        if _training_duration is not None:
+                            _training_duration.record(time.monotonic() - run_start)
                         stop.set()
                         heartbeat.join(timeout=2)
             except (VRAMNotFree, ServingStopFailed) as exc:

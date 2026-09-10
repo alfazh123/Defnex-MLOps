@@ -1,0 +1,24 @@
+ml-close-loop-be/tests/test_colab_provider.py
+  s_c3bd093f1277b8::t_4fb0a9b70852a0 169-204
+ml-close-loop-be/app/providers/training_provider.py
+  s_c3bd093f1277b8::t_2c17cd3bd9ae0c 512,532,545,555,566-568,572-574
+  s_c3bd093f1277b8::t_1626bb182944fd 485-487,491-495
+  s_c3bd093f1277b8::t_3fb5f0c0e39d89 496-500,557-559
+  s_c3bd093f1277b8::t_25ea50566ddf03 483-484,501-503,533,535-536,542,546-547,556,560,562,565,571
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5daf07e0259453ff24c43016d520a2729f96efa0",
+  "prompts": {},
+  "sessions": {
+    "s_c3bd093f1277b8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f755c6ac7ffek4ae7KzWFm80kZ",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

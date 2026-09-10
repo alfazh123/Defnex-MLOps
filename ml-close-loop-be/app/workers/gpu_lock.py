@@ -46,7 +46,12 @@ def gpu_lock(lock_file: str, timeout: float):
                         f"GPU lock {lock_file!r} not acquired within {timeout}s"
                     ) from None
                 time.sleep(0.1)
+        lock_acquired_at = time.monotonic()
         yield
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
+        from app.telemetry import _gpu_lock_wait
+
+        if _gpu_lock_wait is not None:
+            _gpu_lock_wait.record(time.monotonic() - lock_acquired_at)

@@ -220,6 +220,9 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
 
+    # Alerting webhook (PRD §28.1, issue #84). Empty disables alerts.
+    alert_webhook_url: str = ""
+
     # Promotion eval gate (issue #43, model-promotion-approval-workflow.md §6).
     # All criteria are boolean toggles with documented, non-invented defaults; promote
     # still requires a human trigger (no automatic promotion on numeric thresholds).

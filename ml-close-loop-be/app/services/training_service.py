@@ -160,7 +160,7 @@ def mark_stale_runs(db: Session, *, threshold_seconds: int | None = None) -> int
         if threshold_seconds is not None
         else settings.stale_threshold_seconds
     )
-    from sqlalchemy import func, or_
+    from sqlalchemy import func, or_, select
 
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold)
     result = db.execute(
@@ -176,7 +176,20 @@ def mark_stale_runs(db: Session, *, threshold_seconds: int | None = None) -> int
         .values(status="STALE")
         .execution_options(synchronize_session=False)
     )
-    return result.rowcount
+    count = result.rowcount
+    if count > 0:
+        stale_ids = db.scalars(
+            select(TrainingRun.training_run_id).where(
+                TrainingRun.status == "STALE",
+                func.coalesce(TrainingRun.heartbeat_at, TrainingRun.started_at)
+                < cutoff,
+            )
+        ).all()
+        from app.services.alerting import alert_training_stale
+
+        for run_id in stale_ids:
+            alert_training_stale(job_id=run_id)
+    return count
 
 
 def update_training_progress(
@@ -220,6 +233,10 @@ def complete_training_run(
     training_run.artifact_uri = artifact_uri
     training_run.finished_at = datetime.now(timezone.utc)
     db.flush()
+    from app.telemetry import _training_runs_counter
+
+    if _training_runs_counter is not None:
+        _training_runs_counter.add(1, {"status": "COMPLETED"})
     return training_run
 
 
@@ -235,6 +252,13 @@ def fail_training_run(
     # under concurrent session use (subprocess watchdog thread). A forced refresh
     # ensures the returned object's in-memory state matches the committed DB row.
     db.refresh(training_run)
+    from app.telemetry import _training_runs_counter
+
+    if _training_runs_counter is not None:
+        _training_runs_counter.add(1, {"status": "FAILED"})
+    from app.services.alerting import alert_training_failed
+
+    alert_training_failed(job_id=training_run.training_run_id, error=error_message)
     return training_run
 
 

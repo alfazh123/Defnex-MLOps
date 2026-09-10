@@ -1,0 +1,56 @@
+ml-close-loop-be/app/services/model_service.py
+  s_b4f3e9f8f45097::t_8fd4000656852d 312-339
+ml-close-loop-be/tests/test_evaluation_worker.py
+  s_b4f3e9f8f45097::t_96ecfc9fcc58f8 1-8,15-16,26-187,191-235
+  s_b4f3e9f8f45097::t_0ea83e96aa97fe 9-14,17-25,188-190
+ml-close-loop-be/app/workers/mock_runner.py
+  s_b4f3e9f8f45097::t_ccd182f3f2601c 23-28
+ml-close-loop-be/openapi.yaml
+  s_b4f3e9f8f45097::t_76674f217946fa 1877,1885-1890
+  s_b4f3e9f8f45097::t_a47e95ddb4bc6a 3557,3569,3571-3581
+ml-close-loop-be/app/models/model.py
+  s_b4f3e9f8f45097::t_9e86b40feb3f00 77-83
+ml-close-loop-be/tests/test_promotion_api.py
+  s_b4f3e9f8f45097::t_41da73abb353c1 6-11
+  s_b4f3e9f8f45097::t_2d7dfd8212ebe9 103-111,120-138
+ml-close-loop-be/app/workers/evaluation_worker.py
+  s_b4f3e9f8f45097::t_9fb8361f68c74d 1-105
+ml-close-loop-be/app/services/evaluation_engine.py
+  s_b4f3e9f8f45097::t_0ea83e96aa97fe 43-45
+  s_b4f3e9f8f45097::t_9db3e002910c86 1-42,46-150
+ml-close-loop-be/tests/test_model_api.py
+  s_b4f3e9f8f45097::t_70fb129140ae9e 176-187,191,199-201,206,210-217,220-221,224,227-228,232-235,238,240-246,248-266,271-274,277-319,325-326,332-334,349
+  s_b4f3e9f8f45097::t_0ea83e96aa97fe 173-175,218-219,328-331
+  s_b4f3e9f8f45097::t_45a4f3581b2a37 275-276
+ml-close-loop-be/tests/test_deployment_api.py
+  s_b4f3e9f8f45097::t_e973b531394caf 107-118,121-136
+ml-close-loop-be/app/api/models.py
+  s_b4f3e9f8f45097::t_c7aeff19caddb0 92-96,101,105-110,119-133
+  s_b4f3e9f8f45097::t_0f3c6211e5e37d 21
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_b4f3e9f8f45097::t_0df93165fda215 178-181,184-188,190,193-207
+ml-close-loop-be/tests/test_contract.py
+  s_b4f3e9f8f45097::t_44e0b4405666a6 92-95,108-118
+ml-close-loop-be/app/schemas/model.py
+  s_b4f3e9f8f45097::t_db3c11e2068003 4
+  s_b4f3e9f8f45097::t_6d9bc8c28cc750 59-60,64-70,79-93
+  s_b4f3e9f8f45097::t_075d9e1029db5e 94-95
+ml-close-loop-be/alembic/versions/c1d2e3f4a5b6_add_evaluation_requested_to_model_versions.py
+  s_b4f3e9f8f45097::t_ee869fb3b1554b 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2cba31f8a7ee3730f421daa3b76adb646768f854",
+  "prompts": {},
+  "sessions": {
+    "s_b4f3e9f8f45097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c5bbd9-b302-426b-991d-cca07f14b33e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 43 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 44 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -342,3 +342,5 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `EVAL_GATE_REQUIRE_EVAL_LOSS_NOT_WORSE` | `true` | Promotion blocked on eval-loss regression |
 | `LOG_LEVEL` | `INFO` | Structured log level |
 | `DEBUG` | `false` | Debug mode (verbose logging) |
+| `OTEL_ENABLED` | `false` | Enable OpenTelemetry tracing and metrics (requires `pip install -e ".[otel]"`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP exporter endpoint (Jaeger, Collector, etc.) |

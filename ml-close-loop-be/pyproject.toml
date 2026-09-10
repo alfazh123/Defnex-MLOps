@@ -37,6 +37,16 @@ s3 = [
 ssh = [
     "paramiko>=3.4",
 ]
+otel = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp>=1.20",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.41b0",
+    "opentelemetry-instrumentation-httpx>=0.41b0",
+    "opentelemetry-exporter-prometheus>=0.41b0",
+    "prometheus-client>=0.20",
+]
 
 [build-system]
 requires = ["hatchling"]

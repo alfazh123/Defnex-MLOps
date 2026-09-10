@@ -96,8 +96,7 @@ paths:
       tags:
       - Auth
       summary: Logout
-      description: 'Revoke the current access token (#86 Security Hardening). Token is added
-        to an in-memory revocation set and must not be accepted for further requests.'
+      description: Revoke the current access token (#86 Security Hardening).
       operationId: logout_api_v1_auth_logout_post
       parameters:
       - name: authorization
@@ -108,13 +107,13 @@ paths:
           title: Authorization
       responses:
         '204':
-          description: Token revoked
-        '401':
-          description: Not authenticated
+          description: Successful Response
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/users:
     get:
       tags:
@@ -895,7 +894,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: Unprocessable Content
+          description: Unprocessable Entity
   /api/v1/datasets/{dataset_id}/versions/{version}/validation-reports:
     get:
       tags:
@@ -1141,9 +1140,13 @@ paths:
       tags:
       - Training
       summary: Retry Training Run
-      description: 'Retry a FAILED training run: creates a new PENDING run whose `retry_of`
-        points back at the immutable original (PRD §10.5). The original is never mutated;
-        any non-FAILED status is a deterministic 409 (issue #61).'
+      description: 'Retry a FAILED run: creates a new PENDING run with `retry_of`
+        back at the original
+
+        (PRD §10.5). The original stays immutable; only a FAILED run is retryable,
+        any other
+
+        status is a deterministic 409.'
       operationId: retry_training_run_api_v1_training_runs__training_run_id__retry_post
       parameters:
       - name: training_run_id
@@ -1208,6 +1211,442 @@ paths:
           content:
             application/json:
               schema: {}
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/transfers:
+    post:
+      tags:
+      - Transfers
+      summary: Initiate Transfer
+      description: Initiate an artifact transfer (PRD §20.3). Admin only.
+      operationId: initiate_transfer_api_v1_transfers_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferInitiateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transfer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Transfers
+      summary: List Transfers
+      description: List transfers. Any authenticated user.
+      operationId: list_transfers_api_v1_transfers_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_Transfer_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/transfers/{transfer_id}:
+    get:
+      tags:
+      - Transfers
+      summary: Get Transfer
+      description: Get a transfer by ID. Any authenticated user.
+      operationId: get_transfer_api_v1_transfers__transfer_id__get
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transfer'
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response 404 Get Transfer Api V1 Transfers  Transfer Id  Get
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/compute-resources:
+    post:
+      tags:
+      - Compute Resources
+      summary: Create Compute Resource
+      description: Register a new compute resource (PRD §19.4). Admin only.
+      operationId: create_compute_resource_api_v1_compute_resources_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputeResourceCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Compute Resources
+      summary: List Compute Resources
+      description: List compute resources with optional filters. Any authenticated
+        user.
+      operationId: list_compute_resources_api_v1_compute_resources_get
+      parameters:
+      - name: role
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Role
+      - name: environment
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Environment
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_ComputeResource_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/compute-resources/{resource_id}:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Compute Resource
+      description: Get a compute resource by ID. Any authenticated user.
+      operationId: get_compute_resource_api_v1_compute_resources__resource_id__get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Compute Resources
+      summary: Update Compute Resource
+      description: Partial update of a compute resource. Admin only.
+      operationId: update_compute_resource_api_v1_compute_resources__resource_id__patch
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputeResourceUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Compute Resources
+      summary: Delete Compute Resource
+      description: Delete a compute resource. Admin only.
+      operationId: delete_compute_resource_api_v1_compute_resources__resource_id__delete
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/compute-resources/{resource_id}/health:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Compute Resource Health
+      description: Read-only health/connectivity status (PRD §8.6). Any authenticated
+        user.
+      operationId: get_compute_resource_health_api_v1_compute_resources__resource_id__health_get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/compute-resources/{resource_id}/runner-link:
+    get:
+      tags:
+      - Compute Resources
+      summary: Get Runner Link
+      description: Get the Colab notebook runner link (PRD §34). Any authenticated
+        user.
+      operationId: get_runner_link_api_v1_compute_resources__resource_id__runner_link_get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Resource Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Runner Link Api V1 Compute Resources  Resource
+                  Id  Runner Link Get
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
         '404':
           content:
             application/json:
@@ -1306,9 +1745,11 @@ paths:
       tags:
       - Models
       summary: List Model Versions
-      description: 'List every version (all statuses, including RETIRED) of a model -
-        the data source for the rollback picker and history browsing (PRD §14.2).
-        Paginated like other list endpoints.'
+      description: 'List every version (all statuses, including RETIRED) of a model,
+        most-legible for the
+
+        rollback picker and history browsing (PRD §14.2). Paginated like other list
+        endpoints.'
       operationId: list_model_versions_api_v1_models__model_id__versions_get
       parameters:
       - name: model_id
@@ -1608,71 +2049,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/models/{model_id}/versions/{version}/deploy:
-    post:
-      tags:
-      - Deployment
-      summary: Deploy Model Version
-      operationId: deploy_model_version_api_v1_models__model_id__versions__version__deploy_post
-      parameters:
-      - name: model_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Model Id
-      - name: version
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Version
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeployRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeployResult'
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-        '409':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Conflict
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/models/{model_id}/versions/{version}/deploy-staging:
     post:
       tags:
       - Decisions
-      summary: Deploy To Staging
-      description: 'Issue #69 ladder step 1 - deploy an EVALUATED candidate to the staging
-        target without moving the production pointer. Records the STAGING decision;
-        the staging smoke test runs automatically (PRD 38.4).'
-      operationId: deploy_staging_endpoint_api_v1_models__model_id__versions__version__deploy_staging_post
+      summary: Deploy To Staging Endpoint
+      description: 'Ladder step 1 (issue #69 AC 1), PRD §16.2: deploy an EVALUATED
+        candidate to staging without
+
+        touching the production pointer. Records the STAGING decision; smoke test
+        runs automatically as
+
+        part of the deploy (PRD §38.4).'
+      operationId: deploy_to_staging_endpoint_api_v1_models__model_id__versions__version__deploy_staging_post
       parameters:
       - name: model_id
         in: path
@@ -1717,6 +2106,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
         '422':
           description: Validation Error
           content:
@@ -1727,9 +2122,17 @@ paths:
     post:
       tags:
       - Decisions
-      summary: Validate Staging
-      description: 'Issue #69 ladder step 2 - human approval that the STAGING candidate
-        passed its integration validation checks. Only a STAGING version may be validated.'
+      summary: Validate Staging Endpoint
+      description: 'Ladder step 2 (issue #69 AC 2/3): the human quality-gate approval
+        that the staged candidate
+
+        passed integration validation. Only a STAGING version may be validated, which
+        structurally
+
+        blocks production promotion until staging happened. Records the VALIDATED
+        decision with the
+
+        frozen evaluation snapshot as the gate result (PRD §8.4).'
       operationId: validate_staging_endpoint_api_v1_models__model_id__versions__version__validate_staging_post
       parameters:
       - name: model_id
@@ -1785,10 +2188,14 @@ paths:
     post:
       tags:
       - Decisions
-      summary: Promote To Production
-      description: 'Issue #69 ladder step 3 - authorized, controlled promotion of a VALIDATED
-        (or legacy PROMOTED) candidate to the production pointer. Registry terminal status
-        stays DEPLOYED.'
+      summary: Promote Production Endpoint
+      description: 'Ladder step 3 (issue #69 AC 2/4/5): the authorized controlled
+        promotion of a VALIDATED
+
+        (or legacy PROMOTED) candidate to the production pointer. Records the PRODUCTION
+        decision;
+
+        the registry terminal status stays DEPLOYED (single source of truth for production).'
       operationId: promote_production_endpoint_api_v1_models__model_id__versions__version__promote_production_post
       parameters:
       - name: model_id
@@ -1834,6 +2241,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
         '422':
           description: Validation Error
           content:
@@ -1845,9 +2258,19 @@ paths:
       tags:
       - Decisions
       summary: Rollback Deployment
-      description: 'Issue #70 - restore the previous immutable version for a deployment target,
-        discovered by deployment row. The deployment''s recorded environment is carried
-        into the ROLLBACK decision. The previous version is never deleted.'
+      description: 'Issue #70, PRD §14.4 "Rollback": restore the previous immutable
+        version for a deployment
+
+        target, discovered by the deployment row (POST .../deployments/{id}/rollback,
+        PRD §25). The
+
+        version is located via the deployment''s recorded (model_id, model_version),
+        the pointer is
+
+        moved to the previous version, and the ROLLBACK decision records which environment
+        was rolled
+
+        back. The previous version is never deleted - artifacts are immutable (artifact_storage).'
       operationId: rollback_deployment_api_v1_deployments__deployment_id__rollback_post
       parameters:
       - name: deployment_id
@@ -1887,6 +2310,117 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Conflict
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/{model_id}/versions/{version}/deploy:
+    post:
+      tags:
+      - Deployment
+      summary: Deploy Model Version
+      operationId: deploy_model_version_api_v1_models__model_id__versions__version__deploy_post
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Id
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Version
+      - name: X-Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Idempotency-Key
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/DeployRequest'
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResult'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/environments:
+    get:
+      tags:
+      - Deployment
+      summary: List Environments
+      description: 'List the registered deployment environments (PRD §16.1), seeded
+        as `default`/`staging`/
+
+        `production` by the environments migration.'
+      operationId: list_environments_api_v1_environments_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnvironmentOut'
+                title: Response List Environments Api V1 Environments Get
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unauthorized
         '422':
           description: Validation Error
           content:
@@ -1984,41 +2518,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: Unprocessable Content
-  /api/v1/environments:
-    get:
-      tags:
-      - Deployment
-      summary: List Environments
-      description: 'List the registered deployment environments (PRD §16.1), seeded as
-        `default`/`staging`/`production`
-
-        by the environments migration. Deployments record which environment they
-        target.'
-      operationId: list_environments_api_v1_environments_get
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Environment'
-                title: Response List Environments Api V1 Environments Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+          description: Unprocessable Entity
   /api/v1/models/{model_id}/inference:
     post:
       tags:
@@ -2089,13 +2589,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/compute-resources:
+  /api/v1/datasets/intake/inspect:
     post:
       tags:
-      - Compute Resources
-      summary: Create Compute Resource
-      description: Register a new compute resource (PRD §19.4). Admin only.
-      operationId: create_compute_resource_api_v1_compute_resources_post
+      - Dataset Intake
+      summary: Inspect Dataset Source
+      description: 'Inspect an uploaded dataset file (Step 1 of intake wizard).
+
+
+        Returns detected format, sample count, checksum, and staging_id
+
+        for subsequent validate/commit calls. Admin only.'
+      operationId: inspect_dataset_source_api_v1_datasets_intake_inspect_post
       parameters:
       - name: authorization
         in: header
@@ -2106,429 +2611,161 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ComputeResourceCreateRequest'
-      responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputeResource'
-        '409':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Conflict
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - Compute Resources
-      summary: List Compute Resources
-      description: List compute resources with optional filters. Any authenticated user.
-      operationId: list_compute_resources_api_v1_compute_resources_get
-      parameters:
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-          title: Page
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-          title: Size
-      - name: role
-        in: query
-        required: false
-        schema:
-          type: string
-          title: Role
-      - name: environment
-        in: query
-        required: false
-        schema:
-          type: string
-          title: Environment
-      - name: search
-        in: query
-        required: false
-        schema:
-          type: string
-          title: Search
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
+              $ref: '#/components/schemas/Body_inspect_dataset_source_api_v1_datasets_intake_inspect_post'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedResponse_ComputeResource'
-  /api/v1/compute-resources/{resource_id}:
-    get:
-      tags:
-      - Compute Resources
-      summary: Get Compute Resource
-      description: Get a compute resource by ID. Any authenticated user.
-      operationId: get_compute_resource_api_v1_compute_resources__resource_id__get
-      parameters:
-      - name: resource_id
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Resource Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputeResource'
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-    patch:
-      tags:
-      - Compute Resources
-      summary: Update Compute Resource
-      description: Partial update of a compute resource. Admin only.
-      operationId: update_compute_resource_api_v1_compute_resources__resource_id__patch
-      parameters:
-      - name: resource_id
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Resource Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ComputeResourceUpdateRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputeResource'
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-        '409':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Conflict
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-      - Compute Resources
-      summary: Delete Compute Resource
-      description: Delete a compute resource. Admin only.
-      operationId: delete_compute_resource_api_v1_compute_resources__resource_id__delete
-      parameters:
-      - name: resource_id
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Resource Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '204':
-          description: Successful Response
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-  /api/v1/compute-resources/{resource_id}/health:
-    get:
-      tags:
-      - Compute Resources
-      summary: Get Compute Resource Health
-      description: Read-only health/connectivity status (PRD §8.6). Any authenticated user.
-      operationId: get_compute_resource_health_api_v1_compute_resources__resource_id__health_get
-      parameters:
-      - name: resource_id
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Resource Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthStatus'
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-  /api/v1/compute-resources/{resource_id}/runner-link:
-    get:
-      tags:
-      - Compute Resources
-      summary: Get Colab Runner Link
-      description: Get the Colab notebook runner link (PRD §34). Any authenticated user.
-      operationId: get_runner_link_api_v1_compute_resources__resource_id__runner_link_get
-      parameters:
-      - name: resource_id
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Resource Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-                title: Runner Link Response
+                $ref: '#/components/schemas/DatasetInspectResponse'
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Bad Request
-        '404':
+        '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          description: Not Found
-  /metrics:
-    get:
-      tags:
-      - Observability
-      summary: Prometheus Metrics
-      description: 'Prometheus-format metrics endpoint for monitoring (PRD §28). Returns
-        training_runs_total, deployments_total, training_duration_seconds, inference_latency_seconds,
-        active_training_runs, gpu_lock_wait_seconds, and FastAPI auto-instrumented metrics.'
-      operationId: metrics_endpoint
-      responses:
-        '200':
-          description: Prometheus metrics in text format
-          content:
-            text/plain:
-              schema:
-                type: string
-  /api/v1/transfers:
-    post:
-      tags:
-      - Transfers
-      summary: Initiate Transfer
-      operationId: initiate_transfer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TransferInitiateRequest'
-        required: true
-      responses:
-        '201':
-          description: Successful Response
+          description: Forbidden
+        '413':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transfer'
-      security:
-      - bearerAuth: []
-    get:
-      tags:
-      - Transfers
-      summary: List Transfers
-      operationId: list_transfers
-      parameters:
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          default: 1
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          default: 20
-      responses:
-        '200':
-          description: Successful Response
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Request Entity Too Large
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedResponse_Transfer'
-      security:
-      - bearerAuth: []
-  /api/v1/transfers/{transfer_id}:
-    get:
-      tags:
-      - Transfers
-      summary: Get Transfer
-      operationId: get_transfer
-      parameters:
-      - name: transfer_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Transfer'
-        '404':
-          description: Not Found
-      security:
-      - bearerAuth: []
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/datasets/intake/validate:
     post:
       tags:
       - Dataset Intake
       summary: Validate Intake
-      description: Validate a staged dataset file against H1-H9 rules (Step 4).
-      operationId: validate_intake
+      description: Validate a staged dataset file (Step 4). Returns H1-H9 validation
+        results.
+      operationId: validate_intake_api_v1_datasets_intake_validate_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/IntakeValidateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntakeValidateResponse'
+                type: object
+                additionalProperties: true
+                title: Response Validate Intake Api V1 Datasets Intake Validate Post
         '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
           description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Not Found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-      - bearerAuth: []
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/datasets/intake/commit:
     post:
       tags:
       - Dataset Intake
       summary: Commit Intake
-      description: Commit a validated dataset as an immutable DatasetVersion (Step 5).
-      operationId: commit_intake
+      description: Commit a validated dataset as an immutable DatasetVersion (Step
+        5).
+      operationId: commit_intake_api_v1_datasets_intake_commit_post
       parameters:
-      - name: X-Idempotency-Key
+      - name: x-idempotency-key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Idempotency-Key
+      - name: authorization
         in: header
         required: false
         schema:
           type: string
+          title: Authorization
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/IntakeCommitRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DatasetVersion'
+                type: object
+                additionalProperties: true
+                title: Response Commit Intake Api V1 Datasets Intake Commit Post
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
           description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Conflict
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-      - bearerAuth: []
+          description: Conflict
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /metrics:
+    get:
+      summary: Metrics Endpoint
+      description: Prometheus metrics endpoint (PRD §28).
+      operationId: metrics_endpoint_metrics_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
 components:
   schemas:
     Artifact:
@@ -2559,6 +2796,280 @@ components:
       - uri
       title: Artifact
       description: A stored model artifact (openapi.yaml Artifact).
+    Body_inspect_dataset_source_api_v1_datasets_intake_inspect_post:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_inspect_dataset_source_api_v1_datasets_intake_inspect_post
+    ComputeResource:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          title: Role
+        environment:
+          type: string
+          title: Environment
+        provider_type:
+          type: string
+          title: Provider Type
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+        notebook_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notebook Url
+        is_healthy:
+          type: boolean
+          title: Is Healthy
+          default: true
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - role
+      - environment
+      - provider_type
+      - created_at
+      - updated_at
+      title: ComputeResource
+      description: A compute resource record (PRD §19.3).
+    ComputeResourceCreateRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          enum:
+          - training
+          - inference
+          - both
+          title: Role
+          default: training
+        environment:
+          type: string
+          enum:
+          - staging
+          - production
+          title: Environment
+          default: staging
+        provider_type:
+          type: string
+          enum:
+          - local
+          - gpu_vps
+          - colab
+          title: Provider Type
+          default: local
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+        notebook_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notebook Url
+      type: object
+      required:
+      - name
+      title: ComputeResourceCreateRequest
+      description: Request to register a new compute resource (PRD §33).
+    ComputeResourceUpdateRequest:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        role:
+          anyOf:
+          - type: string
+            enum:
+            - training
+            - inference
+            - both
+          - type: 'null'
+          title: Role
+        environment:
+          anyOf:
+          - type: string
+            enum:
+            - staging
+            - production
+          - type: 'null'
+          title: Environment
+        provider_type:
+          anyOf:
+          - type: string
+            enum:
+            - local
+            - gpu_vps
+            - colab
+          - type: 'null'
+          title: Provider Type
+        host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host
+        gpu_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Gpu Info
+        ssh_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Host
+        ssh_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ssh Port
+        ssh_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ssh Username
+        credential_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Ref
+        notebook_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notebook Url
+        is_healthy:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Healthy
+      type: object
+      title: ComputeResourceUpdateRequest
+      description: Partial update for a compute resource (PATCH). All fields optional.
+    DatasetInspectResponse:
+      properties:
+        staging_id:
+          type: string
+          title: Staging Id
+        filename:
+          type: string
+          title: Filename
+        file_size:
+          type: integer
+          title: File Size
+        detected_format:
+          type: string
+          title: Detected Format
+        normalized_format:
+          type: string
+          title: Normalized Format
+        detected_sample_count:
+          type: integer
+          title: Detected Sample Count
+        checksum_sha256:
+          type: string
+          title: Checksum Sha256
+        parse_status:
+          type: string
+          title: Parse Status
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      required:
+      - staging_id
+      - filename
+      - file_size
+      - detected_format
+      - normalized_format
+      - detected_sample_count
+      - checksum_sha256
+      - parse_status
+      title: DatasetInspectResponse
     DatasetManifest:
       properties:
         source_type:
@@ -2586,6 +3097,7 @@ components:
           - alpaca
           - sharegpt
           - chatml
+          - jsonl
           - other
           title: Source Format
         seed:
@@ -2700,6 +3212,7 @@ components:
           - alpaca
           - sharegpt
           - chatml
+          - jsonl
           - other
           title: Source Format
       type: object
@@ -2796,8 +3309,28 @@ components:
       - rationale
       title: DecisionRecord
       description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
-        promotion, rejection, rollback, and
-        the staging/production ladder steps (STAGING/VALIDATED/PRODUCTION) with one schema.'
+        promotion, rejection,
+
+        rollback, and the staging/production ladder steps with one schema.'
+    DeployRequest:
+      properties:
+        environment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Environment
+      type: object
+      title: DeployRequest
+      description: 'Optional body for POST .../deploy (issue #67, PRD §16.1).
+
+
+        `environment` names the target environment (e.g. `staging`, `production`);
+        it is optional and
+
+        defaults to the configured default environment, so a bodyless deploy keeps
+        the pre-#67
+
+        behavior (openapi.yaml DeployRequest).'
     DeployResult:
       properties:
         model_id:
@@ -2817,37 +3350,6 @@ components:
       - current_deployed_version
       title: DeployResult
       description: Response for POST .../deploy (openapi.yaml DeployResult).
-    DeployRequest:
-      properties:
-        environment:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Environment
-      type: object
-      title: DeployRequest
-      description: 'Optional body for POST .../deploy (issue #67, PRD §16.1). `environment`
-        names
-
-        the target environment; omitted, the deploy defaults to the configured default
-        environment
-
-        (pre-#67 behavior).'
-    Environment:
-      properties:
-        name:
-          type: string
-          title: Name
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-      type: object
-      required:
-      - name
-      title: Environment
-      description: A deployment target environment (openapi.yaml Environment).
     DeploymentStatus:
       properties:
         model_id:
@@ -2882,6 +3384,24 @@ components:
 
         is confirmed by any source document - and is null when nothing has ever been
         deployed.'
+    EnvironmentOut:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      type: object
+      required:
+      - name
+      title: EnvironmentOut
+      description: 'A deployment target environment (openapi.yaml Environment), e.g.
+        `staging`/`production`
+
+        (PRD §16.1).'
     ErrorDetail:
       properties:
         code:
@@ -2905,121 +3425,6 @@ components:
       - error
       title: ErrorResponse
       description: 'openapi.yaml Error — `{"error": {"code": ..., "message": ...}}`.'
-    IntakeValidateRequest:
-      properties:
-        staging_id:
-          type: string
-          title: Staging Id
-        dataset_id:
-          type: string
-          title: Dataset Id
-        schema_name:
-          type: string
-          default: defnex_scenario_v1
-          title: Schema Name
-        source_format:
-          type: string
-          default: jsonl
-          title: Source Format
-        eval_set_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Eval Set Id
-        eval_set_version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Eval Set Version
-      type: object
-      required:
-      - staging_id
-      - dataset_id
-      title: IntakeValidateRequest
-    IntakeValidateResponse:
-      properties:
-        status:
-          type: string
-          title: Status
-        total_records:
-          type: integer
-          title: Total Records
-        valid_records:
-          type: integer
-          title: Valid Records
-        warning_count:
-          type: integer
-          title: Warning Count
-        blocking_error_count:
-          type: integer
-          title: Blocking Error Count
-        checks:
-          items:
-            type: object
-          type: array
-          title: Checks
-        diagnostics:
-          items:
-            type: object
-          type: array
-          title: Diagnostics
-        preview:
-          items:
-            type: object
-          type: array
-          title: Preview
-        checksum_sha256:
-          type: string
-          title: Checksum Sha256
-        normalized_format:
-          type: string
-          title: Normalized Format
-        schema_version:
-          type: string
-          title: Schema Version
-        validation_report_id:
-          type: integer
-          title: Validation Report Id
-        staging_id:
-          type: string
-          title: Staging Id
-      type: object
-      title: IntakeValidateResponse
-    IntakeCommitRequest:
-      properties:
-        staging_id:
-          type: string
-          title: Staging Id
-        dataset_id:
-          type: string
-          title: Dataset Id
-        display_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Display Name
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        source_type:
-          type: string
-          default: file_upload
-          title: Source Type
-        source_format:
-          type: string
-          default: jsonl
-          title: Source Format
-        validation_report_id:
-          type: integer
-          title: Validation Report Id
-      type: object
-      required:
-      - staging_id
-      - dataset_id
-      - validation_report_id
-      title: IntakeCommitRequest
     EvalLossTrend:
       properties:
         previous_version_eval_loss:
@@ -3260,6 +3665,7 @@ components:
           - alpaca
           - sharegpt
           - chatml
+          - jsonl
           - other
           title: Source Format
       type: object
@@ -3367,6 +3773,33 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    HealthStatus:
+      properties:
+        resource_id:
+          type: integer
+          title: Resource Id
+        name:
+          type: string
+          title: Name
+        is_healthy:
+          type: boolean
+          title: Is Healthy
+        provider_type:
+          type: string
+          title: Provider Type
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - resource_id
+      - name
+      - is_healthy
+      - provider_type
+      - message
+      title: HealthStatus
+      description: Read-only health/connectivity status for a compute resource (PRD
+        §8.6).
     InferenceRequest:
       properties:
         target:
@@ -3417,6 +3850,72 @@ components:
         which
 
         model produced the output.'
+    IntakeCommitRequest:
+      properties:
+        staging_id:
+          type: string
+          title: Staging Id
+        dataset_id:
+          type: string
+          title: Dataset Id
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        source_type:
+          type: string
+          title: Source Type
+          default: file_upload
+        source_format:
+          type: string
+          title: Source Format
+          default: jsonl
+        validation_report_id:
+          type: integer
+          title: Validation Report Id
+      type: object
+      required:
+      - staging_id
+      - dataset_id
+      - validation_report_id
+      title: IntakeCommitRequest
+    IntakeValidateRequest:
+      properties:
+        staging_id:
+          type: string
+          title: Staging Id
+        dataset_id:
+          type: string
+          title: Dataset Id
+        schema_name:
+          type: string
+          title: Schema Name
+          default: defnex_scenario_v1
+        source_format:
+          type: string
+          title: Source Format
+          default: jsonl
+        eval_set_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eval Set Id
+        eval_set_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Eval Set Version
+      type: object
+      required:
+      - staging_id
+      - dataset_id
+      title: IntakeValidateRequest
     LadderActionRequest:
       properties:
         decided_by:
@@ -3431,14 +3930,13 @@ components:
       required:
       - rationale
       title: LadderActionRequest
-      description: 'Request body for the staging/production ladder steps and the
-        deployment-level
+      description: 'Request body for the staging/production ladder steps and the deployment-level
+        rollback
 
-        rollback (openapi.yaml LadderActionRequest). The version being acted on is in
-        the URL;
+        (openapi.yaml LadderActionRequest). The version being acted on is in the URL;
+        the body carries
 
-        the body carries only the audit fields (who approved, why), matching
-        `DecisionCreateRequest.decided_by`.'
+        only the audit fields (who approved, why), matching `DecisionCreateRequest.decided_by`.'
     LoginRequest:
       properties:
         username:
@@ -3584,6 +4082,33 @@ components:
       - status
       title: ModelSummary
       description: Lightweight list-view entry for GET /models (openapi.yaml ModelSummary).
+    PaginatedResponse_ComputeResource_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ComputeResource'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[ComputeResource]
     PaginatedResponse_DatasetSummary_:
       properties:
         items:
@@ -3692,6 +4217,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[TrainingRun]
+    PaginatedResponse_Transfer_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Transfer'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[Transfer]
     PaginatedResponse_UserResponse_:
       properties:
         items:
@@ -3793,100 +4345,6 @@ components:
       - refresh_token
       - user
       title: TokenResponse
-    Transfer:
-      properties:
-        transfer_id:
-          type: string
-          title: Transfer Id
-        artifact_uri:
-          type: string
-          title: Artifact Uri
-        source_host:
-          type: string
-          title: Source Host
-        target_host:
-          type: string
-          title: Target Host
-        checksum_before:
-          type: string
-          title: Checksum Before
-        checksum_after:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Checksum After
-        status:
-          type: string
-          title: Status
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        completed_at:
-          anyOf:
-          - type: string
-          format: date-time
-          - type: 'null'
-          title: Completed At
-        error_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Message
-      type: object
-      required:
-      - transfer_id
-      - artifact_uri
-      - source_host
-      - target_host
-      - checksum_before
-      - status
-      - created_at
-      title: Transfer
-    TransferInitiateRequest:
-      properties:
-        artifact_uri:
-          type: string
-          title: Artifact Uri
-        source_host:
-          type: string
-          title: Source Host
-        target_host:
-          type: string
-          title: Target Host
-      type: object
-      required:
-      - artifact_uri
-      - source_host
-      - target_host
-      title: TransferInitiateRequest
-    PaginatedResponse_Transfer:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/Transfer'
-          type: array
-          title: Items
-        total:
-          type: integer
-          title: Total
-        page:
-          type: integer
-          title: Page
-        size:
-          type: integer
-          title: Size
-        pages:
-          type: integer
-          title: Pages
-      type: object
-      required:
-      - items
-      - total
-      - page
-      - size
-      - pages
-      title: PaginatedResponse_Transfer
     TrainingConfig:
       properties:
         peft_method:
@@ -4130,6 +4588,11 @@ components:
           - type: string
           - type: 'null'
           title: Triggered By
+        compute_resource_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Compute Resource Id
       type: object
       required:
       - dataset_id
@@ -4139,6 +4602,75 @@ components:
       - training_config
       title: TrainingRunCreateRequest
       description: Request to create a training run (openapi.yaml TrainingRunCreateRequest).
+    Transfer:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        artifact_uri:
+          type: string
+          title: Artifact Uri
+        source_host:
+          type: string
+          title: Source Host
+        target_host:
+          type: string
+          title: Target Host
+        checksum_before:
+          type: string
+          title: Checksum Before
+        checksum_after:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Checksum After
+        status:
+          type: string
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+      type: object
+      required:
+      - transfer_id
+      - artifact_uri
+      - source_host
+      - target_host
+      - checksum_before
+      - status
+      - created_at
+      title: Transfer
+      description: A transfer record.
+    TransferInitiateRequest:
+      properties:
+        artifact_uri:
+          type: string
+          title: Artifact Uri
+        source_host:
+          type: string
+          title: Source Host
+        target_host:
+          type: string
+          title: Target Host
+      type: object
+      required:
+      - artifact_uri
+      - source_host
+      - target_host
+      title: TransferInitiateRequest
+      description: Request to initiate an artifact transfer.
     UserCreate:
       properties:
         username:
@@ -4353,253 +4885,3 @@ components:
       type: object
       title: ValidationStatusCounts
       description: Per-record status tally (validation-rules.md §2).
-    ComputeResourceCreateRequest:
-      properties:
-        name:
-          type: string
-          title: Name
-        role:
-          type: string
-          enum:
-          - training
-          - inference
-          - both
-          default: training
-          title: Role
-        environment:
-          type: string
-          enum:
-          - staging
-          - production
-          default: staging
-          title: Environment
-        provider_type:
-          type: string
-          enum:
-          - local
-          - gpu_vps
-          - colab
-          default: local
-          title: Provider Type
-        host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Host
-        gpu_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Gpu Info
-        ssh_host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Host
-        ssh_port:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Ssh Port
-        ssh_username:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Username
-        credential_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Credential Ref
-          description: 'secret:// reference for credentials (PRD §21).'
-      type: object
-      required:
-      - name
-      title: ComputeResourceCreateRequest
-      description: Request to register a new compute resource (PRD §33).
-    ComputeResourceUpdateRequest:
-      properties:
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Name
-        role:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Role
-        environment:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Environment
-        provider_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Provider Type
-        host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Host
-        gpu_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Gpu Info
-        ssh_host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Host
-        ssh_port:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Ssh Port
-        ssh_username:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Username
-        credential_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Credential Ref
-        is_healthy:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Is Healthy
-      type: object
-      title: ComputeResourceUpdateRequest
-      description: Partial update for a compute resource (PATCH). All fields optional.
-    ComputeResource:
-      properties:
-        id:
-          type: integer
-          title: Id
-        name:
-          type: string
-          title: Name
-        role:
-          type: string
-          title: Role
-        environment:
-          type: string
-          title: Environment
-        provider_type:
-          type: string
-          title: Provider Type
-        host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Host
-        gpu_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Gpu Info
-        ssh_host:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Host
-        ssh_port:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Ssh Port
-        ssh_username:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ssh Username
-        credential_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Credential Ref
-        is_healthy:
-          type: boolean
-          default: true
-          title: Is Healthy
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-      - id
-      - name
-      - role
-      - environment
-      - provider_type
-      - created_at
-      - updated_at
-      title: ComputeResource
-      description: A compute resource record (PRD §19.3).
-    HealthStatus:
-      properties:
-        resource_id:
-          type: integer
-          title: Resource Id
-        name:
-          type: string
-          title: Name
-        is_healthy:
-          type: boolean
-          title: Is Healthy
-        provider_type:
-          type: string
-          title: Provider Type
-        message:
-          type: string
-          title: Message
-      type: object
-      required:
-      - resource_id
-      - name
-      - is_healthy
-      - provider_type
-      - message
-      title: HealthStatus
-      description: Read-only health/connectivity status for a compute resource (PRD §8.6).
-    PaginatedResponse_ComputeResource:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/ComputeResource'
-          type: array
-          title: Items
-        total:
-          type: integer
-          title: Total
-        page:
-          type: integer
-          title: Page
-        size:
-          type: integer
-          title: Size
-        pages:
-          type: integer
-          title: Pages
-      type: object
-      required:
-      - items
-      - total
-      - page
-      - size
-      - pages
-      title: PaginatedResponse[ComputeResource]

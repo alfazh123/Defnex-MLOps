@@ -86,6 +86,31 @@ def get_current_user(
     return user
 
 
+def get_current_user_and_token(
+    authorization: str = Header(None), db: Session = Depends(get_db)
+) -> tuple[User, str]:
+    """Extract user + raw token for endpoints that need to revoke the token (e.g. logout)."""
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise APIError(
+            401, "MISSING_TOKEN", "Authorization header must be: Bearer <token>"
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = auth_service.decode_token(token)
+    if payload is None:
+        raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")
+
+    user_id = payload.get("sub")
+    if user_id is None or not str(user_id).isdigit():
+        raise APIError(401, "INVALID_TOKEN", "Token payload is invalid")
+
+    user = auth_service.get_user_by_id(db, int(user_id))
+    if user is None:
+        raise APIError(401, "USER_NOT_FOUND", "User from token no longer exists")
+
+    return user, token
+
+
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require the current user to have admin role."""
     if current_user.role != "admin":

@@ -112,6 +112,26 @@ class Settings(BaseSettings):
     vram_check_timeout: int = 300
 
     @model_validator(mode="after")
+    def _check_jwt_secret_safe(self) -> Self:
+        """Fail fast in production if jwt_secret still has the insecure dev default.
+
+        Only triggers when ``ENVIRONMENT`` is explicitly set to ``production``
+        (not just ``debug=False``, which is also the default during tests).
+        """
+        env = getattr(self, "deployment_environment", "default")
+        if env != "production":
+            return self
+        if self.jwt_secret == "dev-secret-change-in-production":
+            import logging
+
+            logging.getLogger(__name__).critical(
+                "FATAL: jwt_secret is the insecure dev default. "
+                "Set JWT_SECRET env var before running in production."
+            )
+            raise SystemExit(1)
+        return self
+
+    @model_validator(mode="after")
     def _validate_serving_coordination(self) -> Self:
         """No half-configured safety pipeline.
 

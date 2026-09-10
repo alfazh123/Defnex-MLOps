@@ -1,0 +1,51 @@
+ml-close-loop-be/tests/test_training_service.py
+  s_e63c35a71a894c::t_1c9ac757dca6e0 407-443
+  s_e63c35a71a894c::t_0b2a2ebda5f477 4
+ml-close-loop-be/app/services/dataset_service.py
+  s_e63c35a71a894c::t_9a1ae1ac7c837c 59-60,62-63,68-74,77,80-83,85-89
+  s_e63c35a71a894c::t_8f0b1f3595b07c 119-120,122-143,145-149
+  s_e63c35a71a894c::t_e6b6ea45e32666 33-37,39,44,54-56,64-67,75-76,78-79
+  s_e63c35a71a894c::t_c1e64424d5adc5 252-270,272-280
+  s_e63c35a71a894c::t_33986d3dff2515 38
+  s_e63c35a71a894c::t_e225dee4cc166d 121,144
+  s_e63c35a71a894c::t_5027a522c38d3c 61,84
+  s_e63c35a71a894c::t_e9ba99d27d6b55 32
+  s_e63c35a71a894c::t_45b928f58ae0d4 271
+  s_e63c35a71a894c::t_c077bd2e99a710 1,5,17-18
+  s_e63c35a71a894c::t_7bbe7f756af726 19
+ml-close-loop-be/app/services/training_service.py
+  s_e63c35a71a894c::t_5b73ffa119110e 75-76,79-90
+  s_e63c35a71a894c::t_43017bf36775f9 91
+ml-close-loop-be/app/config.py
+  s_e63c35a71a894c::t_f75dee5b080097 91-92
+ml-close-loop-be/app/models/training.py
+  s_e63c35a71a894c::t_4ac7c29e49465b 49
+ml-close-loop-be/alembic/versions/f1a2b3c4d5e6_add_retry_count_to_training_runs.py
+  s_e63c35a71a894c::t_63f6085065c6e4 1-32
+ml-close-loop-be/tests/test_training_worker.py
+  s_e63c35a71a894c::t_45b928f58ae0d4 440-442
+  s_e63c35a71a894c::t_c7078a49435eb2 454-458
+  s_e63c35a71a894c::t_c8d775a5aa7172 438-439,443-453
+ml-close-loop-be/tests/test_dataset_service.py
+  s_e63c35a71a894c::t_2bfa7d14d49fb9 140
+  s_e63c35a71a894c::t_fb9224fc7d45a8 126-131,133-137,149-160,162-172,174-176,178-179
+  s_e63c35a71a894c::t_1cfdbc309d601a 1-2
+  s_e63c35a71a894c::t_71b4f02ebfe0fd 132,138-139,141-148,161,173,177,180
+  s_e63c35a71a894c::t_65922a8b89d68e 84-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "973f5ccda5e5b0aa29d90269175ee21df4d29c11",
+  "prompts": {},
+  "sessions": {
+    "s_e63c35a71a894c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f754e98cbffeLK0rlFTO7BCBfo",
+        "model": "mimo-v2.5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+ml-close-loop-be/app/config.py
+  s_b4f3e9f8f45097::t_f4fa78501efe15 239-251
+ml-close-loop-be/app/schemas/promotion.py
+  s_b4f3e9f8f45097::t_0499f6e1a4311a 52-61
+ml-close-loop-be/app/models/dataset.py
+  s_b4f3e9f8f45097::t_6867f877a1d7c1 49-54
+ml-close-loop-be/.env.example
+  s_b4f3e9f8f45097::t_c826ac25258e6e 215-223
+ml-close-loop-be/openapi.yaml
+  s_b4f3e9f8f45097::t_bbf55ec91fb3de 3302-3316,3329-3332
+ml-close-loop-be/tests/test_promotion_service.py
+  s_b4f3e9f8f45097::t_fd01fdc47a6f24 312-432
+  s_b4f3e9f8f45097::t_3aaa624b11feb8 3
+  s_b4f3e9f8f45097::t_58d1107c927c51 21-24,35-37
+ml-close-loop-be/app/services/promotion_service.py
+  s_b4f3e9f8f45097::t_39d07ce8586eef 60-132
+  s_b4f3e9f8f45097::t_1bc1c3308933af 433,446-448
+ml-close-loop-be/alembic/versions/c7d1a9f3b5e2_add_license_to_dataset_versions.py
+  s_b4f3e9f8f45097::t_c49471b6e79e65 1-35
+ml-close-loop-be/tests/test_contract.py
+  s_b4f3e9f8f45097::t_f8049f469f6f67 413-415,423-427
+ml-close-loop-be/tests/test_promotion_ladder.py
+  s_b4f3e9f8f45097::t_5ceca9ca0d02a1 294-295,299-333
+  s_b4f3e9f8f45097::t_9182de60b8d093 296-298,334-336
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4a85f850ba031cd3d8c3b1d0b1dc5f43aeb593e1",
+  "prompts": {},
+  "sessions": {
+    "s_b4f3e9f8f45097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c5bbd9-b302-426b-991d-cca07f14b33e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

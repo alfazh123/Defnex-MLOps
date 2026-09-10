@@ -1,12 +1,14 @@
 """Local filesystem storage for the dataset intake pipeline.
 
-Handles staging → validation → commit lifecycle for uploaded JSONL files.
+Handles staging → validation → commit lifecycle for uploaded dataset files.
 Each dataset version lives under ``{base_dir}/{dataset_id}/v{version}/``.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import shutil
 import uuid
@@ -41,13 +43,37 @@ class DatasetStorage:
         files = [f for f in d.iterdir() if f.is_file()]
         return files[0] if files else None
 
-    def read_records(self, path: Path) -> list[dict]:
-        records = []
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-        return records
+    def read_records(self, path: Path, source_format: str = "jsonl") -> list[dict]:
+        if source_format == "jsonl":
+            records = []
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+            return records
+        if source_format == "json":
+            data = json.loads(path.read_text())
+            if not isinstance(data, list):
+                return []
+            return [r for r in data if isinstance(r, dict)]
+        if source_format == "csv":
+            text = path.read_text()
+            reader = csv.DictReader(io.StringIO(text))
+            return [row for row in reader]
+        if source_format == "xlsx":
+            try:
+                import openpyxl
+            except ImportError:
+                raise FileNotFoundError("openpyxl not installed")
+            wb = openpyxl.load_workbook(str(path), read_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            wb.close()
+            if not rows:
+                return []
+            headers = [str(h) for h in rows[0]]
+            return [dict(zip(headers, row)) for row in rows[1:]]
+        raise ValueError(f"Unsupported format: {source_format}")
 
     def compute_checksum(self, path: Path) -> str:
         h = hashlib.sha256()

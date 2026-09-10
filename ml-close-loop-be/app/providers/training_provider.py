@@ -465,3 +465,115 @@ class GPUVPSProvider:
                     host.download(remote_file, local_file)
 
         return str(local_staging)
+
+
+# ---------------------------------------------------------------------------
+# ColabProvider — ephemeral on-demand Colab runner (PRD §9.6/§9.7/§9.8)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _ColabClaim:
+    """Bookkeeping for a Colab claim token."""
+
+    training_run_id: str
+    status: str = "QUEUED"
+    error_message: str = ""
+    artifact_uri: str = ""
+
+
+class ColabProvider:
+    """Colab runner provider — ephemeral, on-demand (PRD §9.6).
+
+    Unlike GPUVPSProvider which runs training on a persistent remote host,
+    ColabProvider is designed for on-demand execution via Google Colab notebooks.
+    The notebook polls for pending jobs, claims one, executes training, and
+    uploads artifacts directly to MinIO.
+
+    Job state is tracked in-memory like the other providers. The notebook
+    reports back to the control plane via API endpoints (heartbeat, complete,
+    fail) which update the TrainingRun in the database directly.
+    """
+
+    def __init__(self) -> None:
+        self._claims: dict[str, _ColabClaim] = {}
+
+    def submit(self, db: Session, training_run: TrainingRun) -> str:
+        """Generate a claim token for a Colab notebook to pick up (PRD §9.6).
+
+        The notebook polls for PENDING jobs assigned to this compute_resource_id,
+        claims the job, executes training, and uploads artifacts to MinIO.
+        Returns a claim token (UUID) as external_job_id.
+        """
+        claim_token = str(uuid.uuid4())
+        training_run.external_job_id = claim_token
+        self._claims[claim_token] = _ColabClaim(
+            training_run_id=training_run.training_run_id,
+        )
+        db.flush()
+
+        logger.info(
+            "colab_submitted",
+            training_run_id=training_run.training_run_id,
+            external_job_id=claim_token,
+            compute_resource_id=training_run.compute_resource_id,
+        )
+        return claim_token
+
+    def get_status(self, external_job_id: str) -> JobStatus:
+        """Check if a Colab job has been claimed and is running.
+
+        QUEUED → waiting for notebook to pick up (reported as RUNNING to
+        the worker adapter which keeps polling). COMPLETED/FAILED are set
+        when the notebook reports back.
+        """
+        claim = self._claims.get(external_job_id)
+        if claim is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        if claim.status == "COMPLETED":
+            return JobStatus(status="COMPLETED")
+        if claim.status == "FAILED":
+            return JobStatus(status="FAILED", error_message=claim.error_message)
+        # QUEUED or RUNNING — still waiting for notebook
+        return JobStatus(status="RUNNING")
+
+    def cancel(self, external_job_id: str) -> None:
+        """Invalidate a Colab claim token (PRD §9.6).
+
+        Sets the claim to FAILED with a cancellation message.
+        The notebook should detect this via the API and stop execution.
+        """
+        claim = self._claims.get(external_job_id)
+        if claim is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        claim.status = "FAILED"
+        claim.error_message = "Cancelled by operator"
+
+    def collect_result(self, external_job_id: str) -> str:
+        """Return the artifact URI where Colab uploaded artifacts.
+
+        The Colab notebook uploads artifacts to MinIO via presigned URL.
+        This returns the MinIO URI for the artifacts.
+        """
+        claim = self._claims.get(external_job_id)
+        if claim is None:
+            raise ValueError(f"Unknown job: {external_job_id}")
+        if claim.status == "FAILED":
+            raise RuntimeError(f"Job {external_job_id} failed: {claim.error_message}")
+        if claim.status != "COMPLETED":
+            raise RuntimeError(f"Job {external_job_id} is not yet completed")
+        return claim.artifact_uri
+
+    def mark_completed(self, external_job_id: str, artifact_uri: str = "") -> None:
+        """Mark a claim as completed (called by notebook via API)."""
+        claim = self._claims.get(external_job_id)
+        if claim is not None:
+            claim.status = "COMPLETED"
+            claim.artifact_uri = artifact_uri
+
+    def mark_failed(self, external_job_id: str, error_message: str = "") -> None:
+        """Mark a claim as failed (called by notebook via API)."""
+        claim = self._claims.get(external_job_id)
+        if claim is not None:
+            claim.status = "FAILED"
+            claim.error_message = error_message

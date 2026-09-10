@@ -19,6 +19,7 @@ class ComputeResourceCreateRequest(BaseModel):
     ssh_port: int | None = None
     ssh_username: str | None = None
     credential_ref: str | None = None
+    notebook_url: str | None = None
 
 
 class ComputeResourceUpdateRequest(BaseModel):
@@ -34,6 +35,7 @@ class ComputeResourceUpdateRequest(BaseModel):
     ssh_port: int | None = None
     ssh_username: str | None = None
     credential_ref: str | None = None
+    notebook_url: str | None = None
     is_healthy: bool | None = None
 
 
@@ -53,6 +55,7 @@ class ComputeResource(BaseModel):
     ssh_port: int | None = None
     ssh_username: str | None = None
     credential_ref: str | None = None
+    notebook_url: str | None = None
     is_healthy: bool = True
     created_at: datetime
     updated_at: datetime

@@ -1,0 +1,20 @@
+ml-close-loop-be/alembic/versions/18d17109accf_merge_batch_7_8_heads.py
+  s_b4f3e9f8f45097::t_8819751f165ea2 1-8,10-12,20-31
+  s_b4f3e9f8f45097::t_6c222051b12510 9,13-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d4271eb426f9d67f226c70440bc7ca2b270a8581",
+  "prompts": {},
+  "sessions": {
+    "s_b4f3e9f8f45097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c5bbd9-b302-426b-991d-cca07f14b33e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -243,5 +243,17 @@ class Settings(BaseSettings):
     rate_limit_deploy: str = "5/minute"
     rate_limit_promotion_decision: str = "5/minute"
 
+    # Artifact retention policy (issue #132, PRD §43). PRD §43 only states a negative rule --
+    # "artifacts required for rollback must not be deleted merely because a model is no longer
+    # active" -- it names no positive minimum-retention number, so these are explicit,
+    # operator-overridable defaults, not values sourced from the PRD. They define only the
+    # *minimum age before a REJECTED/ARCHIVED/superseded artifact becomes eligible* for deletion
+    # consideration; this codebase does not implement an automatic deletion job against them.
+    # Full policy: docs/dataset/retention-policy.md.
+    retention_rejected_dataset_days: int = 90
+    retention_superseded_dataset_days: int = 180
+    retention_rejected_model_version_days: int = 90
+    retention_archived_model_version_days: int = 365
+
 
 settings = Settings()

@@ -33,6 +33,38 @@ _BOILERPLATE_PHRASES = (
 # H9: control characters other than tab/newline/carriage-return.
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
+# PII screening (issue #132, PRD-motivated: this product handles defense-oriented dataset
+# content, so unscreened PII at intake is a bigger risk than generic MLOps). Deliberately a
+# WARNING rule, not a hard-error (H*) rule -- it must never block a dataset commit on its own,
+# only flag content for human review. Patterns are intentionally simple/high-recall regexes,
+# not a full PII-detection model; false positives are acceptable for a warning-only signal.
+_PII_PATTERNS: dict[str, re.Pattern[str]] = {
+    # Generic email address.
+    "PII_EMAIL": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    # Indonesian NIK (national ID number) -- 16 consecutive digits.
+    "PII_ID_NUMBER": re.compile(r"(?<!\d)\d{16}(?!\d)"),
+    # Indonesian mobile phone number: 08xx / +62 8xx / 62 8xx, 9-13 digits total.
+    "PII_PHONE_NUMBER": re.compile(r"(?<!\d)(?:\+?62|0)8[0-9]{8,11}(?!\d)"),
+}
+
+
+def _pii_warnings_for_record(record: dict) -> list[str]:
+    """Scan a record's message content for common PII patterns (issue #132).
+
+    Returns a list of warning codes (e.g. `PII_EMAIL`), one entry per pattern that matched
+    anywhere in the record -- at most once per pattern per record, so a record with three
+    emails still contributes one `PII_EMAIL` warning to that record's tally."""
+
+    hits: list[str] = []
+    for message in record.get("messages") or []:
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        for code, pattern in _PII_PATTERNS.items():
+            if code not in hits and pattern.search(content):
+                hits.append(code)
+    return hits
+
 
 def _hard_errors_for_record(record: dict) -> list[str]:
     """H1-H6, H9: per-record hard-error checks that don't need the full dataset."""
@@ -124,8 +156,11 @@ def validate_dataset_version(
     quality-review rules (Q1-Q4) are deliberately not implemented yet: several of them (W2, W5,
     Q2, Q4) have no concrete threshold or algorithm defined in validation-rules.md, and the doc
     itself (§9) recommends deferring exactly this kind of undefined threshold rather than
-    inventing one. NEEDS_REVIEW and warnings_summary therefore stay at zero/empty until a future
-    story adds those rules with real, non-invented thresholds.
+    inventing one. NEEDS_REVIEW stays at zero until a future story adds those rules with real,
+    non-invented thresholds. `warnings_summary` is no longer always empty, though: issue #132
+    adds a PII-screening warning rule (see `_pii_warnings_for_record`) that populates it -- a
+    WARNING, never a hard-error, so a record containing PII stays VALID and the gate decision
+    is unaffected by it.
 
     `eval_records` represents already-known eval-set content (e.g. the curated benchmark set) to
     check leakage (H8) against; `eval_set_ref` is a human-readable label of the stored eval set
@@ -173,6 +208,16 @@ def validate_dataset_version(
     valid_count = sum(1 for errors in per_record_errors if not errors)
     invalid_count = len(records) - valid_count
 
+    # PII screening (issue #132): warning-only, computed independently of per_record_errors
+    # so it can never affect valid_count/invalid_count or the gate decision below.
+    per_record_pii_warnings = [_pii_warnings_for_record(record) for record in records]
+    pii_pattern_counts: dict[str, int] = {code: 0 for code in _PII_PATTERNS}
+    for warnings in per_record_pii_warnings:
+        for code in warnings:
+            pii_pattern_counts[code] += 1
+    records_flagged_for_pii = sum(1 for warnings in per_record_pii_warnings if warnings)
+    total_pii_warnings = sum(pii_pattern_counts.values())
+
     word_counts = [
         len(message["content"].split())
         for record in records
@@ -211,7 +256,10 @@ def validate_dataset_version(
             "INVALID": invalid_count,
             "NEEDS_REVIEW": 0,
         },
-        warnings_summary={},
+        warnings_summary={
+            **{code: count for code, count in pii_pattern_counts.items() if count},
+            "total_warnings": total_pii_warnings,
+        },
         dataset_statistics={
             "length_distribution_words": length_distribution_words,
             "duplicate_count": duplicate_count,
@@ -222,6 +270,10 @@ def validate_dataset_version(
                 if eval_set_ref or eval_records
                 else [],
                 "overlaps_found": leakage_overlaps,
+            },
+            "pii_screening": {
+                "records_flagged": records_flagged_for_pii,
+                "pattern_counts": pii_pattern_counts,
             },
         },
         per_record_errors=per_record_errors,

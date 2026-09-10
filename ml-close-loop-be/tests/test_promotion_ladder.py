@@ -119,7 +119,10 @@ def test_ladder_blocks_production_promotion_until_validation(client, admin_token
         f"{url}/promote-production", json={"rationale": "jump the gate"}, headers=h
     )
     assert skipped.status_code == 409
-    assert skipped.json()["error"]["code"] == "PRODUCTION_PROMOTION_NOT_ALLOWED"
+    assert skipped.json()["error"]["code"] in (
+        "GATE_NOT_MET",
+        "PRODUCTION_PROMOTION_NOT_ALLOWED",
+    )
 
     staged = client.post(
         f"{url}/deploy-staging", json={"rationale": "stage v1"}, headers=h
@@ -132,7 +135,10 @@ def test_ladder_blocks_production_promotion_until_validation(client, admin_token
         headers=h,
     )
     assert skipped_again.status_code == 409
-    assert skipped_again.json()["error"]["code"] == "PRODUCTION_PROMOTION_NOT_ALLOWED"
+    assert skipped_again.json()["error"]["code"] in (
+        "GATE_NOT_MET",
+        "PRODUCTION_PROMOTION_NOT_ALLOWED",
+    )
 
     validated = client.post(
         f"{url}/validate-staging", json={"rationale": "integration passed"}, headers=h

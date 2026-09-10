@@ -38,6 +38,10 @@ _LADDER_STAGING_SOURCE = {"EVALUATED"}
 _LADDER_VALIDATION_SOURCE = {"STAGING"}
 _LADDER_PROMOTION_SOURCE = {"VALIDATED", "PROMOTED"}
 
+# Statuses that represent a validated production candidate (PRD §26.3).
+# Used by _validate_staging_gate to block unvalidated versions from production.
+_VALIDATED_PRODUCTION_STATUSES = {"VALIDATED", "PROMOTED", "DEPLOYED", "PRODUCTION"}
+
 # Versions a rollback may restore to (issues #69/#70, PRD §14.4 "Rollback"): an earlier version
 # that is still immutable and available. RETIRED = "was DEPLOYED, then superseded" (the only thing
 # that sets it is deployment_service.deploy), PROMOTED = approved but never deployed, and the
@@ -255,6 +259,23 @@ def validate_staging(
     )
 
 
+class StagingGateNotMet(Exception):
+    """Raised when production promotion is blocked because the model version
+    has not passed through STAGING→VALIDATED (PRD §26.3, issue #80).
+
+    Distinct from `ValueError` so the API layer can map it to its own 409 code.
+    """
+
+
+def _validate_staging_gate(model_version: ModelVersion) -> None:
+    """Reject production promotion if staging hasn't been validated (PRD §26.3, issue #80)."""
+    if model_version.status not in _VALIDATED_PRODUCTION_STATUSES:
+        raise StagingGateNotMet(
+            f"Model version {model_version.version} has not been validated in staging; "
+            f"must pass STAGING→VALIDATED before production (PRD §26.3)"
+        )
+
+
 def promote_to_production(
     db: Session, model_version: ModelVersion, request: LadderActionRequest
 ) -> PromotionDecision:
@@ -267,6 +288,7 @@ def promote_to_production(
     A legacy PROMOTED version may also take this path (backward compatibility), where it is
     equivalent to the existing EVALUATED -> PROMOTED --deploy--> DEPLOYED flow plus an audit row.
     """
+    _validate_staging_gate(model_version)
     if model_version.status not in _LADDER_PROMOTION_SOURCE:
         raise ValueError(
             f"Cannot promote model_id {model_version.model_id!r} version {model_version.version} "

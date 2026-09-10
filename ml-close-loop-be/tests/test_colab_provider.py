@@ -166,6 +166,42 @@ def test_colab_collect_result_raises_on_pending(db, colab_resource):
         provider.collect_result(eid)
 
 
+# --- ColabProvider restart persistence ---
+
+
+def test_colab_state_survives_provider_restart(db, colab_resource):
+    """Claim state persists in DB — new provider instance sees it."""
+    run = _create_run(db, colab_resource.id)
+    provider1 = ColabProvider()
+    eid = provider1.submit(db, run)
+    provider1.mark_completed(eid, artifact_uri="s3://artifacts/restart-test")
+
+    # Simulate restart: new provider, fresh in-memory state
+    provider2 = ColabProvider()
+    provider2._db = db
+
+    status = provider2.get_status(eid)
+    assert status.status == "COMPLETED"
+
+    result = provider2.collect_result(eid)
+    assert result == "s3://artifacts/restart-test"
+
+
+def test_colab_failed_state_survives_restart(db, colab_resource):
+    """FAILED claim state persists across provider instances."""
+    run = _create_run(db, colab_resource.id)
+    provider1 = ColabProvider()
+    eid = provider1.submit(db, run)
+    provider1.mark_failed(eid, error_message="OOM after restart sim")
+
+    provider2 = ColabProvider()
+    provider2._db = db
+
+    status = provider2.get_status(eid)
+    assert status.status == "FAILED"
+    assert "OOM" in status.error_message
+
+
 # --- Runner link endpoint ---
 
 

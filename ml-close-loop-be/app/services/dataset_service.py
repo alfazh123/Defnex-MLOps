@@ -1,6 +1,8 @@
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.models.dataset import Dataset, DatasetVersion as DatasetVersionModel
@@ -11,6 +13,9 @@ from app.schemas.dataset import (
     DatasetVersion as DatasetVersionSchema,
     DatasetVersionCreateRequest,
 )
+
+_MAX_VERSION_RETRIES = 30
+_IMMUTABLE_STATUSES = {"PROCESSED"}
 
 
 def register_dataset(db: Session, dataset_id: str) -> Dataset:
@@ -24,13 +29,19 @@ def register_dataset(db: Session, dataset_id: str) -> Dataset:
     return dataset
 
 
-def _next_version(db: Session, dataset_id: str) -> int:
-    latest_version = db.scalar(
+def _allocate_version(db: Session, dataset_id: str) -> int:
+    """Return the next candidate version number inside a SAVEPOINT.
+
+    Caller must INSERT the row and COMMIT within an outer retry loop — this only
+    reads the current MAX; the actual uniqueness enforcement is the DB unique
+    constraint on (dataset_id, version).
+    """
+    latest = db.scalar(
         select(DatasetVersionModel.version)
         .where(DatasetVersionModel.dataset_id == dataset_id)
         .order_by(DatasetVersionModel.version.desc())
     )
-    return (latest_version or 0) + 1
+    return (latest or 0) + 1
 
 
 def create_dataset_version(
@@ -40,28 +51,43 @@ def create_dataset_version(
 
     No intake/normalization pipeline exists yet, so the version is created directly in
     `PROCESSED` status to unblock the validation→training→deploy closed loop.
+
+    SELECT max + INSERT are wrapped in a SAVEPOINT with retry on IntegrityError so
+    two concurrent callers never produce the same (dataset_id, version) pair (P2-5).
     """
 
-    register_dataset(db, dataset_id)
-
-    version = DatasetVersionModel(
-        dataset_id=dataset_id,
-        version=_next_version(db, dataset_id),
-        status="PROCESSED",
-        source_type=request.source_type,
-        source_url_or_hf_id=request.source_dataset,
-        source_commit_or_snapshot_date=request.source_commit_or_snapshot_date,
-        source_format=request.source_format,
-        seed=None,
-        row_count=None,
-        cleaning_steps_applied=[],
-        created_at=datetime.now(timezone.utc),
-        created_by=None,
+    for _ in range(_MAX_VERSION_RETRIES):
+        try:
+            register_dataset(db, dataset_id)
+            with db.begin_nested():
+                version_num = _allocate_version(db, dataset_id)
+                version = DatasetVersionModel(
+                    dataset_id=dataset_id,
+                    version=version_num,
+                    status="PROCESSED",
+                    source_type=request.source_type,
+                    source_url_or_hf_id=request.source_dataset,
+                    source_commit_or_snapshot_date=request.source_commit_or_snapshot_date,
+                    source_format=request.source_format,
+                    seed=None,
+                    row_count=None,
+                    cleaning_steps_applied=[],
+                    created_at=datetime.now(timezone.utc),
+                    created_by=None,
+                )
+                db.add(version)
+                db.flush()
+            db.commit()
+            db.refresh(version)
+            return version
+        except (IntegrityError, OperationalError):
+            db.rollback()
+            time.sleep(0.02)
+            continue
+    raise RuntimeError(
+        f"could not create dataset version for {dataset_id!r} "
+        f"after {_MAX_VERSION_RETRIES} attempts"
     )
-    db.add(version)
-    db.commit()
-    db.refresh(version)
-    return version
 
 
 def create_dataset_version_from_feedback(
@@ -90,27 +116,38 @@ def create_dataset_version_from_feedback(
     if not_approved:
         raise ValueError(f"feedback_id(s) not APPROVED: {', '.join(not_approved)}")
 
-    register_dataset(db, dataset_id)
-
-    version = DatasetVersionModel(
-        dataset_id=dataset_id,
-        version=_next_version(db, dataset_id),
-        status="PROCESSED",
-        source_type="feedback",
-        source_feedback_ids=feedback_ids,
-        source_url_or_hf_id=None,
-        source_commit_or_snapshot_date=None,
-        source_format=source_format,
-        seed=None,
-        row_count=len(feedback_ids),
-        cleaning_steps_applied=[],
-        created_at=datetime.now(timezone.utc),
-        created_by=None,
+    for _ in range(_MAX_VERSION_RETRIES):
+        try:
+            register_dataset(db, dataset_id)
+            with db.begin_nested():
+                version = DatasetVersionModel(
+                    dataset_id=dataset_id,
+                    version=_allocate_version(db, dataset_id),
+                    status="PROCESSED",
+                    source_type="feedback",
+                    source_feedback_ids=feedback_ids,
+                    source_url_or_hf_id=None,
+                    source_commit_or_snapshot_date=None,
+                    source_format=source_format,
+                    seed=None,
+                    row_count=len(feedback_ids),
+                    cleaning_steps_applied=[],
+                    created_at=datetime.now(timezone.utc),
+                    created_by=None,
+                )
+                db.add(version)
+                db.flush()
+            db.commit()
+            db.refresh(version)
+            return version
+        except (IntegrityError, OperationalError):
+            db.rollback()
+            time.sleep(0.02)
+            continue
+    raise RuntimeError(
+        f"could not create dataset version for {dataset_id!r} "
+        f"after {_MAX_VERSION_RETRIES} attempts"
     )
-    db.add(version)
-    db.commit()
-    db.refresh(version)
-    return version
 
 
 def get_dataset_version(
@@ -212,3 +249,32 @@ def to_schema(version: DatasetVersionModel) -> DatasetVersionSchema:
             created_by=version.created_by,
         ),
     )
+
+
+def update_dataset_version(
+    db: Session, version: DatasetVersionModel, **fields
+) -> DatasetVersionModel:
+    """Update mutable fields on a DatasetVersion, rejecting if status is immutable."""
+
+    if version.status in _IMMUTABLE_STATUSES:
+        raise ValueError(
+            f"Cannot update dataset {version.dataset_id!r} version {version.version} "
+            f"in status {version.status!r} (already processed)"
+        )
+    for key, value in fields.items():
+        if hasattr(version, key):
+            setattr(version, key, value)
+    db.flush()
+    return version
+
+
+def delete_dataset_version(db: Session, version: DatasetVersionModel) -> None:
+    """Delete a DatasetVersion, rejecting if status is immutable."""
+
+    if version.status in _IMMUTABLE_STATUSES:
+        raise ValueError(
+            f"Cannot delete dataset {version.dataset_id!r} version {version.version} "
+            f"in status {version.status!r} (already processed)"
+        )
+    db.delete(version)
+    db.flush()

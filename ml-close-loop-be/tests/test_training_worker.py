@@ -435,3 +435,24 @@ def test_stale_run_is_distinct_from_failed_and_reclaimable_by_worker(
 
     assert processed.training_run_id == stale_run.training_run_id
     assert processed.status == "COMPLETED"
+
+
+def test_stale_run_exceeding_retry_limit_becomes_failed(
+    db_session, lock_file, monkeypatch
+):
+    """P2-6: a STALE run that has been reclaimed too many times is forced to FAILED
+    instead of being re-executed."""
+    monkeypatch.setattr(settings, "max_stale_retries", 1)
+    training_run = _queued_training_run(db_session)
+    training_service.claim_training_run(db_session, training_run)
+    training_service._transition(training_run, "STALE")
+    training_run.retry_count = 1  # already at limit
+    db_session.flush()
+
+    processed = process_next_job(db_session, _StubRunner(), lock_file=lock_file)
+
+    # claim_training_run returns False when retry limit exceeded and forces the run to FAILED
+    assert processed is None
+    db_session.refresh(training_run)
+    assert training_run.status == "FAILED"
+    assert "Exceeded max stale retries" in training_run.error_message

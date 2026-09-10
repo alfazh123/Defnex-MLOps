@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime, timedelta, timezone
 
+from app.config import settings
 from app.schemas.dataset import DatasetVersionCreateRequest
 from app.schemas.training import TrainingConfig, TrainingRunCreateRequest
 from app.services import dataset_service, model_service, training_service
@@ -403,3 +404,40 @@ def test_to_schema_exposes_stale_status(db_session):
 
     schema = training_service.to_schema(run)
     assert schema.status == "STALE"
+
+
+def test_claim_stale_increments_retry_count(db_session):
+    """P2-6: claiming a STALE run increments retry_count."""
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    db_session.flush()
+
+    assert training_service.claim_training_run(db_session, run) is True
+    assert run.retry_count == 1
+    assert run.status == "RUNNING"
+
+
+def test_claim_stale_rejects_after_max_retries(db_session, monkeypatch):
+    """P2-6: after max_stale_retries claims, the run is forced to FAILED."""
+    monkeypatch.setattr(settings, "max_stale_retries", 2)
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    run.retry_count = 2  # already at limit
+    db_session.flush()
+
+    assert training_service.claim_training_run(db_session, run) is False
+    assert run.status == "FAILED"
+    assert "Exceeded max stale retries" in run.error_message
+
+
+def test_claim_stale_within_limit_succeeds(db_session, monkeypatch):
+    """P2-6: claiming a STALE run within the retry limit succeeds."""
+    monkeypatch.setattr(settings, "max_stale_retries", 3)
+    run = _running_run(db_session)
+    training_service._transition(run, "STALE")
+    run.retry_count = 2  # below limit of 3
+    db_session.flush()
+
+    assert training_service.claim_training_run(db_session, run) is True
+    assert run.retry_count == 3
+    assert run.status == "RUNNING"

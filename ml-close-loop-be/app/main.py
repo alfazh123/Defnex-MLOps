@@ -31,6 +31,7 @@ from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
 from app.middleware.request_size import RequestSizeLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.services.deployment_service import SmokeTestError
 from app.services.serving import BaseModelMismatchError, ServingError
 
@@ -96,6 +97,11 @@ class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(ApiVersionRedirectMiddleware)
+
+# Added last: Starlette's add_middleware() inserts at the front of the stack,
+# so the last-added middleware ends up outermost and sees every response —
+# including CORS preflights, body-size 413s, and legacy-prefix 301s.
+app.add_middleware(SecurityHeadersMiddleware)
 
 v1_router = APIRouter(prefix="/api/v1")
 

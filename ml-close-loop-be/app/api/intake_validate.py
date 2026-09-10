@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, Request
@@ -18,13 +17,12 @@ from app.models.dataset import Dataset, DatasetVersion
 from app.models.user import User
 from app.models.validation import ValidationReport
 from app.schemas.common import ErrorResponse
-from app.services import dataset_service, validation_service
+from app.services import dataset_service, idempotency_service, validation_service
 from app.services.dataset_storage import DatasetStorage
 
 router = APIRouter(tags=["Dataset Intake"])
 
-_IDEMPOTENCY_CACHE: dict[str, tuple[dict, float]] = {}
-_IDEMPOTENCY_TTL = 3600
+_IDEMPOTENCY_ENDPOINT = "intake_commit"
 
 
 class IntakeValidateRequest(BaseModel):
@@ -168,12 +166,13 @@ def commit_intake(
     x_idempotency_key: str | None = Header(None),
 ) -> dict:
     """Commit a validated dataset as an immutable DatasetVersion (Step 5)."""
+    # Issue #124: durable Postgres-backed cache (app.services.idempotency_service) instead of an
+    # in-process dict, so a retried request with the same X-Idempotency-Key replays the same
+    # result across API worker processes and across a restart, within the TTL window.
     if x_idempotency_key:
-        if x_idempotency_key in _IDEMPOTENCY_CACHE:
-            result, ts = _IDEMPOTENCY_CACHE[x_idempotency_key]
-            if time.time() - ts < _IDEMPOTENCY_TTL:
-                return result
-            del _IDEMPOTENCY_CACHE[x_idempotency_key]
+        cached = idempotency_service.get_cached_response(db, x_idempotency_key)
+        if cached is not None:
+            return cached.body
 
     storage = DatasetStorage()
 
@@ -247,9 +246,25 @@ def commit_intake(
 
     db.commit()
 
-    result = dataset_service.to_schema(dv).model_dump()
+    # mode="json" (not the default mode="python"): the idempotency cache round-trips this dict
+    # through `json.dumps`/`json.loads` (issue #124), and `DatasetVersion.created_at` is a
+    # `datetime` - JSON has no datetime type, so a raw `.model_dump()` would blow up
+    # `idempotency_service.store_response`'s `json.dumps` on a cache write. FastAPI would have
+    # produced the identical ISO-string wire format for a non-cached response anyway (it runs
+    # every response through `jsonable_encoder`), so this changes no client-visible behavior.
+    result = dataset_service.to_schema(dv).model_dump(mode="json")
 
     if x_idempotency_key:
-        _IDEMPOTENCY_CACHE[x_idempotency_key] = (result, time.time())
+        # Its own flush+commit after the main commit above (the result is only known once that
+        # transaction has landed); the router still owns both commit boundaries per the repo's
+        # service/router split (services only `db.flush()`).
+        idempotency_service.store_response(
+            db,
+            x_idempotency_key,
+            endpoint=_IDEMPOTENCY_ENDPOINT,
+            status=200,
+            body=result,
+        )
+        db.commit()
 
     return result

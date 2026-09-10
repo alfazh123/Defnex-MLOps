@@ -38,7 +38,9 @@ def deploy_model_version(
     x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DeployResult:
     model_version = get_model_version_or_404(db, model_id, version)
-    cached = deployment_service.check_idempotency(x_idempotency_key, model_version.id)
+    cached = deployment_service.check_idempotency(
+        db, x_idempotency_key, model_version.id
+    )
     if cached is not None:
         return DeployResult(**cached)
     # Batch 3 (issues #69/#70): environment-aware deploy gate for the staging/production
@@ -94,9 +96,14 @@ def deploy_model_version(
         # uq_model_versions_one_deployed) - a real conflict, not a fake success.
         raise APIError(409, "DEPLOY_CONFLICT", str(exc)) from exc
     result = deployment_service.to_deploy_result(deployment, previous)
+    # Stored after the deploy's own commit above (the deploy result - `deployment`/`previous` -
+    # is only fully known once that transaction has landed), so this is its own flush+commit;
+    # the router still owns both commit boundaries per the repo's service/router split (services
+    # only `db.flush()`, see app.services.idempotency_service).
     deployment_service.store_idempotency(
-        x_idempotency_key, model_version.id, result.model_dump()
+        db, x_idempotency_key, model_version.id, result.model_dump(mode="json")
     )
+    db.commit()
     return result
 
 

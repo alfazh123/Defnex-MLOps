@@ -1,0 +1,19 @@
+ml-close-loop-be/tests/test_gpu_vps_provider.py
+  s_11aa633c51e794::t_f9d0765d0a43a2 1,3-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1c445a27394aeef85aa31dc28fa6aa6542610d96",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

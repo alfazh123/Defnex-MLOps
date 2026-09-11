@@ -1,7 +1,13 @@
-"""GPUVPSProvider and remote_worker tests (issue #76, PRD §9.5).
+"""GPUVPSProvider tests (issue #76, PRD §9.5).
 
-Tests the GPUVPSProvider (SSH-based remote training) and the remote_worker
-polling/claim/upload logic using mock SSH and httpx.
+Tests the GPUVPSProvider (SSH-based remote training, polled from the control
+plane) using mock SSH.
+
+``app/workers/remote_worker.py`` (a standalone script that polled the control
+plane over HTTP and reported back via claim/heartbeat/complete/fail) was
+removed in issue #127: GPUVPSProvider already executes and polls training
+over SSH *from* the control plane, so no HTTP callback path was ever needed,
+and nothing in the codebase called those endpoints or ran that script.
 """
 
 from pathlib import Path
@@ -274,60 +280,6 @@ def test_provider_factory_selects_local_by_default():
     res = ComputeResource(name="test", provider_type="local")
     provider = get_provider_for_resource(res)
     assert isinstance(provider, LocalSubprocessProvider)
-
-
-# --- Remote worker tests ---
-
-
-def test_remote_worker_claims_pending_job(tmp_path):
-    """remote_worker._claim_job returns True on 200 response."""
-    from app.workers.remote_worker import _claim_job
-
-    mock_client = MagicMock()
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_client.post.return_value = mock_resp
-
-    result = _claim_job(mock_client, "run-abc")
-    assert result is True
-    mock_client.post.assert_called_once_with("/api/v1/training-runs/run-abc/claim")
-
-
-def test_remote_worker_uploads_to_minio_via_presigned(tmp_path):
-    """_upload_artifact_to_minio uses presigned PUT URLs for each file."""
-    from app.workers.remote_worker import _upload_artifact_to_minio
-
-    # Create staging dir with test files
-    staging = tmp_path / "staging"
-    staging.mkdir()
-    (staging / "adapter.safetensors").write_bytes(b"model-data")
-    (staging / "config.json").write_text('{"lora": true}')
-    (staging / ".hidden").touch()  # Should be skipped
-
-    with patch("app.workers.remote_worker.MinioArtifactStorage") as mock_storage_cls:
-        mock_storage = MagicMock()
-        mock_storage.generate_presigned_upload_url.return_value = (
-            "http://minio:9000/bucket/key?presigned"
-        )
-        mock_storage._bucket = "artifacts"
-        mock_storage_cls.return_value = mock_storage
-
-        with patch("app.workers.remote_worker.httpx.put") as mock_put:
-            mock_put.return_value = MagicMock(status_code=200)
-            uri = _upload_artifact_to_minio(staging, "test/run-123")
-
-    assert uri.startswith("s3://artifacts/")
-    # Should upload 2 files (adapter.safetensors + config.json), skip .hidden
-    assert mock_put.call_count == 2
-
-
-def test_remote_worker_reports_heartbeat(tmp_path):
-    """_report_heartbeat sends POST to /heartbeat endpoint."""
-    from app.workers.remote_worker import _report_heartbeat
-
-    mock_client = MagicMock()
-    _report_heartbeat(mock_client, "run-xyz")
-    mock_client.post.assert_called_once_with("/api/v1/training-runs/run-xyz/heartbeat")
 
 
 @patch("app.providers.training_provider.SSHRemoteHost")

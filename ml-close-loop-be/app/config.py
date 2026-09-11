@@ -211,12 +211,6 @@ class Settings(BaseSettings):
     # SSH / remote connectivity (issue #73)
     ssh_connect_timeout: float = 30.0
 
-    # Remote GPU VPS worker (issue #76, PRD §9.5)
-    # Polling interval for the standalone remote worker polling the control plane.
-    remote_worker_poll_interval: float = 5.0
-    # Base URL the remote worker uses to reach the control plane API.
-    remote_worker_api_url: str = ""
-
     # Logging
     debug: bool = False
     log_level: str = "INFO"

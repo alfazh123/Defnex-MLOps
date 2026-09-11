@@ -1,0 +1,28 @@
+ml-close-loop-be/seed.py
+  s_11aa633c51e794::t_197474be733926 182,192-199
+  s_11aa633c51e794::t_bdbdfb8c3c4a17 25-39
+  s_11aa633c51e794::t_1db611c75d1195 331-332,336-340,349-350,359-360,369
+  s_11aa633c51e794::t_ee5e0092149d81 10,80,90,104-107,119-170,183-191,203,210,214-215,224,226-329,333-335,341-348,351-358,361-368,373-398
+  s_11aa633c51e794::t_164172feb0528d 74-75,81-82,84,87,89,91,94-103,108-118
+  s_11aa633c51e794::t_8c6531f4f3c2cb 1-9,11-24,40-73,76-79,83,85-86,88,92-93,171-181,200-202,204-209,211-213,216-223,225,330,370-372,399-404
+ml-close-loop-be/alembic/versions/f8a1c9b0d3e2_add_artifact_transfers_and_missing_columns.py
+  s_11aa633c51e794::t_ee5e0092149d81 17,25-26,34-51,53-55,57-60,66,68,70-74
+  s_11aa633c51e794::t_e331d2407eeee1 1-12,14-16,18-24,27-33,52,56,61-65,67,69
+  s_11aa633c51e794::t_63e6dc6d41be10 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f225f5cceda880b5f60ae1cac239eed5f9b9531",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

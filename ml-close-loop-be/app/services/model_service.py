@@ -19,6 +19,7 @@ from app.schemas.model import (
     ModelRegistryRecord,
     ModelSummary,
 )
+from app.services import notification_service
 from app.services.artifact_storage import LocalFilesystemArtifactStorage
 
 _MAX_VERSION_RETRIES = 30
@@ -304,6 +305,17 @@ def submit_evaluation(
     )
     if all_signals_present and model_version.status == "REGISTERED":
         model_version.status = "EVALUATED"
+        # issue #130: a candidate reaching EVALUATED needs a human promote/reject decision -
+        # notify every admin (there's no single "owner" of a promotion decision).
+        notification_service.notify_admins(
+            db,
+            type=notification_service.APPROVAL_REQUIRED,
+            message=(
+                f"Model {model_version.model_id!r} version {model_version.version} is "
+                "EVALUATED and awaiting a promote/reject decision."
+            ),
+            resource_ref=f"{model_version.model_id}:v{model_version.version}",
+        )
 
     db.flush()
     return model_version

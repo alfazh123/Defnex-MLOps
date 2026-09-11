@@ -24,6 +24,7 @@ from app.api.inference import router as inference_router
 from app.api.intake import router as intake_router
 from app.api.intake_validate import router as intake_validate_router
 from app.api.models import router as models_router
+from app.api.notifications import router as notifications_router
 from app.api.promotion import router as promotion_router
 from app.api.training import router as training_router
 from app.api.transfer import router as transfer_router
@@ -85,6 +86,7 @@ class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
         "/transfers",
         "/compute-resources",
         "/audit-logs",
+        "/notifications",
     )
 
     async def dispatch(
@@ -119,6 +121,7 @@ v1_router.include_router(training_router)
 v1_router.include_router(transfer_router)
 v1_router.include_router(compute_resources_router)
 v1_router.include_router(models_router)
+v1_router.include_router(notifications_router)
 v1_router.include_router(promotion_router)
 v1_router.include_router(deployment_router)
 v1_router.include_router(inference_router)

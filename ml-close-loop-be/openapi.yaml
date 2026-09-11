@@ -144,6 +144,10 @@ paths:
       tags:
       - Auth
       summary: Refresh
+      description: 'Rotate the refresh token: the old one is invalidated and a new
+        pair is
+
+        issued. Reuse of an already-rotated token revokes the whole family (#125).'
       operationId: refresh_api_v1_auth_refresh_post
       requestBody:
         content:
@@ -194,9 +198,17 @@ paths:
       tags:
       - Auth
       summary: Logout
-      description: Revoke the refresh-token family tied to the current access
-        token; the access token itself remains valid until its short natural
-        expiry (#125).
+      description: 'Revoke the refresh-token family tied to the current access token
+        (#125).
+
+
+        The access token itself is short-lived and never revocation-checked (see
+
+        auth_service.decode_token), so it stays technically valid until it expires
+
+        naturally; logout''s real effect is that the refresh token can no longer be
+
+        used to mint new access tokens, forcing re-login once it expires.'
       operationId: logout_api_v1_auth_logout_post
       parameters:
       - name: authorization
@@ -1949,6 +1961,19 @@ paths:
       tags:
       - Models
       summary: Submit Evaluation
+      description: 'Trigger async server-side evaluation (issue #128) - no longer
+        accepts caller-supplied
+
+        signal numbers (`EvaluationTriggerRequest` rejects them with 422, see the
+        schema''s
+
+        docstring). The evaluation worker computes the real signals and applies them,
+        so the
+
+        response here reflects whatever evaluation state already exists, not the outcome
+        of this
+
+        trigger (which runs asynchronously).'
       operationId: submit_evaluation_api_v1_models__model_id__versions__version__evaluation_post
       parameters:
       - name: model_id
@@ -2037,6 +2062,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationObject'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications:
+    get:
+      tags:
+      - Notifications
+      summary: List Notifications
+      description: 'List the current user''s own notifications, newest first (issue
+        #130). Reuses
+
+        `get_pagination` for page/size.'
+      operationId: list_notifications_api_v1_notifications_get
+      parameters:
+      - name: unread_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Unread Only
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_NotificationEntry_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/{notification_id}/read:
+    post:
+      tags:
+      - Notifications
+      summary: Mark Notification Read
+      description: 'Mark one of the current user''s own notifications read (issue
+        #130).'
+      operationId: mark_notification_read_api_v1_notifications__notification_id__read_post
+      parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Notification Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationMarkReadResponse'
         '404':
           content:
             application/json:
@@ -3488,10 +3607,7 @@ components:
       description: 'WBS 3.3 §8 decision record (openapi.yaml DecisionRecord) - covers
         promotion, rejection,
 
-        rollback, and the staging/production ladder steps with one schema. `dataset_license`/
-        `base_model_license`/`license_warning` (issue #134) surface the training dataset and
-        base model licenses and an explicit, human-facing (never auto-blocking) warning when a
-        non-commercial dataset license is heading toward production.'
+        rollback, and the staging/production ladder steps with one schema.'
     DeployRequest:
       properties:
         environment:
@@ -3743,16 +3859,29 @@ components:
       additionalProperties: false
       type: object
       title: EvaluationTriggerRequest
-      description: 'Request body for `POST .../evaluation` (issue #128). Trigger-only:
-        the endpoint no longer accepts caller-supplied signal numbers (`eval_loss_trend`,
+      description: 'Request body for `POST .../evaluation` (issue #128, openapi.yaml
+        EvaluationUpdateRequest).
+
+
+        Trigger-only: the endpoint no longer accepts caller-supplied signal numbers
+        (`eval_loss_trend`,
+
         `qualitative_comparison`, `general_domain_regression_check`) - those are now
-        computed server-side by the evaluation worker against the stored golden/eval
-        set (issue #43) via `ServingBackend`. `additionalProperties: false` makes a
-        request still shaped like the old manual payload fail with 422 rather than
-        silently accepting/ignoring caller-controlled evaluation results.
+        computed
+
+        server-side by the evaluation worker against the stored golden/eval set (issue
+        #43) via
+
+        `ServingBackend`. `extra="forbid"` makes a request still shaped like the old
+        manual payload
+
+        fail with 422 rather than silently accepting/ignoring caller-controlled evaluation
+        results.
+
         `eval_set_id`/`eval_set_version` (optional) name/override the golden set to
-        evaluate against; when omitted, the model version''s already-stored eval set
-        reference is used.'
+        evaluate against;
+
+        when omitted, the model version''s already-stored eval set reference is used.'
     FeedbackCreateRequest:
       properties:
         model_id:
@@ -4247,6 +4376,62 @@ components:
       - status
       title: ModelSummary
       description: Lightweight list-view entry for GET /models (openapi.yaml ModelSummary).
+    NotificationEntry:
+      properties:
+        id:
+          type: integer
+          title: Id
+        user_id:
+          type: integer
+          title: User Id
+        type:
+          type: string
+          title: Type
+        message:
+          type: string
+          title: Message
+        resource_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resource Ref
+        read_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Read At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - user_id
+      - type
+      - message
+      - created_at
+      title: NotificationEntry
+      description: 'A single in-app notification (issue #130): a job/deployment lifecycle
+        event surfaced to
+
+        the relevant user (job owner or admin).'
+    NotificationMarkReadResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        read_at:
+          type: string
+          format: date-time
+          title: Read At
+      type: object
+      required:
+      - id
+      - read_at
+      title: NotificationMarkReadResponse
+      description: Response for POST .../notifications/{id}/read.
     PaginatedResponse_AuditLogEntry_:
       properties:
         items:
@@ -4382,6 +4567,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[ModelRegistryRecord]
+    PaginatedResponse_NotificationEntry_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/NotificationEntry'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[NotificationEntry]
     PaginatedResponse_TrainingRun_:
       properties:
         items:
@@ -4746,6 +4958,11 @@ components:
           - type: integer
           - type: 'null'
           title: Model Version
+        retry_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Retry Of
       type: object
       required:
       - training_run_id

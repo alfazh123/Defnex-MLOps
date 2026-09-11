@@ -13,7 +13,7 @@ from app.schemas.training import (
     TrainingRun as TrainingRunSchema,
     TrainingRunCreateRequest,
 )
-from app.services import audit_service
+from app.services import audit_service, notification_service
 
 # Issue #135: rank used to order the claim query `priority DESC, created_at ASC`.
 # Any value outside PRIORITY_LEVELS (should not happen -- validated at the request
@@ -324,6 +324,15 @@ def complete_training_run(
 
     if _training_runs_counter is not None:
         _training_runs_counter.add(1, {"status": "COMPLETED"})
+
+    # issue #130: notify the job owner their training run finished.
+    notification_service.notify_user_by_username(
+        db,
+        username=training_run.triggered_by,
+        type=notification_service.TRAINING_COMPLETED,
+        message=f"Training run {training_run.training_run_id} completed.",
+        resource_ref=training_run.training_run_id,
+    )
     return training_run
 
 
@@ -346,6 +355,15 @@ def fail_training_run(
     from app.services.alerting import alert_training_failed
 
     alert_training_failed(job_id=training_run.training_run_id, error=error_message)
+
+    # issue #130: notify the job owner their training run failed.
+    notification_service.notify_user_by_username(
+        db,
+        username=training_run.triggered_by,
+        type=notification_service.TRAINING_FAILED,
+        message=f"Training run {training_run.training_run_id} failed: {error_message}",
+        resource_ref=training_run.training_run_id,
+    )
     return training_run
 
 

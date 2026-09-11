@@ -17,7 +17,7 @@ from app.schemas.promotion import (
     LadderActionRequest,
     RollbackRequest,
 )
-from app.services import deployment_service, promotion_service
+from app.services import deployment_service, notification_service, promotion_service
 
 logger = structlog.get_logger(__name__)
 
@@ -170,6 +170,21 @@ def promote_production_endpoint(
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except promotion_service.StagingGateNotMet as exc:
         raise APIError(409, "GATE_NOT_MET", str(exc)) from exc
+    except deployment_service.SmokeTestError as exc:
+        # issue #130 ("production deployment failed"): commit the notification here, before
+        # re-raising, since main.py's global SmokeTestError handler ends the request without
+        # this router ever reaching its own db.commit() below.
+        notification_service.notify_admins(
+            db,
+            type=notification_service.PRODUCTION_DEPLOYMENT_FAILED,
+            message=(
+                f'production promotion of model_id "{model_id}" version {version} failed '
+                f"the smoke test: {exc}"
+            ),
+            resource_ref=f"{model_id}:v{version}",
+        )
+        db.commit()
+        raise
     except ValueError as exc:
         raise _ladder_error(exc, "PRODUCTION_PROMOTION_NOT_ALLOWED") from exc
     db.commit()

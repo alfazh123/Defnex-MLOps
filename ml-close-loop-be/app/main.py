@@ -5,7 +5,7 @@ import structlog
 from fastapi import FastAPI, Request, APIRouter
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, Response
@@ -233,6 +233,26 @@ async def rate_limit_exception_handler(
         window_stats = limiter.limiter.get_window_stats(limit_item, *args)
         response.headers["X-RateLimit-Reset"] = str(1 + window_stats[0])
     return response
+
+
+@app.get("/scalar", include_in_schema=False)
+def scalar_docs() -> HTMLResponse:
+    """Scalar API reference reading the same live OpenAPI spec as /docs and /redoc -- a
+    friendlier alternative to Swagger UI, no separate spec file to keep in sync."""
+    return HTMLResponse(
+        """<!doctype html>
+<html>
+  <head>
+    <title>DEFNEX MLOps API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script id="api-reference" data-url="/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>"""
+    )
 
 
 @app.get("/metrics")

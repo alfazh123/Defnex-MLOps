@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.session import SessionLocal
+from app.models.compute_resource import ComputeResource
 from app.models.training import TrainingRun
 from app.services import model_service, training_service
 from app.workers.gpu_lock import gpu_lock
@@ -64,6 +65,34 @@ class ProviderRunnerAdapter:
                     status.error_message or f"Job {external_job_id} {status.status}"
                 )
             _time.sleep(0.1)
+
+
+def resolve_runner_for_run(
+    db: Session, training_run: TrainingRun, default_runner: TrainingRunner
+) -> TrainingRunner:
+    """Route `training_run` to the provider matching its assigned ComputeResource
+    (issue #126, wiring follow-up on #74/#75/#76/#77).
+
+    A run with no `compute_resource_id` keeps using the caller's `default_runner`
+    (Local, backward compatible — existing runs and tests are unaffected). A run
+    assigned to a resource is executed by that resource's `provider_type` instead,
+    via the already-written `get_provider_for_resource` factory (previously dead
+    code: written for #75 but never called from the worker loop).
+    """
+
+    if training_run.compute_resource_id is None:
+        return default_runner
+    resource = db.get(ComputeResource, training_run.compute_resource_id)
+    if resource is None:
+        # Resource was deleted/misconfigured after the run was created; fall back to
+        # the default rather than crashing the poll loop over a dangling FK value.
+        logger.warning(
+            "compute_resource_not_found",
+            training_run_id=training_run.training_run_id,
+            compute_resource_id=training_run.compute_resource_id,
+        )
+        return default_runner
+    return ProviderRunnerAdapter(get_provider_for_resource(resource))
 
 
 def _heartbeat_loop(
@@ -124,6 +153,11 @@ def process_next_job(
     sequence. If serving cannot be stopped or VRAM never frees up, the run is not
     started; it stays PENDING (skipped this poll) with the reason logged — a busy GPU
     never fails or loses a run, matching the lock-timeout behavior.
+
+    Compute routing (issue #126): once claimed, the run's execution provider is
+    resolved via `resolve_runner_for_run` from its `compute_resource_id` — `runner`
+    is only the fallback used when the run has none (backward compatible default:
+    Local).
     """
 
     training_service.mark_stale_runs(db)
@@ -166,8 +200,9 @@ def process_next_job(
                     )
                     heartbeat.start()
                     run_start = time.monotonic()
+                    job_runner = resolve_runner_for_run(db, training_run, runner)
                     try:
-                        staging_dir = runner.run(db, training_run)
+                        staging_dir = job_runner.run(db, training_run)
                     except Exception as exc:
                         training_service.fail_training_run(
                             db, training_run, error_message=str(exc)

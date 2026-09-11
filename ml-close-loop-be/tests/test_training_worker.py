@@ -437,6 +437,107 @@ def test_stale_run_is_distinct_from_failed_and_reclaimable_by_worker(
     assert processed.status == "COMPLETED"
 
 
+def test_resolve_runner_for_run_uses_default_when_no_compute_resource(db_session):
+    """AC (#126): a run with no compute_resource_id stays on the caller's default
+    runner (backward compatible -- existing PENDING runs are unaffected)."""
+    from app.workers.training_worker import resolve_runner_for_run
+
+    training_run = _queued_training_run(db_session)
+    default_runner = _StubRunner()
+
+    resolved = resolve_runner_for_run(db_session, training_run, default_runner)
+
+    assert resolved is default_runner
+
+
+def test_resolve_runner_for_run_selects_gpu_vps_provider(db_session):
+    """AC (#126): a run assigned to a gpu_vps ComputeResource is routed to
+    GPUVPSProvider, not the default/local runner."""
+    from app.models.compute_resource import ComputeResource
+    from app.providers.training_provider import GPUVPSProvider
+    from app.workers.training_worker import (
+        ProviderRunnerAdapter,
+        resolve_runner_for_run,
+    )
+
+    resource = ComputeResource(
+        name="gpu-vps-1", provider_type="gpu_vps", ssh_host="10.0.0.9"
+    )
+    db_session.add(resource)
+    db_session.flush()
+
+    training_run = _queued_training_run(db_session)
+    training_run.compute_resource_id = resource.id
+    db_session.flush()
+
+    resolved = resolve_runner_for_run(db_session, training_run, _StubRunner())
+
+    assert isinstance(resolved, ProviderRunnerAdapter)
+    assert isinstance(resolved._provider, GPUVPSProvider)
+
+
+def test_resolve_runner_for_run_falls_back_when_resource_missing(db_session):
+    """Edge case: a dangling compute_resource_id (resource deleted/never existed)
+    must not crash the worker loop -- fall back to the default runner instead."""
+    from app.workers.training_worker import resolve_runner_for_run
+
+    training_run = _queued_training_run(db_session)
+    training_run.compute_resource_id = 999999
+    db_session.flush()
+    default_runner = _StubRunner()
+
+    resolved = resolve_runner_for_run(db_session, training_run, default_runner)
+
+    assert resolved is default_runner
+
+
+def test_process_next_job_with_gpu_vps_resource_calls_gpu_vps_provider(
+    db_session, lock_file
+):
+    """AC (#126): end-to-end -- a TrainingRun whose compute_resource_id points at a
+    gpu_vps ComputeResource is actually executed through GPUVPSProvider (SSH
+    stubbed, no real network/GPU), not LocalSubprocessProvider. The default_runner
+    passed to process_next_job is never invoked, proving the routing took over."""
+    from unittest.mock import MagicMock, patch
+
+    from app.models.compute_resource import ComputeResource
+    from app.services.ssh import ExecResult
+
+    with patch("app.providers.training_provider.SSHRemoteHost") as mock_ssh_cls:
+        mock_host = MagicMock()
+        mock_host.execute.side_effect = [
+            ExecResult(stdout="", stderr="", returncode=0),  # submit: mkdir -p
+            ExecResult(stdout="42\n", stderr="", returncode=0),  # submit: spawn
+            ExecResult(stdout="dead\n", stderr="", returncode=1),  # get_status: ps -p
+            ExecResult(stdout="", stderr="", returncode=0),  # get_status: test -f
+            ExecResult(stdout="", stderr="", returncode=0),  # collect_result: ls
+        ]
+        mock_host.__enter__ = MagicMock(return_value=mock_host)
+        mock_host.__exit__ = MagicMock(return_value=False)
+        mock_ssh_cls.return_value = mock_host
+
+        resource = ComputeResource(
+            name="gpu-vps-worker-test", provider_type="gpu_vps", ssh_host="10.0.0.9"
+        )
+        db_session.add(resource)
+        db_session.flush()
+
+        training_run = _queued_training_run(db_session)
+        training_run.compute_resource_id = resource.id
+        db_session.flush()
+
+        default_runner = _StubRunner()
+        processed = process_next_job(db_session, default_runner, lock_file=lock_file)
+
+        assert processed.training_run_id == training_run.training_run_id
+        assert processed.status == "COMPLETED"
+        assert default_runner.calls == []
+        mkdir_calls = [
+            c for c in mock_host.execute.call_args_list if c[0][0][0] == "mkdir"
+        ]
+        assert len(mkdir_calls) == 1
+
+
 def test_stale_run_exceeding_retry_limit_becomes_failed(
     db_session, lock_file, monkeypatch
 ):

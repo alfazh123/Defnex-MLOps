@@ -1,0 +1,23 @@
+ml-close-loop-be/app/api/intake_validate.py
+  s_11aa633c51e794::t_8c5286686ac9d3 201-215,221-224
+  s_11aa633c51e794::t_3dec3899e388b4 200
+ml-close-loop-be/tests/test_intake_validate.py
+  s_11aa633c51e794::t_671113b0c4a309 296-299
+  s_11aa633c51e794::t_e99bc7f0d6640a 303-349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4783baf978be095180533cbb8bedda7f87635b74",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

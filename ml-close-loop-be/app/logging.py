@@ -56,8 +56,15 @@ def configure_logging(log_level: str = "INFO", debug: bool = False) -> None:
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
+    handler._configure_logging_owned = True  # noqa: SLF001 -- our own marker, not stdlib API
 
     root_logger = logging.getLogger()
-    root_logger.handlers.clear()
+    # Only remove handlers this function added on a previous call (e.g. lifespan re-running
+    # per TestClient in tests) -- clearing unconditionally also destroys externally-attached
+    # handlers such as pytest's caplog handler, which broke every caplog-based test whose
+    # `client` fixture re-triggers the FastAPI lifespan (see tests/test_error_logging.py).
+    for existing in list(root_logger.handlers):
+        if getattr(existing, "_configure_logging_owned", False):
+            root_logger.removeHandler(existing)
     root_logger.addHandler(handler)
     root_logger.setLevel(log_level.upper())

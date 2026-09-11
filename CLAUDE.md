@@ -30,7 +30,7 @@ the PRD without a written decision. Key targets (details live in the PRD):
 ## Commands (from `ml-close-loop-be/`)
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
+python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev,intake]"
 alembic upgrade head
 uvicorn app.main:app --reload            # :8000, docs at /docs
 

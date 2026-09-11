@@ -39,7 +39,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: ml-close-loop-be/pyproject.toml
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,intake]"
       - run: pytest -q --tb=short --cov=app --cov-report=term-missing
         env:
           DATABASE_URL: "sqlite:///ci-test.db"

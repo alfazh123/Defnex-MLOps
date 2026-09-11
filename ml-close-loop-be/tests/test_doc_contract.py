@@ -65,3 +65,12 @@ def test_every_settings_field_has_env_example_entry():
     assert env_keys, "no KEY=VALUE entries parsed from .env.example"
     missing = {field.upper() for field in Settings.model_fields} - env_keys
     assert not missing, f"Settings fields missing from .env.example: {sorted(missing)}"
+
+
+def test_scalar_docs_page_served_and_excluded_from_api_contract(client):
+    response = client.get("/scalar")
+    assert response.status_code == 200
+    assert "api-reference" in response.text
+    assert "/openapi.json" in response.text
+    # A docs page, not an API operation -- must not appear in the versioned contract.
+    assert "/scalar" not in app.openapi()["paths"]

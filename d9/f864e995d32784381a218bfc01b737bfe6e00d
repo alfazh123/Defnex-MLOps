@@ -1,0 +1,24 @@
+ml-close-loop-be/tests/test_security.py
+  s_11aa633c51e794::t_d78b60bb1375e4 84-101
+ml-close-loop-be/app/api/deps.py
+  s_11aa633c51e794::t_c4f36cc78cae2e 76-77,80,85
+  s_11aa633c51e794::t_3c794d69397f3e 102-103,106,111
+  s_11aa633c51e794::t_6e24c4aab33316 4-5,15-22
+  s_11aa633c51e794::t_558aa6417c2cdc 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d9f864e995d32784381a218bfc01b737bfe6e00d",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -81,6 +81,24 @@ def test_empty_token_returns_401(client):
     assert resp.status_code == 401
 
 
+def test_lowercase_bearer_scheme_accepted(client):
+    """HTTPBearer's scheme check is case-insensitive (RFC 7235) -- Scalar/Swagger's
+    "Authorize" button relies on this working the same as the exact-case "Bearer"."""
+    token = _register_and_login(client)
+    resp = client.get("/api/v1/datasets", headers={"Authorization": f"bearer {token}"})
+    assert resp.status_code == 200
+
+
+def test_openapi_declares_bearer_security_scheme():
+    """Swagger/Scalar need a real securitySchemes entry to show an "Authorize" button
+    that applies the token to every endpoint automatically, instead of requiring a
+    manually-typed "Bearer <token>" header per request."""
+    spec = app.openapi()
+    schemes = spec["components"]["securitySchemes"]
+    assert any(s.get("scheme") == "bearer" for s in schemes.values())
+    assert spec["paths"]["/api/v1/datasets"]["get"]["security"]
+
+
 def test_token_with_invalid_sub_returns_401(client):
     forged = jwt.encode(
         {

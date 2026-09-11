@@ -1,7 +1,8 @@
 import math
 from dataclasses import dataclass
 
-from fastapi import Depends, Header, Query
+from fastapi import Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.api.errors import APIError
@@ -10,6 +11,15 @@ from app.models.model import ModelVersion
 from app.models.user import User
 from app.rbac import has_permission
 from app.services import auth_service, model_service
+
+# auto_error=False so a missing/malformed header raises our own APIError envelope
+# (401 MISSING_TOKEN) instead of HTTPBearer's plain HTTPException(403) -- keeps the
+# {"error": {"code", "message"}} contract (CLAUDE.md: never a bare HTTPException).
+# Being a FastAPI SecurityBase dependency, this also makes FastAPI emit a proper
+# `securitySchemes` entry in the OpenAPI spec, so Swagger/Scalar show a real
+# "Authorize" button that applies the token to every endpoint using it, instead of
+# requiring a manually-typed "Bearer <token>" header per request.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @dataclass
@@ -63,15 +73,16 @@ def get_model_version_or_404(db: Session, model_id: str, version: int) -> ModelV
 
 
 def get_current_user(
-    authorization: str = Header(None), db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
 ) -> User:
     """Extract and validate JWT token from Authorization header."""
-    if authorization is None or not authorization.startswith("Bearer "):
+    if credentials is None:
         raise APIError(
             401, "MISSING_TOKEN", "Authorization header must be: Bearer <token>"
         )
 
-    token = authorization.removeprefix("Bearer ").strip()
+    token = credentials.credentials
     payload = auth_service.decode_token(token, db)
     if payload is None:
         raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")
@@ -88,15 +99,16 @@ def get_current_user(
 
 
 def get_current_user_and_token(
-    authorization: str = Header(None), db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
 ) -> tuple[User, str]:
     """Extract user + raw token for endpoints that need to revoke the token (e.g. logout)."""
-    if authorization is None or not authorization.startswith("Bearer "):
+    if credentials is None:
         raise APIError(
             401, "MISSING_TOKEN", "Authorization header must be: Bearer <token>"
         )
 
-    token = authorization.removeprefix("Bearer ").strip()
+    token = credentials.credentials
     payload = auth_service.decode_token(token, db)
     if payload is None:
         raise APIError(401, "INVALID_TOKEN", "Token is invalid or expired")

@@ -2,6 +2,7 @@ from app.models.audit_log import AuditLog
 from app.models.compute_resource import ComputeResource
 from app.models.dataset import Dataset, DatasetVersion
 from app.models.deployment import Deployment
+from app.models.drift_check import ModelDriftCheck
 from app.models.eval_set import EvalSet, EvalSetVersion
 from app.models.environment import Environment
 from app.models.feedback import Feedback
@@ -28,6 +29,7 @@ __all__ = [
     "Feedback",
     "IdempotencyKey",
     "Model",
+    "ModelDriftCheck",
     "ModelVersion",
     "Notification",
     "PromotionDecision",

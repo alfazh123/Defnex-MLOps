@@ -1,0 +1,22 @@
+ml-close-loop-be/app/main.py
+  s_11aa633c51e794::t_352c08923287e1 8
+  s_11aa633c51e794::t_dc1d48cdcc691a 238-257
+ml-close-loop-be/tests/test_doc_contract.py
+  s_11aa633c51e794::t_dcd375879d4788 68-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "60d72a08174fbe9b71f479f5e5bd28c1ae154fb2",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

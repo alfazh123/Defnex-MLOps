@@ -23,6 +23,13 @@ _SERVING_UNSUPPORTED_PEFT_METHODS = ("dora", "qdora", "none")
 
 PeftMethod = Literal[SUPPORTED_PEFT_METHODS]
 
+# Fair-use priority queue (issue #135): single source of truth for accepted values,
+# consumed by both the request schema below and the claim-order ranking in
+# app/services/training_service.py. Default "normal" keeps existing FIFO behavior for
+# callers that never set it.
+PRIORITY_LEVELS = ("low", "normal", "high")
+Priority = Literal[PRIORITY_LEVELS]
+
 
 class TrainingConfig(BaseModel):
     """Training configuration knobs mapped to Unsloth Studio TrainingStartRequest.
@@ -114,6 +121,7 @@ class TrainingRunCreateRequest(BaseModel):
     training_config: TrainingConfig
     triggered_by: str | None = None
     compute_resource_id: int | None = None
+    priority: Priority = "normal"
 
 
 class TrainingRun(BaseModel):
@@ -134,3 +142,16 @@ class TrainingRun(BaseModel):
     eval_loss: float | None = None
     model_version: int | None = None
     retry_of: str | None = None
+
+
+class GpuHoursReportRow(BaseModel):
+    """One (triggered_by, model_id) aggregation row of the GPU-hour cost report
+    (issue #135) -- computed from existing `TrainingRun.started_at`/`finished_at`,
+    no new table. `triggered_by` stands in for "tenant/user" and `model_id` for
+    "project" since those are the only attribution fields TrainingRun already has.
+    """
+
+    triggered_by: str | None = None
+    model_id: str
+    run_count: int
+    gpu_hours: float

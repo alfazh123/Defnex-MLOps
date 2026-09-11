@@ -3,7 +3,6 @@ import time
 from typing import Protocol
 
 import structlog
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -104,8 +103,10 @@ def process_next_job(
     coordinator: ServingCoordinator | None = None,
     heartbeat_interval: float | None = None,
 ) -> TrainingRun | None:
-    """One worker iteration (PRD §10 steps 1-8): pick the oldest claimable run (PENDING or
-    STALE), claim it atomically, run it under the exclusive GPU lock, persist the outcome.
+    """One worker iteration (PRD §10 steps 1-8): pick the next claimable run (PENDING or
+    STALE, `priority DESC, created_at ASC` -- issue #135 fair-use queue, oldest-first
+    within a priority tier), claim it atomically, run it under the exclusive GPU lock,
+    persist the outcome.
 
     Returns the processed run, or None if the queue is empty or the claim was lost
     to a concurrent worker. A lock-queue timeout does not fail or lose the run: the
@@ -127,11 +128,7 @@ def process_next_job(
     """
 
     training_service.mark_stale_runs(db)
-    training_run = db.scalar(
-        select(TrainingRun)
-        .where(TrainingRun.status.in_(["PENDING", "STALE"]))
-        .order_by(TrainingRun.created_at)
-    )
+    training_run = training_service.next_claimable_run(db)
     if training_run is None:
         return None
 

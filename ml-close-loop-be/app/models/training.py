@@ -47,6 +47,11 @@ class TrainingRun(Base):
         String, ForeignKey("training_runs.training_run_id"), nullable=True, index=True
     )
     retry_count: Mapped[int] = mapped_column(default=0)
+    # Issue #135: fair-use claim ordering on the shared H100 -- "low"/"normal"/"high"
+    # (see app.schemas.training.PRIORITY_LEVELS, the single source of truth for the
+    # accepted values). The claim query orders by this DESC before created_at ASC, so a
+    # high-priority run jumps the queue instead of pure FIFO.
+    priority: Mapped[str] = mapped_column(String, default="normal")
 
     dataset_version: Mapped["DatasetVersion"] = relationship(
         back_populates="training_runs"

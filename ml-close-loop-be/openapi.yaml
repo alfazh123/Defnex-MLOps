@@ -4604,6 +4604,14 @@ components:
           - type: integer
           - type: 'null'
           title: Compute Resource Id
+        priority:
+          type: string
+          enum:
+          - low
+          - normal
+          - high
+          title: Priority
+          default: normal
       type: object
       required:
       - dataset_id

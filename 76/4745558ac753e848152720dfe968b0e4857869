@@ -11,6 +11,7 @@ ml-close-loop-be/app/api/deployment.py
 ml-close-loop-be/app/services/training_service.py
   s_11aa633c51e794::t_a202a80bdf0799 358-366
   s_11aa633c51e794::t_a6ad0d0ede8e7f 327-335
+  s_11aa633c51e794::t_53352bd86b8858 16
 ml-close-loop-be/app/models/notification.py
   s_11aa633c51e794::t_f51e67611ceaf0 21
   s_11aa633c51e794::t_66384428c23ef7 1-20,22-26
@@ -48,6 +49,10 @@ ml-close-loop-be/tests/test_notification.py
   s_11aa633c51e794::t_38a7af9f9883c9 233-235,301
   s_11aa633c51e794::t_fa8565bfdd628e 167,172-175,184
   s_11aa633c51e794::t_125cc4b69fcf0e 1-166,168-171,176-183,185-232,236-300,302-330
+ml-close-loop-be/README.md
+  s_11aa633c51e794::t_e0913c326b12f9 15
+README.md
+  s_11aa633c51e794::t_fb58a22655073d 20
 ---
 {
   "schema_version": "authorship/3.0.0",

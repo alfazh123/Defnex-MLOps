@@ -18,7 +18,9 @@ def _capture_logs(log_level: str = "INFO", debug: bool = False):
     root = logging.getLogger()
     # Find the handler configure_logging() itself manages rather than assuming index 0 --
     # other handlers (e.g. pytest's own root-logger handler) may also be present.
-    owned = next(h for h in root.handlers if getattr(h, "_configure_logging_owned", False))
+    owned = next(
+        h for h in root.handlers if getattr(h, "_configure_logging_owned", False)
+    )
     formatter = owned.formatter
 
     stream = StringIO()

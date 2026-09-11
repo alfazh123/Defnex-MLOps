@@ -172,6 +172,24 @@ def test_process_next_job_picks_oldest_pending_first(db_session, lock_file):
     assert processed.training_run_id == first.training_run_id
 
 
+def test_process_next_job_claims_high_priority_before_older_normal(
+    db_session, lock_file
+):
+    """Issue #135 AC: a high-priority run is claimed before an older normal-priority
+    run, even though it was created later -- fair-use jumps the FIFO queue."""
+    older_normal = _queued_training_run(db_session)
+    older_normal.created_at = older_normal.created_at.replace(
+        year=older_normal.created_at.year - 1
+    )
+    newer_high = _queued_training_run(db_session)
+    newer_high.priority = "high"
+    db_session.flush()
+
+    processed = process_next_job(db_session, _StubRunner(), lock_file=lock_file)
+
+    assert processed.training_run_id == newer_high.training_run_id
+
+
 def test_process_next_job_with_runner_error_sets_failed_status(db_session, lock_file):
     _queued_training_run(db_session)
 

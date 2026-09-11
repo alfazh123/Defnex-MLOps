@@ -441,3 +441,157 @@ def test_claim_stale_within_limit_succeeds(db_session, monkeypatch):
     assert training_service.claim_training_run(db_session, run) is True
     assert run.retry_count == 3
     assert run.status == "RUNNING"
+
+
+# --- Issue #135: fair-use priority queue + GPU-hour cost report ---
+
+
+def test_create_training_run_defaults_priority_to_normal(db_session):
+    """AC: priority is optional on the request and defaults to "normal"."""
+    dataset_version = _dataset_version(db_session)
+
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request()
+    )
+
+    assert training_run.priority == "normal"
+
+
+def test_create_training_run_persists_explicit_priority(db_session):
+    dataset_version = _dataset_version(db_session)
+
+    training_run = training_service.create_training_run(
+        db_session, dataset_version, _create_request(priority="high")
+    )
+
+    assert training_run.priority == "high"
+
+
+def test_next_claimable_run_prefers_high_priority_over_older_normal(db_session):
+    """AC: a high-priority run claimed before an older normal-priority run, even
+    though it was created later -- fair-use queue jumps ahead of pure FIFO."""
+    dataset_version = _dataset_version(db_session)
+
+    older_normal = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id="older-normal")
+    )
+    older_normal.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.flush()
+
+    newer_high = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="newer-high", priority="high"),
+    )
+    db_session.flush()
+
+    picked = training_service.next_claimable_run(db_session)
+
+    assert picked.training_run_id == newer_high.training_run_id
+    assert picked.training_run_id != older_normal.training_run_id
+
+
+def test_next_claimable_run_is_fifo_within_same_priority(db_session):
+    """Within the same priority tier, ordering stays FIFO (oldest first)."""
+    dataset_version = _dataset_version(db_session)
+
+    first = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id="first")
+    )
+    second = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id="second")
+    )
+    second.created_at = first.created_at + timedelta(seconds=1)
+    db_session.flush()
+
+    picked = training_service.next_claimable_run(db_session)
+
+    assert picked.training_run_id == first.training_run_id
+
+
+def test_next_claimable_run_low_priority_never_jumps_ahead(db_session):
+    """A "low" priority run does not jump ahead of an older "normal" run."""
+    dataset_version = _dataset_version(db_session)
+
+    older_normal = training_service.create_training_run(
+        db_session, dataset_version, _create_request(model_id="older-normal")
+    )
+    older_normal.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.flush()
+
+    training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="newer-low", priority="low"),
+    )
+    db_session.flush()
+
+    picked = training_service.next_claimable_run(db_session)
+
+    assert picked.training_run_id == older_normal.training_run_id
+
+
+def test_gpu_hours_report_aggregates_completed_runs_by_user_and_model(db_session):
+    """AC: GPU-hour report aggregates existing TrainingRun timestamps per
+    (triggered_by, model_id) -- no new table."""
+    dataset_version = _dataset_version(db_session)
+    now = datetime.now(timezone.utc)
+
+    run_a1 = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="model-a", triggered_by="alice"),
+    )
+    run_a1.started_at = now - timedelta(hours=2)
+    run_a1.finished_at = now - timedelta(hours=1)  # 1 hour
+
+    run_a2 = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="model-a", triggered_by="alice"),
+    )
+    run_a2.started_at = now - timedelta(minutes=30)
+    run_a2.finished_at = now  # 0.5 hour
+
+    run_b = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="model-b", triggered_by="bob"),
+    )
+    run_b.started_at = now - timedelta(hours=3)
+    run_b.finished_at = now - timedelta(hours=1)  # 2 hours
+
+    # Never started -- must not contribute (no GPU time was ever spent).
+    training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="model-c", triggered_by="carol"),
+    )
+    db_session.flush()
+
+    report = training_service.gpu_hours_report(db_session)
+    by_key = {(row.triggered_by, row.model_id): row for row in report}
+
+    assert by_key[("alice", "model-a")].gpu_hours == pytest.approx(1.5)
+    assert by_key[("alice", "model-a")].run_count == 2
+    assert by_key[("bob", "model-b")].gpu_hours == pytest.approx(2.0)
+    assert by_key[("bob", "model-b")].run_count == 1
+    assert ("carol", "model-c") not in by_key
+
+
+def test_gpu_hours_report_counts_in_flight_run_up_to_now(db_session):
+    """A RUNNING run (finished_at still None) contributes its elapsed time so far,
+    rather than being excluded or dividing by zero."""
+    dataset_version = _dataset_version(db_session)
+    run = training_service.create_training_run(
+        db_session,
+        dataset_version,
+        _create_request(model_id="model-inflight", triggered_by="dave"),
+    )
+    run.started_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.flush()
+
+    report = training_service.gpu_hours_report(db_session)
+    by_key = {(row.triggered_by, row.model_id): row for row in report}
+
+    assert by_key[("dave", "model-inflight")].gpu_hours == pytest.approx(1.0, abs=0.01)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.dataset import DatasetVersion as DatasetVersionModel
 from app.models.validation import ValidationReport as ValidationReportModel
 from app.schemas.validation import ValidationReport, ValidationStatusCounts
+from app.services import notification_service
 
 DEFAULT_RULE_SET_VERSION = "2.2.0"
 
@@ -282,6 +283,18 @@ def validate_dataset_version(
         gate_reason=gate_reason,
     )
     db.add(report)
+    if gate_decision == "FAIL":
+        # issue #130: notify the dataset version's owner their validation run failed the gate.
+        notification_service.notify_user_by_username(
+            db,
+            username=dataset_version.created_by,
+            type=notification_service.VALIDATION_FAILED,
+            message=(
+                f"Validation for dataset {dataset_version.dataset_id!r} version "
+                f"{dataset_version.version} failed: {gate_reason}"
+            ),
+            resource_ref=f"{dataset_version.dataset_id}:v{dataset_version.version}",
+        )
     db.commit()
     db.refresh(report)
     return report

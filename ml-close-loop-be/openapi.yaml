@@ -16,104 +16,6 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Health Api V1 Health Get
-  /api/v1/audit-logs:
-    get:
-      tags:
-      - Audit
-      summary: List Audit Logs
-      description: 'Read-only audit trail (issue #129), admin only. Filterable by
-        actor, action, resource
-
-        (type and/or id), and a created_at date range; reuses `get_pagination` for
-        page/size.'
-      operationId: list_audit_logs_api_v1_audit_logs_get
-      parameters:
-      - name: actor_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Actor Id
-      - name: action
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Action
-      - name: resource_type
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Resource Type
-      - name: resource_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Resource Id
-      - name: date_from
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Date From
-      - name: date_to
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Date To
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-          title: Page
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 100
-          minimum: 1
-          default: 20
-          title: Size
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          type: string
-          title: Authorization
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedResponse_AuditLogEntry_'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/auth/login:
     post:
       tags:
@@ -2049,6 +1951,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications:
+    get:
+      tags:
+      - Notifications
+      summary: List Notifications
+      description: 'List the current user''s own notifications, newest first (issue
+        #130). Reuses
+
+        `get_pagination` for page/size.'
+      operationId: list_notifications_api_v1_notifications_get
+      parameters:
+      - name: unread_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Unread Only
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_NotificationEntry_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/{notification_id}/read:
+    post:
+      tags:
+      - Notifications
+      summary: Mark Notification Read
+      description: 'Mark one of the current user''s own notifications read (issue
+        #130).'
+      operationId: mark_notification_read_api_v1_notifications__notification_id__read_post
+      parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Notification Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationMarkReadResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/models/{model_id}/versions/{version}/decisions:
     post:
       tags:
@@ -2902,62 +2898,6 @@ components:
       - uri
       title: Artifact
       description: A stored model artifact (openapi.yaml Artifact).
-    AuditLogEntry:
-      properties:
-        id:
-          type: integer
-          title: Id
-        actor_id:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Actor Id
-        action:
-          type: string
-          title: Action
-        resource_type:
-          type: string
-          title: Resource Type
-        resource_id:
-          type: string
-          title: Resource Id
-        before_json:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Before Json
-        after_json:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: After Json
-        result:
-          type: string
-          title: Result
-        reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reason
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-      type: object
-      required:
-      - id
-      - action
-      - resource_type
-      - resource_id
-      - result
-      - created_at
-      title: AuditLogEntry
-      description: 'A single audit_logs row (issue #129): who did what, to which resource,
-        when, with what
-
-        before/after state, whether it succeeded, and why.'
     Body_inspect_dataset_source_api_v1_datasets_intake_inspect_post:
       properties:
         file:
@@ -4247,33 +4187,62 @@ components:
       - status
       title: ModelSummary
       description: Lightweight list-view entry for GET /models (openapi.yaml ModelSummary).
-    PaginatedResponse_AuditLogEntry_:
+    NotificationEntry:
       properties:
-        items:
-          items:
-            $ref: '#/components/schemas/AuditLogEntry'
-          type: array
-          title: Items
-        total:
+        id:
           type: integer
-          title: Total
-        page:
+          title: Id
+        user_id:
           type: integer
-          title: Page
-        size:
-          type: integer
-          title: Size
-        pages:
-          type: integer
-          title: Pages
+          title: User Id
+        type:
+          type: string
+          title: Type
+        message:
+          type: string
+          title: Message
+        resource_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resource Ref
+        read_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Read At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
       type: object
       required:
-      - items
-      - total
-      - page
-      - size
-      - pages
-      title: PaginatedResponse[AuditLogEntry]
+      - id
+      - user_id
+      - type
+      - message
+      - created_at
+      title: NotificationEntry
+      description: 'A single in-app notification (issue #130): a job/deployment lifecycle
+        event surfaced to
+
+        the relevant user (job owner or admin).'
+    NotificationMarkReadResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        read_at:
+          type: string
+          format: date-time
+          title: Read At
+      type: object
+      required:
+      - id
+      - read_at
+      title: NotificationMarkReadResponse
+      description: Response for POST .../notifications/{id}/read.
     PaginatedResponse_ComputeResource_:
       properties:
         items:
@@ -4382,6 +4351,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[ModelRegistryRecord]
+    PaginatedResponse_NotificationEntry_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/NotificationEntry'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[NotificationEntry]
     PaginatedResponse_TrainingRun_:
       properties:
         items:
@@ -4785,14 +4781,6 @@ components:
           - type: integer
           - type: 'null'
           title: Compute Resource Id
-        priority:
-          type: string
-          enum:
-          - low
-          - normal
-          - high
-          title: Priority
-          default: normal
       type: object
       required:
       - dataset_id

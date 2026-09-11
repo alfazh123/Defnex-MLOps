@@ -7,6 +7,7 @@ from app.models.environment import Environment
 from app.models.feedback import Feedback
 from app.models.idempotency import IdempotencyKey
 from app.models.model import Model, ModelVersion
+from app.models.notification import Notification
 from app.models.promotion import PromotionDecision
 from app.models.revoked_refresh_token import RevokedRefreshToken
 from app.models.training import TrainingRun
@@ -28,6 +29,7 @@ __all__ = [
     "IdempotencyKey",
     "Model",
     "ModelVersion",
+    "Notification",
     "PromotionDecision",
     "RevokedRefreshToken",
     "TrainingRun",

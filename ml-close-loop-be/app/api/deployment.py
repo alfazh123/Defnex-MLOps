@@ -18,7 +18,7 @@ from app.schemas.deployment import (
     DeploymentStatus,
     EnvironmentOut,
 )
-from app.services import deployment_service, promotion_service
+from app.services import deployment_service, notification_service, promotion_service
 
 router = APIRouter(tags=["Deployment"])
 
@@ -98,6 +98,24 @@ def deploy_model_version(
         # A concurrent deploy won the race for this model_id (partial unique index
         # uq_model_versions_one_deployed) - a real conflict, not a fake success.
         raise APIError(409, "DEPLOY_CONFLICT", str(exc)) from exc
+    except deployment_service.SmokeTestError as exc:
+        # issue #130 ("production deployment failed"): the deploy transaction never reaches its
+        # own db.commit() above once this raises, so the session would otherwise roll back this
+        # notification too when main.py's global SmokeTestError handler finishes the request -
+        # commit it here, before re-raising, same as the DeploymentLockTimeout/ValueError
+        # branches convert their exception into a response.
+        if environment == "production":
+            notification_service.notify_admins(
+                db,
+                type=notification_service.PRODUCTION_DEPLOYMENT_FAILED,
+                message=(
+                    f'production deploy of model_id "{model_id}" version {version} failed '
+                    f"the smoke test: {exc}"
+                ),
+                resource_ref=f"{model_id}:v{version}",
+            )
+            db.commit()
+        raise
     result = deployment_service.to_deploy_result(deployment, previous)
     # Stored after the deploy's own commit above (the deploy result - `deployment`/`previous` -
     # is only fully known once that transaction has landed), so this is its own flush+commit;

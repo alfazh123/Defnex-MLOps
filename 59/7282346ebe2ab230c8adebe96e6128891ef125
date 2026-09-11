@@ -1,0 +1,21 @@
+ml-close-loop-be/README.md
+  s_11aa633c51e794::t_d2b04ac9c227a3 15
+README.md
+  s_11aa633c51e794::t_47182ce73bee0d 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "597282346ebe2ab230c8adebe96e6128891ef125",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "unknown"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

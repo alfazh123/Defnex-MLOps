@@ -13,10 +13,11 @@ from app.schemas.compute_resource import (
     ComputeResourceCreateRequest,
     ComputeResourceUpdateRequest,
 )
+from app.services import audit_service
 
 
 def create_compute_resource(
-    db: Session, request: ComputeResourceCreateRequest
+    db: Session, request: ComputeResourceCreateRequest, actor_id: int | None = None
 ) -> ComputeResource:
     """Register a new compute resource (PRD §19.4 — config, not code)."""
     existing = db.scalar(
@@ -41,6 +42,21 @@ def create_compute_resource(
     )
     db.add(resource)
     db.flush()
+
+    # issue #129 (audit AC "ubah infra config" / "ubah credential_ref"): a new resource is an
+    # infra config change too, so it gets an audit row from the moment it exists.
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=audit_service.INFRA_CONFIG_CREATE,
+        resource_type="compute_resource",
+        resource_id=str(resource.id),
+        after={
+            "name": resource.name,
+            "provider_type": resource.provider_type,
+            "credential_ref": resource.credential_ref,
+        },
+    )
     return resource
 
 
@@ -84,6 +100,7 @@ def update_compute_resource(
     db: Session,
     resource: ComputeResource,
     request: ComputeResourceUpdateRequest,
+    actor_id: int | None = None,
 ) -> ComputeResource:
     """Partial update of a compute resource. Only provided fields are changed."""
     update_data = request.model_dump(exclude_unset=True)
@@ -101,18 +118,50 @@ def update_compute_resource(
         if existing is not None:
             raise ValueError(f'Compute resource "{update_data["name"]}" already exists')
 
+    # issue #129 (audit AC "ubah infra config" / "ubah credential_ref"): snapshot only the fields
+    # actually being changed, before they're overwritten, so before/after line up field-for-field
+    # (credential_ref included whenever it's one of the changed fields).
+    before = {field: getattr(resource, field) for field in update_data}
+
     for field, value in update_data.items():
         setattr(resource, field, value)
 
     resource.updated_at = datetime.now(timezone.utc)
     db.flush()
+
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=audit_service.INFRA_CONFIG_UPDATE,
+        resource_type="compute_resource",
+        resource_id=str(resource.id),
+        before=before,
+        after=update_data,
+    )
     return resource
 
 
-def delete_compute_resource(db: Session, resource: ComputeResource) -> None:
+def delete_compute_resource(
+    db: Session, resource: ComputeResource, actor_id: int | None = None
+) -> None:
     """Delete a compute resource."""
+    resource_id = resource.id
+    before = {
+        "name": resource.name,
+        "provider_type": resource.provider_type,
+        "credential_ref": resource.credential_ref,
+    }
     db.delete(resource)
     db.flush()
+
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=audit_service.INFRA_CONFIG_DELETE,
+        resource_type="compute_resource",
+        resource_id=str(resource_id),
+        before=before,
+    )
 
 
 def check_health(db: Session, resource: ComputeResource) -> dict:

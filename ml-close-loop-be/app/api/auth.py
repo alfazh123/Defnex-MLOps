@@ -14,7 +14,7 @@ from app.schemas.auth import (
     UserCreate,
     UserResponse,
 )
-from app.services import auth_service
+from app.services import audit_service, auth_service
 
 logger = structlog.get_logger(__name__)
 
@@ -36,9 +36,31 @@ def login(
             client_host=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        # issue #129 (audit AC "login"): no service-layer "login" method exists to hook into -
+        # the credential check has always lived here in the router - so the audit call is made
+        # directly at this existing decision point instead of inside auth_service.py.
+        audit_service.record_audit(
+            db,
+            actor_id=user.id if user else None,
+            action=audit_service.LOGIN,
+            resource_type="user",
+            resource_id=body.username,
+            result=audit_service.RESULT_FAILURE,
+            reason="invalid credentials",
+        )
+        db.commit()
         raise APIError(401, "INVALID_CREDENTIALS", "Username or password is incorrect")
 
     logger.info("login_success", username=body.username)
+    audit_service.record_audit(
+        db,
+        actor_id=user.id,
+        action=audit_service.LOGIN,
+        resource_type="user",
+        resource_id=body.username,
+        result=audit_service.RESULT_SUCCESS,
+    )
+    db.commit()
     access_token, refresh_token = auth_service.issue_token_pair(user)
     return TokenResponse(
         access_token=access_token,

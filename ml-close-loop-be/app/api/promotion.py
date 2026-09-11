@@ -41,7 +41,9 @@ def create_decision(
 ) -> DecisionRecord:
     model_version = get_model_version_or_404(db, model_id, version)
     try:
-        decision = promotion_service.create_decision(db, model_version, body)
+        decision = promotion_service.create_decision(
+            db, model_version, body, actor_id=_admin.id
+        )
     except promotion_service.EvalGateBlocked as exc:
         raise APIError(409, "PROMOTION_GATE_BLOCKED", str(exc)) from exc
     except ValueError as exc:
@@ -64,7 +66,7 @@ def rollback_model(
 ) -> DecisionRecord:
     target = get_model_version_or_404(db, model_id, request.rollback_of_version)
     try:
-        decision = promotion_service.rollback(db, target, request)
+        decision = promotion_service.rollback(db, target, request, actor_id=_admin.id)
     except deployment_service.DeploymentLockTimeout as exc:
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except ValueError as exc:
@@ -102,7 +104,9 @@ def deploy_to_staging_endpoint(
     part of the deploy (PRD §38.4)."""
     model_version = get_model_version_or_404(db, model_id, version)
     try:
-        decision = promotion_service.deploy_to_staging(db, model_version, request)
+        decision = promotion_service.deploy_to_staging(
+            db, model_version, request, actor_id=_admin.id
+        )
     except deployment_service.DeploymentLockTimeout as exc:
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except ValueError as exc:
@@ -159,7 +163,9 @@ def promote_production_endpoint(
     the registry terminal status stays DEPLOYED (single source of truth for production)."""
     model_version = get_model_version_or_404(db, model_id, version)
     try:
-        decision = promotion_service.promote_to_production(db, model_version, request)
+        decision = promotion_service.promote_to_production(
+            db, model_version, request, actor_id=_admin.id
+        )
     except deployment_service.DeploymentLockTimeout as exc:
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc
     except promotion_service.StagingGateNotMet as exc:
@@ -214,6 +220,7 @@ def rollback_deployment(
                 rationale=request.rationale,
             ),
             environment=deployment.environment,
+            actor_id=_admin.id,
         )
     except deployment_service.DeploymentLockTimeout as exc:
         raise APIError(503, "GPU_LOCK_TIMEOUT", str(exc)) from exc

@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, Response
 
+from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.compute_resources import router as compute_resources_router
 from app.api.datasets import router as datasets_router
@@ -83,6 +84,7 @@ class ApiVersionRedirectMiddleware(BaseHTTPMiddleware):
         "/promotions",
         "/transfers",
         "/compute-resources",
+        "/audit-logs",
     )
 
     async def dispatch(
@@ -106,6 +108,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(health_router)
+v1_router.include_router(audit_router)
 v1_router.include_router(auth_router)
 v1_router.include_router(users_router)
 v1_router.include_router(datasets_router)

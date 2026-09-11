@@ -12,7 +12,7 @@ from app.schemas.promotion import (
     LadderActionRequest,
     RollbackRequest,
 )
-from app.services import deployment_service
+from app.services import audit_service, deployment_service
 from app.services.model_service import get_evaluation
 
 # EVALUATED -> PROMOTED|REJECTED is the only transition this story records
@@ -191,7 +191,10 @@ def _gate_reasons(model_version: ModelVersion) -> list[str]:
 
 
 def create_decision(
-    db: Session, model_version: ModelVersion, request: DecisionCreateRequest
+    db: Session,
+    model_version: ModelVersion,
+    request: DecisionCreateRequest,
+    actor_id: int | None = None,
 ) -> PromotionDecision:
     """Record a human promotion/rejection decision and transition the model version
     EVALUATED -> PROMOTED|REJECTED (model-promotion-approval-workflow.md §2/§7/§8). Human-triggered
@@ -215,6 +218,7 @@ def create_decision(
                 "Promotion blocked by the eval gate: " + "; ".join(reasons)
             )
 
+    before_status = model_version.status
     decision = PromotionDecision(
         decision_id=f"decision-{uuid.uuid4().hex[:6]}",
         model_version_id=model_version.id,
@@ -231,6 +235,22 @@ def create_decision(
     model_version.status = request.decision
     model_version.promotion_decision_ref = decision.decision_id
     db.flush()
+
+    # issue #129 (audit AC "promote/reject model"): one audit row per decision, distinct from
+    # the PromotionDecision business record above - this one is queryable via GET /audit-logs
+    # with before/after status and result, regardless of what the domain table stores.
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=audit_service.PROMOTE
+        if request.decision == "PROMOTED"
+        else audit_service.REJECT,
+        resource_type="model_version",
+        resource_id=f"{model_version.model_id}:v{model_version.version}",
+        before={"status": before_status},
+        after={"status": model_version.status, "decision_id": decision.decision_id},
+        reason=request.rationale,
+    )
     return decision
 
 
@@ -266,7 +286,7 @@ def _record_ladder_step(
 
 
 def stage_deploy(
-    db: Session, model_version: ModelVersion
+    db: Session, model_version: ModelVersion, actor_id: int | None = None
 ) -> tuple[deployment_service.Deployment, None]:
     """Move a candidate onto the staging target without disturbing the production pointer
     (issues #69/#70, PRD §16.2/§16.3).
@@ -281,7 +301,7 @@ def stage_deploy(
     version. Returns the new Deployment row and None (nothing was superseded from the caller's
     point of view; the prod pointer is unchanged)."""
     deployment, previous = deployment_service.deploy(
-        db, model_version, environment="staging"
+        db, model_version, environment="staging", actor_id=actor_id
     )
     model_version.status = "STAGING"
     if previous is not None:
@@ -294,7 +314,10 @@ def stage_deploy(
 
 
 def deploy_to_staging(
-    db: Session, model_version: ModelVersion, request: LadderActionRequest
+    db: Session,
+    model_version: ModelVersion,
+    request: LadderActionRequest,
+    actor_id: int | None = None,
 ) -> PromotionDecision:
     """Ladder step 1 (issue #69 AC 1): deploy an EVALUATED candidate to staging and record the
     audit decision. Human/authorized-triggered only (the endpoint requires an admin) - a candidate
@@ -304,7 +327,7 @@ def deploy_to_staging(
             f"Cannot deploy model_id {model_version.model_id!r} version {model_version.version} "
             f"to staging: status is {model_version.status!r}, requires EVALUATED"
         )
-    stage_deploy(db, model_version)
+    stage_deploy(db, model_version, actor_id=actor_id)
     return _record_ladder_step(
         db, model_version, decision="STAGING", request=request, evidence=None
     )
@@ -350,7 +373,10 @@ def _validate_staging_gate(model_version: ModelVersion) -> None:
 
 
 def promote_to_production(
-    db: Session, model_version: ModelVersion, request: LadderActionRequest
+    db: Session,
+    model_version: ModelVersion,
+    request: LadderActionRequest,
+    actor_id: int | None = None,
 ) -> PromotionDecision:
     """Ladder step 3 (issue #69 AC 2/4/5): the authorized promotion of a VALIDATED candidate to the
     production pointer, calling `deployment_service.deploy(environment='production')` so the move
@@ -368,7 +394,9 @@ def promote_to_production(
             f"to production: status is {model_version.status!r}, requires VALIDATED "
             "(ladder) or PROMOTED (legacy)"
         )
-    deployment_service.deploy(db, model_version, environment="production")
+    deployment_service.deploy(
+        db, model_version, environment="production", actor_id=actor_id
+    )
     return _record_ladder_step(
         db, model_version, decision="PRODUCTION", request=request, evidence=None
     )
@@ -379,6 +407,7 @@ def rollback(
     target: ModelVersion,
     request: RollbackRequest,
     environment: str | None = None,
+    actor_id: int | None = None,
 ) -> PromotionDecision:
     """Roll back a model's deployed version to an earlier `target` (rollback-of-version)
     (model-promotion-approval-workflow.md §9), reusing the PromotionDecision record with
@@ -410,7 +439,14 @@ def rollback(
     # `from_version` is "the version being rolled back from" (DecisionRecord.version's ROLLBACK
     # semantics) - None when nothing was deployed, in which case the decision anchors to `target`
     # itself, since PromotionDecision.model_version_id is NOT NULL.
-    _, from_version = deployment_service.deploy(db, target, environment=environment)
+    _, from_version = deployment_service.deploy(
+        db,
+        target,
+        environment=environment,
+        actor_id=actor_id,
+        action=audit_service.ROLLBACK,
+        reason=request.rationale,
+    )
 
     decision = PromotionDecision(
         decision_id=f"rollback-{uuid.uuid4().hex[:6]}",

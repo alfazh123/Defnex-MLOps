@@ -1,0 +1,19 @@
+ml-close-loop-be/tests/test_structured_logging.py
+  s_11aa633c51e794::t_a270f2432cd24b 21-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "076a2bbd97e1551a57433501cf8cabf7f8cf528a",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+ml-close-loop-be/app/logging.py
+  s_11aa633c51e794::t_bfac37360d0697 59,62-68
+ml-close-loop-be/pyproject.toml
+  s_11aa633c51e794::t_75412aa09f9031 18-21
+ml-close-loop-be/tests/test_structured_logging.py
+  s_11aa633c51e794::t_1918e77c58c46d 19-22
+CLAUDE.md
+  s_11aa633c51e794::t_eb7ac1508cf4b2 33
+ml-close-loop-be/alembic/versions/a543e4c9830a_merge_heads_after_batch_9_audit_gpu_.py
+  s_11aa633c51e794::t_51e162614fca9d 9,13-18
+.github/workflows/ci.yml
+  s_11aa633c51e794::t_43cdbf60db434a 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "47e41f0edfc1a31209056f4c64bce96ff8b63754",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

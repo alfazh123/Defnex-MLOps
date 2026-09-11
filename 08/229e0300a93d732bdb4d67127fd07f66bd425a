@@ -1,0 +1,97 @@
+ml-close-loop-be/app/services/promotion_service.py
+  s_11aa633c51e794::t_8ef34de54a01e7 376-379
+  s_11aa633c51e794::t_0eff1cac33c606 289
+  s_11aa633c51e794::t_dfca39cb7af83b 442-447,449
+  s_11aa633c51e794::t_3c4cd532c8c907 304
+  s_11aa633c51e794::t_dddb21ca625de6 397-399
+  s_11aa633c51e794::t_e962df71358a3f 15
+  s_11aa633c51e794::t_82f5d74425b7a1 194-197,221,238-253
+  s_11aa633c51e794::t_a73f9976779661 410
+  s_11aa633c51e794::t_744916974ff446 448
+  s_11aa633c51e794::t_6e6462dded786e 317-320,330
+ml-close-loop-be/app/api/auth.py
+  s_11aa633c51e794::t_0cc5c2404d5bf9 39-51,55-63
+  s_11aa633c51e794::t_0fff3ff1bd9a2b 17
+ml-close-loop-be/app/main.py
+  s_11aa633c51e794::t_9ffd1db982a43c 13
+  s_11aa633c51e794::t_b2d2345cdcedf5 87
+  s_11aa633c51e794::t_6924a34465c3d6 111
+ml-close-loop-be/app/models/__init__.py
+  s_11aa633c51e794::t_cbaa9a8b4f3a93 19
+  s_11aa633c51e794::t_260cf7ca1277be 1
+ml-close-loop-be/app/services/training_service.py
+  s_11aa633c51e794::t_7db8027c842d07 293-295,321-333
+  s_11aa633c51e794::t_ae1d7fae4423ea 14
+ml-close-loop-be/app/services/audit_service.py
+  s_11aa633c51e794::t_4a6eae4df1821b 1-98
+README.md
+  s_11aa633c51e794::t_9c607cbebe4df5 20
+ml-close-loop-be/alembic/versions/91e28c0a95ea_merge_heads_before_audit_log.py
+  s_11aa633c51e794::t_c8c7e607ad2ded 8,13-19
+  s_11aa633c51e794::t_0d450f6335e53e 1-7,9-12,20-31
+ml-close-loop-be/README.md
+  s_11aa633c51e794::t_479c14389131e0 15
+ml-close-loop-be/app/services/deployment_service.py
+  s_11aa633c51e794::t_a6c736ae7cb499 13
+  s_11aa633c51e794::t_3f039760bcd9a7 214
+  s_11aa633c51e794::t_dceb30c73830d4 371-381,385-389,391
+  s_11aa633c51e794::t_0e0deb00aa93f8 249-250
+  s_11aa633c51e794::t_4b4fb3c9de2742 382-384
+  s_11aa633c51e794::t_cef7ab980a1951 212-213,228-229
+  s_11aa633c51e794::t_26f1dd69d48d63 390
+  s_11aa633c51e794::t_5dc842c7e06171 167-168
+  s_11aa633c51e794::t_27b1f6146d1f95 230
+  s_11aa633c51e794::t_e4629ee5fef961 169
+  s_11aa633c51e794::t_13935716f503fa 251
+ml-close-loop-be/tests/test_audit_log.py
+  s_11aa633c51e794::t_25299d25f56465 242-246
+  s_11aa633c51e794::t_c8c7e607ad2ded 266,314,325
+  s_11aa633c51e794::t_1ac65e6a00d78e 1-241,247-265,267-313,315-324,326-345
+ml-close-loop-be/app/api/deployment.py
+  s_11aa633c51e794::t_22442d44a8e401 84-86,89
+ml-close-loop-be/alembic/versions/3d4d0ab13cd5_add_audit_logs_table.py
+  s_11aa633c51e794::t_24134017a266af 8,15-16,22-54,56-60,66-71
+  s_11aa633c51e794::t_10b9ea165184ab 1-7,9-14,17-21,55,61-65
+ml-close-loop-be/app/api/audit.py
+  s_11aa633c51e794::t_6a3bf60ee3a333 1-47
+ml-close-loop-be/app/schemas/audit.py
+  s_11aa633c51e794::t_9e1f7178450257 1-21
+ml-close-loop-be/app/api/promotion.py
+  s_11aa633c51e794::t_86be2c14a81913 44-46
+  s_11aa633c51e794::t_41276b24c6b36a 107-109
+  s_11aa633c51e794::t_23f33f994b0ef3 166-168
+  s_11aa633c51e794::t_1305e45f65e15e 223
+  s_11aa633c51e794::t_a3c40207581fe3 69
+ml-close-loop-be/app/models/audit_log.py
+  s_11aa633c51e794::t_0b771d2c5659af 1-33
+ml-close-loop-be/app/services/compute_resource_service.py
+  s_11aa633c51e794::t_f23070081efc63 16,20,45-59
+  s_11aa633c51e794::t_7549db4e8e2138 103,121-125,131-140,144-146,148-153,157-164
+  s_11aa633c51e794::t_f14d44a961a31c 165
+ml-close-loop-be/app/api/training.py
+  s_11aa633c51e794::t_ffc41d85ca7cac 145-147
+ml-close-loop-be/app/api/compute_resources.py
+  s_11aa633c51e794::t_ca12f784fcb5c0 153
+  s_11aa633c51e794::t_95dfcd64633026 127
+  s_11aa633c51e794::t_1731641e6b257f 46-48
+ml-close-loop-be/openapi.yaml
+  s_11aa633c51e794::t_b3eafacb37cdc1 2905-2960
+  s_11aa633c51e794::t_a47db896169c34 4250-4276
+  s_11aa633c51e794::t_3badf35468a6a8 19-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "08229e0300a93d732bdb4d67127fd07f66bd425a",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

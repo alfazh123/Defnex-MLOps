@@ -81,10 +81,12 @@ def deploy_model_version(
             )
     try:
         if environment == "staging":
-            deployment, previous = promotion_service.stage_deploy(db, model_version)
+            deployment, previous = promotion_service.stage_deploy(
+                db, model_version, actor_id=_admin.id
+            )
         else:
             deployment, previous = deployment_service.deploy(
-                db, model_version, environment=environment
+                db, model_version, environment=environment, actor_id=_admin.id
             )
         db.commit()
     except deployment_service.DeploymentLockTimeout as exc:

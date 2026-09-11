@@ -13,6 +13,7 @@ from app.schemas.training import (
     TrainingRun as TrainingRunSchema,
     TrainingRunCreateRequest,
 )
+from app.services import audit_service
 
 # Issue #135: rank used to order the claim query `priority DESC, created_at ASC`.
 # Any value outside PRIORITY_LEVELS (should not happen -- validated at the request
@@ -361,7 +362,9 @@ def set_external_job_id(
     return training_run
 
 
-def retry_training_run(db: Session, training_run: TrainingRun) -> TrainingRun:
+def retry_training_run(
+    db: Session, training_run: TrainingRun, actor_id: int | None = None
+) -> TrainingRun:
     """Create a new PENDING run as a retry of a FAILED run (issue #61, PRD §10.5).
 
     The original run is never mutated; only FAILED runs are retryable.
@@ -387,6 +390,19 @@ def retry_training_run(db: Session, training_run: TrainingRun) -> TrainingRun:
     )
     db.add(new_run)
     db.flush()
+
+    # issue #129 (audit AC "cancel/retry training"): no "cancel" endpoint exists in this codebase
+    # today (grepped app/api + app/services - only retry does), so only retry is audited here;
+    # see PR description for that gap noted separately, per CLAUDE.md's no-silent-scope-change rule.
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=audit_service.RETRY_TRAINING,
+        resource_type="training_run",
+        resource_id=training_run.training_run_id,
+        before={"status": "FAILED"},
+        after={"status": "PENDING", "new_training_run_id": new_run.training_run_id},
+    )
     return new_run
 
 

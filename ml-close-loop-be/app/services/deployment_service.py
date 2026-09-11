@@ -10,7 +10,7 @@ from app.config import settings
 from app.models.deployment import Deployment
 from app.models.model import ModelVersion
 from app.schemas.deployment import DeployResult, DeploymentStatus
-from app.services import idempotency_service
+from app.services import audit_service, idempotency_service
 from app.services.artifact_storage import (
     ArtifactChecksumError,
     ArtifactStorage,
@@ -164,6 +164,9 @@ def deploy(
     lock_timeout: float | None = None,
     artifact_storage: ArtifactStorage | None = None,
     environment: str | None = None,
+    actor_id: int | None = None,
+    action: str = audit_service.DEPLOY,
+    reason: str | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """Move the deployment pointer to `model_version`, retiring whichever version currently holds
     it (WBS 3.3 §3 release gate + §4 supersession). Returns the new Deployment row and the
@@ -206,6 +209,9 @@ def deploy(
             backend,
             artifact_storage=artifact_storage,
             environment=environment,
+            actor_id=actor_id,
+            action=action,
+            reason=reason,
         )
 
     try:
@@ -219,6 +225,9 @@ def deploy(
                 backend,
                 artifact_storage=artifact_storage,
                 environment=environment,
+                actor_id=actor_id,
+                action=action,
+                reason=reason,
             )
     except TimeoutError as exc:
         logger.warning(
@@ -237,6 +246,9 @@ def _deploy_locked(
     *,
     artifact_storage: ArtifactStorage | None = None,
     environment: str | None = None,
+    actor_id: int | None = None,
+    action: str = audit_service.DEPLOY,
+    reason: str | None = None,
 ) -> tuple[Deployment, ModelVersion | None]:
     """The locked body of `deploy` (issue #59): the pointer move plus all GPU-touching calls
     (`backend.deploy`, the smoke test, `backend.unload`). Runs inside the GPU lock when the
@@ -356,6 +368,27 @@ def _deploy_locked(
                 "result": "success",
             },
         )
+
+    # issue #129 (audit AC "deploy/rollback"): single insertion point for both - every caller
+    # (direct /deploy, the staging/production ladder, and promotion_service.rollback) funnels
+    # through here, so `action` (DEPLOY by default, ROLLBACK when the caller says so) is the only
+    # thing that varies per call site.
+    audit_service.record_audit(
+        db,
+        actor_id=actor_id,
+        action=action,
+        resource_type="model_version",
+        resource_id=f"{model_id}:v{version}",
+        before={
+            "previous_deployed_version": previous.version if previous else None,
+        },
+        after={
+            "model_id": model_version.model_id,
+            "version": model_version.version,
+            "environment": environment or settings.deployment_environment,
+        },
+        reason=reason,
+    )
     return deployment, previous
 
 

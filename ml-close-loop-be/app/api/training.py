@@ -142,7 +142,9 @@ def retry_training_run(
             f'training_run_id "{training_run_id}" not found',
         )
     try:
-        new_run = training_service.retry_training_run(db, training_run)
+        new_run = training_service.retry_training_run(
+            db, training_run, actor_id=_user.id
+        )
     except ValueError as exc:
         raise APIError(409, "TRAINING_RUN_NOT_RETRYABLE", str(exc)) from exc
     db.commit()

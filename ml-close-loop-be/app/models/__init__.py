@@ -1,3 +1,4 @@
+from app.models.audit_log import AuditLog
 from app.models.compute_resource import ComputeResource
 from app.models.dataset import Dataset, DatasetVersion
 from app.models.deployment import Deployment
@@ -15,6 +16,7 @@ from app.models.validation import ValidationReport
 
 __all__ = [
     "ArtifactTransfer",
+    "AuditLog",
     "ComputeResource",
     "Dataset",
     "DatasetVersion",

@@ -43,7 +43,9 @@ def create_compute_resource(
 ) -> ComputeResource:
     """Register a new compute resource (PRD §19.4). Admin only."""
     try:
-        resource = compute_resource_service.create_compute_resource(db, request)
+        resource = compute_resource_service.create_compute_resource(
+            db, request, actor_id=_admin.id
+        )
     except ValueError as exc:
         raise APIError(409, "RESOURCE_EXISTS", str(exc))
     db.commit()
@@ -122,7 +124,7 @@ def update_compute_resource(
         )
     try:
         resource = compute_resource_service.update_compute_resource(
-            db, resource, request
+            db, resource, request, actor_id=_admin.id
         )
     except ValueError as exc:
         raise APIError(409, "RESOURCE_EXISTS", str(exc))
@@ -148,7 +150,7 @@ def delete_compute_resource(
             "RESOURCE_NOT_FOUND",
             f"compute resource {resource_id} not found",
         )
-    compute_resource_service.delete_compute_resource(db, resource)
+    compute_resource_service.delete_compute_resource(db, resource, actor_id=_admin.id)
     db.commit()
 
 

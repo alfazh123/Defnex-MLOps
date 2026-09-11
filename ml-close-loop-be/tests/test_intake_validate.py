@@ -293,8 +293,58 @@ def test_commit_happy_path(client, admin_token, fake_storage):
     assert resp.status_code == 200
     body = resp.json()
     assert body["dataset_id"] == "test_ds"
-    assert body["version"] == 2
+    # commit reuses the SAME DatasetVersion row `validate` created (linked via
+    # validation_report_id), not a freshly-allocated one -- otherwise the validation
+    # report stays attached to an orphaned version training-run creation can never find.
+    assert body["version"] == 1
     assert body["status"] == "PROCESSED"
+
+
+def test_training_run_creatable_after_wizard_commit(client, admin_token, fake_storage):
+    """Regression: commit previously allocated a second, disconnected DatasetVersion row,
+    so the validation report from `validate` never matched the version `commit` returned --
+    POST /training-runs failed VALIDATION_REQUIRED for every wizard-committed dataset."""
+    info = _stage_records(client, admin_token, fake_storage, [VALID_RECORD])
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        val_resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={"staging_id": info["staging_id"], "dataset_id": "test_ds"},
+            headers=auth_header(admin_token),
+        )
+        report_id = val_resp.json()["validation_report_id"]
+
+        commit_resp = client.post(
+            "/api/v1/datasets/intake/commit",
+            json={
+                "staging_id": info["staging_id"],
+                "dataset_id": "test_ds",
+                "validation_report_id": report_id,
+            },
+            headers=auth_header(admin_token),
+        )
+    version = commit_resp.json()["version"]
+
+    resp = client.post(
+        "/api/v1/training-runs",
+        json={
+            "dataset_id": "test_ds",
+            "dataset_version": version,
+            "model_id": "test-model",
+            "base_model": "unsloth/Qwen3-0.6B",
+            "training_config": {
+                "peft_method": "lora",
+                "load_in_4bit": False,
+                "lora_r": 8,
+                "lora_alpha": 16,
+                "epochs": 1,
+                "max_seq_length": 512,
+            },
+            "triggered_by": "admin",
+        },
+        headers=auth_header(admin_token),
+    )
+    assert resp.status_code == 201, resp.text
 
 
 def test_commit_staging_not_found(client, admin_token, fake_storage):

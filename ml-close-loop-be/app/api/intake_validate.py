@@ -197,25 +197,31 @@ def commit_intake(
         )
 
     dataset_service.register_dataset(db, intake_request.dataset_id)
-    version_num = dataset_service._allocate_version(db, intake_request.dataset_id)
+
+    # Update the SAME DatasetVersion row `validate_intake` created (and `vr` is already linked
+    # to) rather than allocating a new version number here. Allocating a second version at
+    # commit time left the validation report permanently attached to an orphaned PENDING row
+    # one version behind the PROCESSED one this endpoint returned, so
+    # `training_service.create_training_run`'s `get_latest_validation_report` lookup (keyed by
+    # dataset_version) could never find a report for the version a caller was told to use --
+    # training-run creation failed with VALIDATION_REQUIRED for every wizard-committed dataset.
+    dv = db.get(DatasetVersion, vr.dataset_version_id)
+    if dv is None or dv.dataset_id != intake_request.dataset_id:
+        raise APIError(
+            404,
+            "DATASET_VERSION_NOT_FOUND",
+            "The dataset version created during validate no longer exists",
+        )
+    version_num = dv.version
 
     canonical_uri = storage.commit_file(
         intake_request.staging_id, intake_request.dataset_id, version_num
     )
 
-    dv = DatasetVersion(
-        dataset_id=intake_request.dataset_id,
-        version=version_num,
-        status="PROCESSED",
-        source_type=intake_request.source_type,
-        source_format=intake_request.source_format,
-        row_count=vr.record_count,
-        created_at=datetime.now(UTC),
-        created_by=_user.username,
-        raw_file_uri=str(staged_path),
-        canonical_file_uri=canonical_uri,
-    )
-    db.add(dv)
+    dv.status = "PROCESSED"
+    dv.source_type = intake_request.source_type
+    dv.created_by = _user.username
+    dv.canonical_file_uri = canonical_uri
     db.flush()
 
     manifest = {

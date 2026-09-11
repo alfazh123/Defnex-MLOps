@@ -1,0 +1,67 @@
+ml-close-loop-be/openapi.yaml
+  s_11aa633c51e794::t_1467e8eae465da 4354-4380
+  s_11aa633c51e794::t_203fdabd83cbcc 1954-2047
+  s_11aa633c51e794::t_a77d34a7f802fa 4190-4245
+ml-close-loop-be/app/services/validation_service.py
+  s_11aa633c51e794::t_27857e47e4daee 12
+  s_11aa633c51e794::t_9f026ec06a0255 286-297
+ml-close-loop-be/app/api/deployment.py
+  s_11aa633c51e794::t_0319c733aa4976 21
+  s_11aa633c51e794::t_1a51d552212117 101-118
+ml-close-loop-be/app/services/training_service.py
+  s_11aa633c51e794::t_a202a80bdf0799 358-366
+  s_11aa633c51e794::t_a6ad0d0ede8e7f 327-335
+ml-close-loop-be/app/models/notification.py
+  s_11aa633c51e794::t_f51e67611ceaf0 21
+  s_11aa633c51e794::t_66384428c23ef7 1-20,22-26
+ml-close-loop-be/app/services/notification_service.py
+  s_11aa633c51e794::t_30409a7b55dc22 1-120
+ml-close-loop-be/app/api/notifications.py
+  s_11aa633c51e794::t_398dfc3d1ef390 1-6,8,10-43,45-60
+  s_11aa633c51e794::t_a689a432af6ddd 9
+  s_11aa633c51e794::t_f51e67611ceaf0 61-63
+  s_11aa633c51e794::t_bb9d0be1afac44 44
+  s_11aa633c51e794::t_b1860aeac4309c 7
+ml-close-loop-be/app/schemas/notification.py
+  s_11aa633c51e794::t_18c8d9a4385106 1-25
+ml-close-loop-be/alembic/versions/85af36f8c505_merge_heads_before_notifications.py
+  s_11aa633c51e794::t_6a57e98df3b3b0 1-7,9-12,20-31
+  s_11aa633c51e794::t_f51e67611ceaf0 8
+  s_11aa633c51e794::t_27fe31fd529def 13-19
+ml-close-loop-be/app/services/model_service.py
+  s_11aa633c51e794::t_520511491dbe26 22
+  s_11aa633c51e794::t_6d4efa88e9c139 308-318
+ml-close-loop-be/app/api/promotion.py
+  s_11aa633c51e794::t_7e25691c2e2ba5 20
+  s_11aa633c51e794::t_adbd350f316c39 173-187
+ml-close-loop-be/app/models/__init__.py
+  s_11aa633c51e794::t_bb02cfb15def59 10
+  s_11aa633c51e794::t_88ce23c8d9be39 32
+ml-close-loop-be/app/main.py
+  s_11aa633c51e794::t_e71c750118fbce 89
+  s_11aa633c51e794::t_6ee4334d4f0f65 27
+  s_11aa633c51e794::t_50740229667960 124
+ml-close-loop-be/alembic/versions/d32c491e39a6_add_notifications_table.py
+  s_11aa633c51e794::t_942f2f255a8fe6 1-7,9-14,17-21,50,53-57
+  s_11aa633c51e794::t_067580c4225114 8,15-16,22-49,51-52,58-61
+ml-close-loop-be/tests/test_notification.py
+  s_11aa633c51e794::t_38a7af9f9883c9 233-235,301
+  s_11aa633c51e794::t_fa8565bfdd628e 167,172-175,184
+  s_11aa633c51e794::t_125cc4b69fcf0e 1-166,168-171,176-183,185-232,236-300,302-330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "764745558ac753e848152720dfe968b0e4857869",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

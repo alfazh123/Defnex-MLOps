@@ -1,0 +1,25 @@
+ml-close-loop-be/README.md
+  s_11aa633c51e794::t_8d3e1f4b83194b 15
+README.md
+  s_11aa633c51e794::t_9e107b40400658 20
+ml-close-loop-be/alembic/versions/a543e4c9830a_merge_heads_after_batch_9_audit_gpu_.py
+  s_11aa633c51e794::t_6419e72d7bfafa 1-28
+ml-close-loop-be/openapi.yaml
+  s_11aa633c51e794::t_529b555310b7d8 19-116,147-150,201-211,1964-1976,3024-3079,3610,3862-3868,3870-3880,3882-3884,4435-4461,4961-4965,5005-5012
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c421f238845073ff19e64cbc18e3641a88566f2c",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "unknown"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

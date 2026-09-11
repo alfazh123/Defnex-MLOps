@@ -1,0 +1,24 @@
+ml-close-loop-be/tests/test_training_worker.py
+  s_11aa633c51e794::t_4fcfe5dc476664 440-540
+ml-close-loop-be/app/workers/training_worker.py
+  s_11aa633c51e794::t_e9d9bf845c860b 156-160
+  s_11aa633c51e794::t_7ac5585272e2d8 11
+  s_11aa633c51e794::t_6613f6c29f0a02 70-97
+  s_11aa633c51e794::t_531bde4bc4d9cd 203,205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e9a56cc774e88ad0168473dcefa0d54f4f1adc7f",
+  "prompts": {},
+  "sessions": {
+    "s_11aa633c51e794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5888d7c-38f8-46d5-a4dc-7f64ed255ece",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

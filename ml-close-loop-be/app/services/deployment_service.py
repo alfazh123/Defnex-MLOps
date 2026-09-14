@@ -14,7 +14,7 @@ from app.services import audit_service, idempotency_service
 from app.services.artifact_storage import (
     ArtifactChecksumError,
     ArtifactStorage,
-    LocalFilesystemArtifactStorage,
+    get_artifact_storage,
 )
 from app.services.serving import (
     ServingBackend,
@@ -108,7 +108,7 @@ def verify_artifact_checksum(
     (issue #62). Raises ArtifactChecksumError on any mismatch so the caller (deploy) aborts
     *before* the pointer moves; the artifact is treated as verified when no recorded checksum
     exists (pre-#62 artifacts), so existing deployments keep working."""
-    storage = storage or LocalFilesystemArtifactStorage()
+    storage = storage or get_artifact_storage()
     for artifact in model_version.artifacts or []:
         uri = artifact.get("uri")
         if not uri:

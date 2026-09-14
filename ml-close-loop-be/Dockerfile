@@ -1,6 +1,10 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
+
+# Symlink so host-created venvs (which point to /usr/bin/python3) resolve inside the container.
+RUN ln -s /usr/local/bin/python3 /usr/bin/python3 && \
+    ln -s /usr/local/bin/python3.12 /usr/bin/python3.12
 
 COPY pyproject.toml .
 COPY app ./app

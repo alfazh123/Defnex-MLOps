@@ -26,4 +26,17 @@ def health(db: Session = Depends(get_db)) -> dict:
     except Exception:
         checks["minio"] = "error"
 
+    try:
+        from app.config import settings
+
+        if settings.serving_backend == "vllm":
+            import httpx
+
+            r = httpx.get(f"{settings.vllm_url}/health", timeout=5)
+            checks["vllm"] = "ok" if r.status_code == 200 else f"error:{r.status_code}"
+        else:
+            checks["vllm"] = "skipped"
+    except Exception:
+        checks["vllm"] = "error"
+
     return {"status": "ok", "checks": checks}

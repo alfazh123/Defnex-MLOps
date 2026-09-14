@@ -20,7 +20,7 @@ from app.schemas.model import (
     ModelSummary,
 )
 from app.services import notification_service
-from app.services.artifact_storage import LocalFilesystemArtifactStorage
+from app.services.artifact_storage import ArtifactStorage, get_artifact_storage
 
 _MAX_VERSION_RETRIES = 30
 
@@ -147,7 +147,7 @@ def register_model_version(
     training_run: TrainingRun,
     *,
     staging_dir: str | None = None,
-    storage: LocalFilesystemArtifactStorage | None = None,
+    storage: ArtifactStorage | None = None,
 ) -> ModelVersion:
     """Register a ModelVersion from a COMPLETED TrainingRun with full lineage
     (model-artifact-versioning-lineage.md §6/§7 Register operation).
@@ -188,7 +188,7 @@ def register_model_version(
             "started_at": training_run.started_at,
             "finished_at": training_run.finished_at,
         }
-        final_uri = (storage or LocalFilesystemArtifactStorage()).finalize_version(
+        final_uri = (storage or get_artifact_storage()).finalize_version(
             model_id, model_version.name, Path(staging_dir), metadata
         )
         checksum = metadata["checksum"]

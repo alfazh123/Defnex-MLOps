@@ -23,12 +23,16 @@ export const columnsModelRegistry = (toggleOpen: (id: string) => void) => column
         header: "Loss Metric",
         cell: ({ row }) => {
             return (
-                <div className="flex items-center">
-                    {/* <p className="text-sm font-medium text-gray-500">
+				<div className="flex items-center">
+					{/* <p className="text-sm font-medium text-gray-500">
                     </p> */}
-                    <span className="text-blue-700 font-bold text-sm">{row.original.evalLoss ? row.original.evalLoss.toFixed(2) : "-"}</span>
-                </div>
-            )
+					<span className="text-blue-700 font-bold text-sm">
+						{row.original.evalLoss
+							? row.original.evalLoss.toFixed(2)
+							: "-"}
+					</span>
+				</div>
+			);
         },
     }),
     columnHelper.display({
@@ -40,24 +44,34 @@ export const columnsModelRegistry = (toggleOpen: (id: string) => void) => column
         ),
         cell: ({row}) => {
             return (
-                <div className="flex justify-center items-center">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="outline"><EllipsisVertical /></Button>} />
-                        <DropdownMenuContent className="w-full">
-                            <DropdownMenuItem>
-                                <Button variant="ghost" onClick={() => toggleOpen(row.original.runId)} className="w-full h-full">
-                                    Evaluation
-                                </Button>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <a href={`/promote-deploy/${row.original.runId}`} className="w-full h-full">
-                                    Promote & Deploy
-                                </a>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )
+				<div className="flex justify-center items-center">
+					{/* // ...existing code... */}
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
+								<Button
+									variant="outline"
+									size="icon">
+									<EllipsisVertical />
+								</Button>
+							}
+						/>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								onClick={() => toggleOpen(row.original.runId)}>
+								Evaluation
+							</DropdownMenuItem>
+							<DropdownMenuItem>
+								<a
+									href={`/promote-deploy/${row.original.runId}`}>
+									Promote & Deploy
+								</a>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+					{/* // ...existing code... */}
+				</div>
+			);
         },
     }),
 ])

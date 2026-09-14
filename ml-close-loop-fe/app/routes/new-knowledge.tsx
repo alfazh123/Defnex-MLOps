@@ -16,19 +16,30 @@ export default function NewKnowledge() {
     }
 
     return (
-        <Layout>
-            {/* <div className="w-full h-full flex flex-col overflow-y-auto bg-sidebar rounded-lg"> */}
-                <Header title="New Knowledge" newKnowledge modalAddKnowledge={toggleModalAddKnowledge} />
-                <ScrollArea>
-                    <div className="flex-1 max-h-[90vh] min-h-[90vh] h-full p-4">
-                        <DatasetTable columns={columns} data={datasets} />
-                    </div>
-                </ScrollArea>
+		<>
+			{/* <div className="w-full h-full flex flex-col overflow-y-auto bg-sidebar rounded-lg"> */}
+			<Header
+				title="New Knowledge"
+				newKnowledge
+				modalAddKnowledge={toggleModalAddKnowledge}
+			/>
+			<ScrollArea>
+				<div className="flex-1 max-h-[90vh] min-h-[90vh] h-full p-4">
+					<DatasetTable
+						columns={columns}
+						data={datasets}
+					/>
+				</div>
+			</ScrollArea>
 
-                {/* {modalAddKnwledge && (
+			{/* {modalAddKnwledge && (
                 )} */}
-                <AddDatasetModal isOpen={modalAddKnwledge} toggleModal={toggleModalAddKnowledge} datasetFormats={datasetFormats} />
-            {/* </div> */}
-        </Layout>
-    );
+			<AddDatasetModal
+				isOpen={modalAddKnwledge}
+				toggleModal={toggleModalAddKnowledge}
+				datasetFormats={datasetFormats}
+			/>
+			{/* </div> */}
+		</>
+	);
 }

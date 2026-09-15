@@ -13,16 +13,32 @@ import {
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useState } from "react";
 import clsx from "clsx";
-import { DatasetStepTwo } from "./dataset-steps/dataset-step-two";
+import {
+	DatasetStepTwo,
+	type StepTwoValueProps,
+} from "./dataset-steps/dataset-step-two";
 import {
 	DatasetStepOne,
-	type StepOneValue,
+	type StepOneValueProps,
 } from "./dataset-steps/dataset-step-one";
 import { ScrollArea } from "../ui/scroll-area";
-import { DatasetStepThree } from "./dataset-steps/dataset-step-three";
-import { DatasetStepFour } from "./dataset-steps/dataset-step-four";
-import { DatasetStepFive } from "./dataset-steps/dataset-step-five";
-import { AddDatasetResponse } from "./dataset-steps/add-dataset-response";
+import {
+	DatasetStepThree,
+	type StepThreeValueProps,
+} from "./dataset-steps/dataset-step-three";
+import {
+	DatasetStepFour,
+	type StepFourValueProps,
+} from "./dataset-steps/dataset-step-four";
+import {
+	DatasetStepFive,
+	type StepFiveValueProps,
+} from "./dataset-steps/dataset-step-five";
+import {
+	AddDatasetResponse,
+	type AddDatasetResponseProps,
+} from "./dataset-steps/add-dataset-response";
+import { targetSchemas } from "~/utils";
 
 const steps = [
 	{ id: 1, name: "Source", description: "File / HF" },
@@ -43,7 +59,7 @@ export default function AddDatasetModal({
 }) {
 	const [stepAtive, setStepActive] = useState(1);
 
-	// form state (useState per field)
+	// form state (useState field one)
 	const [sourceMethod, setSourceMethod] = useState<"file" | "hf">("file");
 	const [sourceFile, setSourceFile] = useState<File | null>(null);
 	const [hfRepoId, setHfRepoId] = useState<string>("");
@@ -52,8 +68,20 @@ export default function AddDatasetModal({
 	const [detectedSplit, setDetectedSplit] = useState<string>("train");
 	const [revision, setRevision] = useState<string>("");
 
+	// form state (useState field two)
+	const [versionMode, setVersionMode] = useState<"add" | "create">("add");
+	const [datasetId, setDatasetId] = useState<string>("");
+	const [datasetName, setDatasetName] = useState<string>("");
+	const [datasetVersion, setDatasetVersion] = useState<string>("v1.0.0");
+	const [intakeNotes, setIntakeNotes] = useState<string>("");
+
+	// form state (useState field three)
+	const [targetSchemaId, setTargetSchemaId] = useState<string>(
+		targetSchemas[0].id,
+	);
+
 	// kumpulkan jadi objek StepOneValue untuk dipakai sebagai `value`
-	const stepOneValue: StepOneValue = {
+	const stepOneValue: StepOneValueProps = {
 		sourceMethod,
 		sourceFile,
 		hfRepoId,
@@ -63,8 +91,61 @@ export default function AddDatasetModal({
 		detectedSample,
 	};
 
+	const stepTwoValue: StepTwoValueProps = {
+		versionMode,
+		datasetId,
+		datasetName,
+		datasetVersion,
+		intakeNotes,
+	};
+
+	const stepThreeValue: StepThreeValueProps = {
+		targetSchemaId,
+	};
+
+	const stepFourValue: StepFourValueProps = {
+		detectedSample,
+		status: "pass",
+	};
+
+	const stepFiveValue: StepFiveValueProps = {
+		datasetId,
+		datasetVersion,
+		sourceMethod,
+		sourceFile,
+		hfRepoId,
+		targetSchemaId,
+		detectedSample,
+	};
+
+	const responseValur: AddDatasetResponseProps = {
+		datasetId,
+		datasetVersion,
+		detectedSample,
+	};
+
+	const requestData = {
+		file: {
+			type: sourceMethod,
+			file: sourceFile,
+			idHF: hfRepoId,
+			dsplit: detectedSplit,
+			branch: revision,
+		},
+		datasetMetadata: {
+			id: datasetId,
+			name: datasetName,
+			version: datasetVersion,
+			description: intakeNotes,
+			operator: "Maulana M.",
+		},
+		schema: {
+			id: targetSchemaId,
+		},
+	};
+
 	// child memanggil onChange(patch) → field masing-masing di-update di sini
-	const updateStepOne = (patch: Partial<StepOneValue>) => {
+	const updateStepOne = (patch: Partial<StepOneValueProps>) => {
 		if ("sourceMethod" in patch) {
 			setSourceMethod(patch.sourceMethod ?? "file");
 		}
@@ -86,6 +167,49 @@ export default function AddDatasetModal({
 		if ("detectedSample" in patch) {
 			setDetectedSample(patch.detectedSample ?? 0);
 		}
+	};
+
+	const updateStepTwo = (patch: Partial<StepTwoValueProps>) => {
+		if ("versionMode" in patch) {
+			setVersionMode(patch.versionMode ?? "add");
+		}
+		if ("datasetId" in patch) {
+			setDatasetId(patch.datasetId ?? "");
+		}
+		if ("datasetName" in patch) {
+			setDatasetName(patch.datasetName ?? "");
+		}
+		if ("datasetVersion" in patch) {
+			setDatasetVersion(patch.datasetVersion ?? "");
+		}
+		if ("intakeNotes" in patch) {
+			setIntakeNotes(patch.intakeNotes ?? "");
+		}
+	};
+
+	const updateStepThree = (patch: Partial<StepThreeValueProps>) => {
+		if ("targetSchemaId" in patch) {
+			setTargetSchemaId(patch.targetSchemaId ?? "");
+		}
+	};
+
+	const resetForm = () => {
+		setStepActive(1);
+		setSourceMethod("file");
+		setSourceFile(null);
+		setHfRepoId("");
+		setDetectedSample(0);
+		setDetectedFormat("");
+		setDetectedSplit("train");
+		setRevision("");
+
+		setVersionMode("add");
+		setDatasetId("");
+		setDatasetName("");
+		setDatasetVersion("v1.0.0");
+		setIntakeNotes("");
+
+		setTargetSchemaId(targetSchemas[0].id);
 	};
 
 	return (
@@ -134,49 +258,53 @@ export default function AddDatasetModal({
 						</div>
 					)}
 
-					<ScrollArea className="group max-h-125">
+					<>
 						{stepAtive === 1 && (
 							<DatasetStepOne
 								value={stepOneValue}
 								onChange={updateStepOne}
+								setStepActive={setStepActive}
+								toggleModal={toggleModal}
 							/>
 						)}
-						{stepAtive === 2 && <DatasetStepTwo />}
-						{stepAtive === 3 && <DatasetStepThree />}
-						{stepAtive === 4 && <DatasetStepFour />}
-						{stepAtive === 5 && <DatasetStepFive />}
-						{stepAtive === 6 && <AddDatasetResponse />}
-					</ScrollArea>
+						{stepAtive === 2 && (
+							<DatasetStepTwo
+								value={stepTwoValue}
+								onChange={updateStepTwo}
+								setStepActive={setStepActive}
+							/>
+						)}
+						{stepAtive === 3 && (
+							<DatasetStepThree
+								value={stepThreeValue}
+								onChange={updateStepThree}
+								setStepActive={setStepActive}
+							/>
+						)}
+						{stepAtive === 4 && (
+							<DatasetStepFour
+								value={stepFourValue}
+								setStepActive={setStepActive}
+							/>
+						)}
+						{stepAtive === 5 && (
+							<DatasetStepFive
+								value={stepFiveValue}
+								setStepActive={setStepActive}
+								submitDataset={() => {
+									console.log("submit dataset", requestData);
+								}}
+							/>
+						)}
+						{stepAtive === 6 && (
+							<AddDatasetResponse
+								value={responseValur}
+								toggleModal={toggleModal}
+								resetForm={resetForm}
+							/>
+						)}
+					</>
 
-					<DialogFooter>
-						{stepAtive > 1 && (
-							<Button
-								variant="outline"
-								onClick={() => setStepActive(stepAtive - 1)}>
-								Back
-							</Button>
-						)}
-						{stepAtive === 1 && (
-							<DialogClose
-								onClick={toggleModal}
-								render={
-									<Button variant="outline">Cancel</Button>
-								}
-							/>
-						)}
-						{stepAtive <= steps.length && (
-							<Button
-								type="button"
-								onClick={() => setStepActive(stepAtive + 1)}>
-								Next
-							</Button>
-						)}
-						{stepAtive === steps.length && (
-							<Button type="submit">
-								Ingest Version Manifest
-							</Button>
-						)}
-					</DialogFooter>
 					<DialogPrimitive.Close
 						onClick={toggleModal}
 						data-slot="dialog-close"

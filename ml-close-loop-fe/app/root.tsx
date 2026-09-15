@@ -1,14 +1,17 @@
 import {
-  isRouteErrorResponse,
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
+	isRouteErrorResponse,
+	Links,
+	Meta,
+	Outlet,
+	Scripts,
+	ScrollRestoration,
+	useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
+import { AppSidebar } from "./components/app-sidebar";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -24,20 +27,64 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+
+  if (location.pathname === "/auth/login") {
+		return (
+			<html lang="en">
+				<head>
+					<meta charSet="utf-8" />
+					<meta
+						name="viewport"
+						content="width=device-width, initial-scale=1"
+					/>
+					<Meta />
+					<Links />
+				</head>
+				<body>
+					{/* <SidebarProvider>
+					<AppSidebar />
+					<SidebarInset>
+						<div className="@container/main flex flex-1">
+							<div className="flex-1 flex flex-col overflow-y-auto bg-sidebar rounded-lg"> */}
+					{children}
+					{/* </div>
+						</div>
+					</SidebarInset>
+					<ScrollRestoration />
+				</SidebarProvider> */}
+					<Scripts />
+				</body>
+			</html>
+		);
+  }
+
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <Meta />
-        <Links />
-      </head>
-      <body>
-        {children}
-        <ScrollRestoration />
-        <Scripts />
-      </body>
-    </html>
+		<html lang="en">
+			<head>
+				<meta charSet="utf-8" />
+				<meta
+					name="viewport"
+					content="width=device-width, initial-scale=1"
+				/>
+				<Meta />
+				<Links />
+			</head>
+			<body>
+				<SidebarProvider>
+					<AppSidebar />
+					<SidebarInset>
+						<div className="@container/main flex flex-1">
+							<div className="flex-1 flex flex-col overflow-y-auto bg-sidebar rounded-lg">
+								{children}
+							</div>
+						</div>
+					</SidebarInset>
+					<ScrollRestoration />
+					<Scripts />
+				</SidebarProvider>
+			</body>
+		</html>
   );
 }
 

@@ -70,7 +70,7 @@ export default function Chat() {
 	}, [chats]);
 
 	return (
-		<Layout>
+		<>
 			{/* <div className="w-full h-full flex flex-col overflow-y-auto bg-sidebar rounded-lg"> */}
 			<Header title="Chat" />
 			<div className="pl-4 pr-4 pb-4">
@@ -185,6 +185,6 @@ export default function Chat() {
 				</div>
 			</div>
 			{/* </div> */}
-		</Layout>
+		</>
 	);
 }

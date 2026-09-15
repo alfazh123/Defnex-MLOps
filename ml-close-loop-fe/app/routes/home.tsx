@@ -11,7 +11,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
 	return (
-		<Layout>
+		<>
 			{/* <div className="w-full h-full flex flex-col overflow-y-auto bg-sidebar rounded-lg"> */}
 			{/* <header>
               <SidebarTrigger />
@@ -20,6 +20,6 @@ export default function Home() {
 			<Header title="Dashboard" />
 			<div className="pl-4 pr-4 pb-4"></div>
 			{/* </div> */}
-		</Layout>
+		</>
 	);
 }

@@ -1,0 +1,24 @@
+[Unit]
+Description=DEFNEX MLOps GPU Lifecycle Controller
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+SupplementaryGroups=docker
+ExecStart=/usr/bin/python3 /home/ubuntu/defnex-mlops-experiment/gpu_controller/gpu_controller.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/defnex-mlops-experiment/outputs
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

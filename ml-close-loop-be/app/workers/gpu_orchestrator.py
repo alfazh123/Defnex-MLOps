@@ -24,10 +24,15 @@ commands unasked).
 from __future__ import annotations
 
 import contextlib
+import json
+import os
 import signal
 import subprocess
 import threading
 import time
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Protocol
 
 import structlog
@@ -296,6 +301,146 @@ class NvidiaSmiVRAMReader:
         return int(line)
 
 
+class FileSignalingServingControl:
+    """File-based serving control: writes JSON requests to a shared mount,
+    polls JSON responses from the host-side controller.
+
+    Active only when `SERVING_CONTROL=file_signal`. The worker writes
+    request.json to gpu_control_dir, then polls response.json until
+    the host controller writes a response matching the request_id.
+
+    Security: only `stop_serving` and `start_serving` actions are supported.
+    No arbitrary shell commands. No docker.sock. No PID management.
+    """
+
+    def __init__(
+        self,
+        control_dir: str,
+        timeout: float = 120.0,
+        poll: float = 1.0,
+    ) -> None:
+        self._dir = Path(control_dir)
+        self._timeout = timeout
+        self._poll = poll
+        self._last_vram_free_mb: int | None = None
+
+    def _write_request(self, action: str) -> str:
+        """Write request.json atomically (write to .tmp, then rename). Returns request_id."""
+        request_id = str(uuid.uuid4())
+        request = {
+            "request_id": request_id,
+            "action": action,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        self._dir.mkdir(parents=True, exist_ok=True)
+        tmp_path = self._dir / "request.json.tmp"
+        target_path = self._dir / "request.json"
+        with open(tmp_path, "w") as f:
+            json.dump(request, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp_path.rename(target_path)
+        logger.info("file_signal_request_written", action=action, request_id=request_id)
+        return request_id
+
+    def _poll_response(
+        self, request_id: str, *, terminal_phases: set[str] | None = None
+    ) -> dict:
+        """Poll response.json until request_id matches a terminal phase or timeout.
+
+        The host controller may write intermediate responses (e.g. ``phase=stopping``
+        before ``phase=vram_checked``).  Callers must wait for the *final* phase so
+        that the operation is truly complete before acting on the result.
+        """
+        deadline = time.monotonic() + self._timeout
+        response_path = self._dir / "response.json"
+        while time.monotonic() < deadline:
+            try:
+                with open(response_path) as f:
+                    response = json.load(f)
+                if response.get("request_id") == request_id:
+                    phase = response.get("phase")
+                    if terminal_phases is None or phase in terminal_phases:
+                        return response
+            except FileNotFoundError:
+                pass
+            except json.JSONDecodeError:
+                logger.warning("file_signal_invalid_json", path=str(response_path))
+            except OSError:
+                pass
+            time.sleep(self._poll)
+        raise TimeoutError(
+            f"No response matching request_id {request_id} within {self._timeout}s"
+        )
+
+    def stop(self) -> None:
+        request_id = self._write_request("stop_serving")
+        response = self._poll_response(
+            request_id, terminal_phases={"vram_checked", "error"}
+        )
+        phase = response.get("phase")
+        error = response.get("error")
+        if phase == "error":
+            raise ServingStopFailed(f"Host controller error: {error}")
+        if not response.get("vllm_stopped"):
+            raise ServingStopFailed(
+                f"Host controller did not confirm vLLM stopped: phase={phase}"
+            )
+        self._last_vram_free_mb = response.get("vram_free_mb")
+        logger.info(
+            "file_signal_stop_complete",
+            request_id=request_id,
+            vram_free_mb=self._last_vram_free_mb,
+        )
+
+    def start(self) -> None:
+        request_id = self._write_request("start_serving")
+        response = self._poll_response(
+            request_id, terminal_phases={"healthy", "started", "error"}
+        )
+        phase = response.get("phase")
+        error = response.get("error")
+        if phase == "error":
+            raise ServingStartFailed(f"Host controller error: {error}")
+        if phase not in ("healthy", "started"):
+            raise ServingStartFailed(
+                f"Host controller did not confirm vLLM healthy: phase={phase}"
+            )
+        logger.info("file_signal_start_complete", request_id=request_id, phase=phase)
+
+    def health_check(self) -> bool:
+        try:
+            response_path = self._dir / "response.json"
+            with open(response_path) as f:
+                response = json.load(f)
+            return response.get("vllm_healthy") is True
+        except FileNotFoundError:
+            return False
+        except (json.JSONDecodeError, OSError):
+            return False
+
+
+class FileSignalingVRAMReader:
+    """Reads VRAM from the last file-signaling response.
+
+    Used alongside FileSignalingServingControl: after the host controller
+    stops vLLM and queries nvidia-smi, it writes vram_free_mb to the
+    response. This reader returns that value instead of running nvidia-smi
+    directly (which may not be available inside the container).
+    """
+
+    def __init__(self, control: FileSignalingServingControl) -> None:
+        self._control = control
+
+    def free_mb(self) -> int:
+        vram = self._control._last_vram_free_mb
+        if vram is None:
+            raise RuntimeError(
+                "VRAM not available: no stop_serving response has been received yet"
+            )
+        return vram
+
+
 class RealServingCoordinator:
     """The production serving cycle: stop serving, verify VRAM, train, restart serving."""
 
@@ -331,6 +476,7 @@ def make_coordinator() -> ServingCoordinator:
     `SERVING_CONTROL=mock` (default) returns a `NoopServingCoordinator` that never
     touches serving — preserving the pre-#39 worker behavior for tests and no-GPU
     dev. `SERVING_CONTROL=shell` returns the real cycle wired from env vars.
+    `SERVING_CONTROL=file_signal` returns the file-based signaling cycle.
     """
     if settings.serving_control == "shell":
         control: ServingControl = ShellServingControl(
@@ -350,6 +496,20 @@ def make_coordinator() -> ServingCoordinator:
         vram: VRAMReader = NvidiaSmiVRAMReader()
         return RealServingCoordinator(
             control=control,
+            vram=vram,
+            threshold_mb=settings.vram_free_threshold_mb,
+            timeout=settings.vram_check_timeout,
+            poll=settings.vram_check_poll,
+        )
+    if settings.serving_control == "file_signal":
+        file_control = FileSignalingServingControl(
+            control_dir=settings.gpu_control_dir,
+            timeout=settings.gpu_control_timeout,
+            poll=settings.gpu_control_poll,
+        )
+        vram = FileSignalingVRAMReader(file_control)
+        return RealServingCoordinator(
+            control=file_control,
             vram=vram,
             threshold_mb=settings.vram_free_threshold_mb,
             timeout=settings.vram_check_timeout,

@@ -63,7 +63,7 @@ class _StubRunner:
             time.sleep(self.hold)
         if self.error:
             raise self.error
-        return self.artifact_uri
+        return _staging_dir(training_run.training_run_id)
 
 
 class _StreamRunner(_StubRunner):
@@ -237,7 +237,7 @@ def test_process_next_job_vram_never_free_leaves_run_pending_and_restarts(
     """Required edge case: VRAM not free by deadline -> training NOT started, serving
     restarted, run stays PENDING (requeued) with an explicit, recorded reason."""
     queued = _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunner(artifact_uri=_staging_dir("vram-never-free"))
     control = MockServingControl()
     vram = StubVRAMReader(free_mb=500)  # never free
     coordinator = _StubCoordinator(control, vram, timeout=0.05)
@@ -259,7 +259,7 @@ def test_process_next_job_stop_failure_leaves_run_pending(db_session, lock_file)
     """Required edge case: serving stop fails -> training NOT started, serving restored,
     run stays PENDING (system not left half-way)."""
     queued = _queued_training_run(db_session)
-    runner = _StubRunner(artifact_uri="file:///tmp/adapter")
+    runner = _StubRunner(artifact_uri=_staging_dir("stop-failure"))
     control = MockServingControl()
     control.stop_error = RuntimeError("vllm busy")
     vram = StubVRAMReader(free_mb=16_000)
@@ -307,7 +307,9 @@ def test_concurrent_second_job_cannot_interleave_serving_into_first_cycle(tmp_pa
     db_path = str(tmp_path / "concurrent.db")
     lock = str(tmp_path / "gpu.lock")
 
-    runner = _StreamRunner(stream, stream_lock, artifact_uri="file:///tmp/adapter")
+    runner = _StreamRunner(
+        stream, stream_lock, artifact_uri=_staging_dir("concurrent-test")
+    )
     vram = StubVRAMReader(free_mb=16_000)
 
     class _ThreadSafeControl(MockServingControl):

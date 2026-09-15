@@ -97,12 +97,22 @@ class Settings(BaseSettings):
     # of this (the worker never touches serving, preserving pre-#39 behavior for tests
     # and no-GPU dev); `serving_control=shell` runs the stop/start/health-check commands
     # below against the real serving stack.
-    serving_control: Literal["mock", "shell"] = "mock"
+    serving_control: Literal["mock", "shell", "file_signal"] = "mock"
     serving_stop_cmd: str = ""
     serving_start_cmd: str = ""
     serving_health_cmd: str = ""
     # Per-command timeout so a hung serving stop/start cannot stall the worker forever.
     serving_command_timeout: float = 60.0
+
+    # File-based GPU signaling (Option B1, Phase 2A). Worker writes JSON requests to a
+    # shared mount; a host-side systemd service reads them and executes Docker stop/start
+    # + nvidia-smi. No docker.sock in any container. `gpu_control_dir` is the path inside
+    # the container where request.json/response.json/active.json live (shared via volume mount).
+    gpu_control_dir: str = "/models/.gpu-control"
+    # How long the worker waits for the host controller to respond before timing out.
+    gpu_control_timeout: float = 120.0
+    # How often the worker polls response.json for updates.
+    gpu_control_poll: float = 1.0
 
     # VRAM verification: the worker waits until `vram_free_threshold_mb` MB are free,
     # polling every `vram_check_poll` seconds, for at most `vram_check_timeout` seconds.
@@ -173,6 +183,30 @@ class Settings(BaseSettings):
             raise ValueError(
                 "SERVING_CONTROL=shell requires VRAM_FREE_THRESHOLD_MB to be set "
                 "explicitly (no default until a governance decision exists)"
+            )
+        if self.vram_free_threshold_mb <= 0:
+            raise ValueError("VRAM_FREE_THRESHOLD_MB must be positive")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_file_signal_coordination(self) -> Self:
+        """File-signal mode requires a control directory and explicit VRAM threshold.
+
+        Like shell mode, `file_signal` activates the real stop/verify/train/restart
+        cycle via a host-side controller. The worker writes JSON requests to a shared
+        mount and the controller reads them, executes Docker commands, and writes
+        responses. The control directory must be set and VRAM threshold explicit.
+        """
+        if self.serving_control != "file_signal":
+            return self
+        if not self.gpu_control_dir:
+            raise ValueError(
+                "SERVING_CONTROL=file_signal requires GPU_CONTROL_DIR to be set"
+            )
+        if "vram_free_threshold_mb" not in self.model_fields_set:
+            raise ValueError(
+                "SERVING_CONTROL=file_signal requires VRAM_FREE_THRESHOLD_MB "
+                "to be set explicitly (no default until a governance decision exists)"
             )
         if self.vram_free_threshold_mb <= 0:
             raise ValueError("VRAM_FREE_THRESHOLD_MB must be positive")

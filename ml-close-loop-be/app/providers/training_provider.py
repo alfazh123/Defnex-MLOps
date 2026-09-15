@@ -125,12 +125,15 @@ class LocalSubprocessProvider:
         external_job_id = f"job-{uuid.uuid4().hex[:8]}"
         staging = Path(tempfile.mkdtemp(prefix="defnex-training-"))
 
+        config = dict(training_run.training_config)
+        config.setdefault("base_model", training_run.base_model)
+
         cmd = [
             self._python,
             "-u",
             self._script,
             "--config",
-            json.dumps(training_run.training_config),
+            json.dumps(config),
             "--staging",
             str(staging),
         ]

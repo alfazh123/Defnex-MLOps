@@ -49,9 +49,8 @@ class _ProgressCallback:
 def _run_training(config: dict, staging: str) -> int:
     try:
         from datasets import load_dataset
-        from transformers import TrainingArguments
 
-        from trl import SFTTrainer
+        from trl import SFTConfig, SFTTrainer
         from unsloth import FastLanguageModel, is_bfloat16_supported
     except ImportError as exc:
         print(
@@ -93,15 +92,20 @@ def _run_training(config: dict, staging: str) -> int:
             use_gradient_checkpointing=config.get("gradient_checkpointing", False),
             use_rslora=config.get("use_rslora", False)
             or config.get("peft_method") == "rslora",
-            use_loftq=config.get("use_loftq", False),
         )
     except Exception as exc:  # CUDA OOM surfaces here as torch.cuda.OutOfMemoryError
         print(f"unable to load model for training: {exc}", file=sys.stderr, flush=True)
         return 3
 
-    dataset = load_dataset(config.get("hf_dataset"))
+    import os
 
-    training_args = TrainingArguments(
+    hf_dataset = config.get("hf_dataset")
+    if os.path.isfile(hf_dataset):
+        dataset = load_dataset("json", data_files=hf_dataset, split="train")
+    else:
+        dataset = load_dataset(hf_dataset)
+
+    training_args = SFTConfig(
         output_dir=staging,
         per_device_train_batch_size=int(config.get("batch_size", 1)),
         gradient_accumulation_steps=int(config.get("gradient_accumulation_steps", 1)),
@@ -110,22 +114,25 @@ def _run_training(config: dict, staging: str) -> int:
         learning_rate=float(config.get("learning_rate", 2e-5)),
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
+        max_steps=int(config.get("max_steps", -1)),
         logging_steps=1,
         optim=str(config.get("optim", "adamw_8bit")),
         weight_decay=float(config.get("weight_decay", 0.001)),
         lr_scheduler_type=str(config.get("lr_scheduler_type", "linear")),
         seed=int(config.get("random_seed", 42)),
         report_to=[],
-        callbacks=[_ProgressCallback()],
+        dataset_text_field=str(config.get("format_type", "text")),
+        max_length=max_seq_length,
+        packing=bool(config.get("packing", False)),
+        eos_token=tokenizer.eos_token,
+        pad_token=tokenizer.eos_token,
     )
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=dataset,
-        dataset_text_field=str(config.get("format_type", "text")),
-        max_seq_length=max_seq_length,
-        packing=bool(config.get("packing", False)),
         args=training_args,
+        callbacks=[_ProgressCallback()],
     )
     try:
         trainer.train()

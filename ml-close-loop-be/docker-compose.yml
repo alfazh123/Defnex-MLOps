@@ -6,8 +6,8 @@ services:
     env_file: .env
     environment:
       # Reach the existing standalone defnex-vllm via Docker bridge gateway (verified by live test).
-      # SERVING_BACKEND stays mock until Phase 1C — deploy/inference won't hit vLLM yet.
       VLLM_URL: http://172.17.0.1:8001
+      SERVING_BACKEND: vllm
       SERVED_BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
       MINIO_ENDPOINT: minio:9000
     volumes:
@@ -27,11 +27,23 @@ services:
       - /home/ubuntu/defnex-mlops-experiment/.venv:/opt/training-venv:ro
     environment:
       VLLM_URL: http://172.17.0.1:8001
+      SERVING_BACKEND: vllm
       SERVED_BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
       ARTIFACT_STORAGE_DIR: /models/artifacts
       TRAINING_PYTHON: /opt/training-venv/bin/python
       MINIO_ENDPOINT: minio:9000
+      SERVING_CONTROL: file_signal
+      GPU_CONTROL_DIR: /models/.gpu-control
+      VRAM_FREE_THRESHOLD_MB: 8000
+      TRAINING_TIMEOUT_SECONDS: "600"
     command: ./docker-worker-entrypoint.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     depends_on:
       - backend
 

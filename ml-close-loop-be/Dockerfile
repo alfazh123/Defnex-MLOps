@@ -13,7 +13,7 @@ COPY alembic.ini .
 COPY docker-entrypoint.sh docker-worker-entrypoint.sh ./
 
 RUN chmod +x docker-entrypoint.sh docker-worker-entrypoint.sh \
-    && pip install --no-cache-dir "."
+    && pip install --no-cache-dir ".[intake]"
 
 RUN mkdir -p /app/data
 

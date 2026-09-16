@@ -37,7 +37,6 @@ export default function NewKnowledge() {
 			<AddDatasetModal
 				isOpen={modalAddKnwledge}
 				toggleModal={toggleModalAddKnowledge}
-				datasetFormats={datasetFormats}
 			/>
 			{/* </div> */}
 		</>

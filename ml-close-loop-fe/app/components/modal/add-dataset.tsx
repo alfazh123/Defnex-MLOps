@@ -2,10 +2,8 @@ import { Check, XIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "../ui/dialog";
@@ -21,7 +19,6 @@ import {
 	DatasetStepOne,
 	type StepOneValueProps,
 } from "./dataset-steps/dataset-step-one";
-import { ScrollArea } from "../ui/scroll-area";
 import {
 	DatasetStepThree,
 	type StepThreeValueProps,
@@ -51,11 +48,9 @@ const steps = [
 export default function AddDatasetModal({
 	isOpen,
 	toggleModal,
-	datasetFormats,
 }: {
 	isOpen: boolean;
 	toggleModal: () => void;
-	datasetFormats: { id: string; name: string }[];
 }) {
 	const [stepAtive, setStepActive] = useState(1);
 
@@ -306,7 +301,10 @@ export default function AddDatasetModal({
 					</>
 
 					<DialogPrimitive.Close
-						onClick={toggleModal}
+						onClick={() => {
+							toggleModal();
+							resetForm();
+						}}
 						data-slot="dialog-close"
 						render={
 							<Button

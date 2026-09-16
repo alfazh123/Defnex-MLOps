@@ -37,18 +37,41 @@ For Qwen2.5-0.5B-Instruct, this resolves to:
 
 No new tokenizer token was added and the vocabulary was not resized.
 
+
+## Import Order Fix
+
+Unsloth must be imported before trl, transformers, peft. The original code imported
+`datasets` and `trl` before `unsloth`, producing a runtime warning and potential
+patching issues. The import order in `_run_training()` was corrected to import
+`unsloth` first.
+
+Before:
+```python
+from datasets import load_dataset
+from trl import SFTConfig, SFTTrainer
+from unsloth import FastLanguageModel, is_bfloat16_supported
+```
+
+After:
+```python
+from unsloth import FastLanguageModel, is_bfloat16_supported
+from datasets import load_dataset
+from trl import SFTConfig, SFTTrainer
+```
+
 ## Verification
 
 A non-training verification was performed using the production training environment.
 
 The verification successfully:
 
-1. Loaded Qwen2.5-0.5B-Instruct.
-2. Applied LoRA.
-3. Loaded the smoke dataset.
-4. Loaded exactly 10 examples.
-5. Created SFTConfig with eos_token set from tokenizer.eos_token.
-6. Created SFTTrainer successfully.
+1. Imported unsloth first, then datasets, then trl (correct order).
+2. Loaded Qwen2.5-0.5B-Instruct.
+3. Applied LoRA.
+4. Loaded the smoke dataset.
+5. Loaded exactly 10 examples.
+6. Created SFTConfig with eos_token set from tokenizer.eos_token.
+7. Created SFTTrainer successfully.
 
 trainer.train() was NOT called.
 
@@ -64,7 +87,7 @@ Example count:
 
 ## Focused Tests
 
-185 tests passed.
+156 tests passed (focused subset: file_signaling, gpu_orchestration, training_worker, training_provider, training_service).
 
 ## Training Rerun
 

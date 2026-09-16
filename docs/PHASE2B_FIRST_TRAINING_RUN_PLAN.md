@@ -1,7 +1,7 @@
 # Phase 2B — First Real Training Run Plan (FINAL)
 
-**Date:** 2026-09-15
-**Status:** EOS TOKEN FIX VERIFIED — READY FOR SECOND SMOKE RUN ✅
+**Date:** 2026-09-15 (updated 2026-09-16)
+**Status:** THIRD SMOKE TRAINING RUN: PASS ✅
 **Model:** Qwen/Qwen2.5-0.5B-Instruct
 **Mode:** Real training on shared H100 GPU — smoke test (5 steps, 10 examples)
 
@@ -154,9 +154,9 @@ max_steps=int(config.get("max_steps", -1)),
 
 | Test Suite | Result |
 |------------|--------|
-| `test_file_signaling.py` | ✅ 57 passed |
-| `test_gpu_orchestration.py` | ✅ 21 passed |
-| **Total** | **78 passed** |
+| `test_file_signaling.py` | ✅ (included) |
+| `test_gpu_orchestration.py` | ✅ (included) |
+| **Total** | **156 passed** |
 
 ---
 
@@ -173,35 +173,47 @@ max_steps=int(config.get("max_steps", -1)),
 
 ## 7. Final Status
 
-**EOS TOKEN FIX VERIFIED — READY FOR SECOND SMOKE RUN**
+**THIRD SMOKE TRAINING RUN: PASS**
 
-### EOS Token Failure and Fix
+### Training Run History
 
-The first real smoke-training attempt failed during `SFTTrainer` initialization.
+| Run | Date | Status | Root Cause |
+|-----|------|--------|------------|
+| First smoke | 2026-09-15 | FAILED | EOS token mismatch, import order |
+| Second smoke (run-a47b70) | 2026-09-16 01:13 | FAILED | Missing on_init_end callback |
+| Third smoke attempt 1 (run-f06ff2) | 2026-09-16 01:40 | FAILED | Missing on_train_begin callback |
+| Third smoke attempt 2 (run-21a878) | 2026-09-16 01:46 | FAILED | Missing on_epoch_begin callback |
+| Third smoke attempt 3 (run-2c2b60) | 2026-09-16 01:55 | FAILED | Missing C compiler for Triton |
+| Third smoke attempt 4 (run-9e66b6) | 2026-09-16 02:13 | **PASS** | -- |
 
-Previous EOS value:
-`<|EOS_TOKEN|>`
+### Bugs Fixed During Third Smoke Run
 
-Actual Qwen tokenizer EOS:
-`<|im_end|>`
+1. Missing on_train_begin -- Added no-op to _ProgressCallback
+2. Missing on_epoch_begin -- Added ALL TrainerCallback lifecycle hooks as no-ops
+3. Missing C compiler for Triton -- Added build-essential to Dockerfile
 
-Fix:
-Use `tokenizer.eos_token` for the SFT configuration.
+### Verified End-to-End
 
-Verification:
-`SFTTrainer` initialization succeeded without calling `trainer.train()`.
+- TrainingRun run-9e66b6 created and completed
+- Worker claimed job, GPU lock acquired
+- File signal stopped defnex-vllm (VRAM freed to 17272 MiB)
+- Qwen2.5-0.5B loaded, LoRA applied (540,672 params)
+- SFTTrainer initialized, trainer.train() executed, 5 steps completed
+- Adapter artifact: adapter_model.safetensors (2.1 MB) + adapter_config.json
+- ModelVersion: smoke-llm-v3 v1 (REGISTERED)
+- defnex-vllm restarted, health = HTTP 200
+- GPU lock released, VRAM returned to 78964 MiB baseline
 
-The second smoke-training run has NOT been created yet.
+### All Blockers Resolved
 
-Focused verification:
-185 tests passed.
- ✅
-
-All blockers resolved:
-1. ✅ Local file dataset support — applied and verified
-2. ✅ `max_steps` config wiring — applied and verified
-3. ✅ `TRAINING_TIMEOUT_SECONDS=600` — set and verified
-4. ✅ Smoke fixture — 10 examples at `/app/data/datasets/smoke_train.jsonl`
-5. ✅ Worker GPU — `/dev/nvidia*`, `torch.cuda=True`, Unsloth imports
-6. ✅ Tests — 78 passed, no regressions
-7. ✅ Worker recreated — all new config active
+1. Local file dataset support -- applied and verified
+2. max_steps config wiring -- applied and verified
+3. TRAINING_TIMEOUT_SECONDS=600 -- set and verified
+4. Smoke fixture -- 10 examples at /app/data/datasets/smoke_train.jsonl
+5. Worker GPU -- /dev/nvidia*, torch.cuda=True, Unsloth imports
+6. Tests -- 156 passed, no regressions
+7. Worker recreated -- all new config active
+8. EOS token -- using tokenizer.eos_token
+9. Import order -- unsloth before trl/datasets/transformers
+10. _ProgressCallback -- all lifecycle hooks implemented
+11. C compiler -- build-essential in Docker image for Triton

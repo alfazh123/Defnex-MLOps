@@ -28,10 +28,39 @@ def _emit(**payload) -> None:
 
 
 class _ProgressCallback:
-    """Stream step/epoch/loss progress to stdout for the runner to persist (issue #38)."""
+    """Stream step/epoch/loss progress to stdout for the runner to persist (issue #38).
+
+    Implements every TrainerCallback lifecycle hook as a no-op so that any version
+    of Transformers/TRL can invoke them without AttributeError. Only ``on_log`` and
+    ``on_epoch_end`` carry real logic.
+    """
 
     def __init__(self):
         self._epoch = 0
+
+    def on_init_end(self, args, state, control, **kwargs):
+        pass
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        pass
+
+    def on_train_end(self, args, state, control, **kwargs):
+        pass
+
+    def on_epoch_begin(self, args, state, control, **kwargs):
+        pass
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        self._epoch += 1
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        pass
+
+    def on_step_end(self, args, state, control, **kwargs):
+        pass
+
+    def on_substep_end(self, args, state, control, **kwargs):
+        pass
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         _emit(
@@ -42,16 +71,34 @@ class _ProgressCallback:
             eval_loss=logs.get("eval_loss") if logs else None,
         )
 
-    def on_epoch_end(self, args, state, control, **kwargs):
-        self._epoch += 1
+    def on_evaluate(self, args, state, control, **kwargs):
+        pass
+
+    def on_save(self, args, state, control, **kwargs):
+        pass
+
+    def on_predict(self, args, state, control, **kwargs):
+        pass
+
+    def on_prediction_step(self, args, state, control, **kwargs):
+        pass
+
+    def on_optimizer_step(self, args, state, control, **kwargs):
+        pass
+
+    def on_pre_optimizer_step(self, args, state, control, **kwargs):
+        pass
+
+    def on_push_begin(self, args, state, control, **kwargs):
+        pass
 
 
 def _run_training(config: dict, staging: str) -> int:
     try:
-        from datasets import load_dataset
-
-        from trl import SFTConfig, SFTTrainer
         from unsloth import FastLanguageModel, is_bfloat16_supported
+
+        from datasets import load_dataset
+        from trl import SFTConfig, SFTTrainer
     except ImportError as exc:
         print(
             f"training environment missing a dependency: {exc}",

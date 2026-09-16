@@ -916,3 +916,191 @@ export const checks: ValidationCheck[] = [
 		status: "success",
 	},
 ];
+
+export const datasetForSft = [
+	{
+		label: "defnex-defense-scenarios",
+		value: "defnex-defense-scenarios",
+		versions: [
+			{ label: "v1.2.0 (READY)", value: "v1.2.0" },
+			{ label: "v1.1.0 (READY)", value: "v1.1.0" },
+		],
+		sampleCount: 15228,
+		shaImmutable: "6d2258a41920da78...",
+	},
+	{
+		label: "defnex-cyber-threats",
+		value: "defnex-cyber-threats",
+		versions: [{ label: "v1.0.0 (READY)", value: "v1.0.0" }],
+		sampleCount: 10234,
+		shaImmutable: "6d2258a41920da43...",
+	},
+	{
+		label: "defnex-maritime-incidents",
+		value: "defnex-maritime-incidents",
+		versions: [
+			{ label: "v1.0.0 (READY)", value: "v1.0.0" },
+			{ label: "v0.9.0 (READY)", value: "v0.9.0" },
+			{ label: "v0.8.0 (READY)", value: "v0.8.0" },
+		],
+		sampleCount: 20456,
+		shaImmutable: "6d2258a41920da72...",
+	},
+];
+
+export const providers = [
+	{
+		id: "google-colab",
+		name: "Google Colab",
+		description: "ON DEMAND NOTEBOOK",
+		// selected: true,
+		disabled: false,
+		computeRes: [
+			{
+				id: "colab-account-a",
+				name: "colab-account-a",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Google Colab",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "colab-account-b",
+				name: "colab-account-b",
+				specs: "NVIDIA T4 • 16 GB VRAM • TRAINING • Google Colab",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "colab-account-c",
+				name: "colab-account-c",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Google Colab",
+				status: "Busy",
+				isAuto: false,
+				busy: true,
+			},
+		],
+	},
+	{
+		id: "dedicated-gpu-vps",
+		name: "Dedicated GPU VPS",
+		description: "SELF HOSTED",
+		// selected: false,
+		disabled: false,
+		computeRes: [
+			{
+				id: "dedicated-gpu-vps-1",
+				name: "dedicated-gpu-vps-1",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Dedicated GPU VPS",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "dedicated-gpu-vps-2",
+				name: "dedicated-gpu-vps-2",
+				specs: "NVIDIA T4 • 16 GB VRAM • TRAINING • Dedicated GPU VPS",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "dedicated-gpu-vps-3",
+				name: "dedicated-gpu-vps-3",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Dedicated GPU VPS",
+				status: "Busy",
+				isAuto: false,
+				busy: true,
+			},
+		],
+	},
+	{
+		id: "local-gpu-workstation",
+		name: "Local GPU / Workstation",
+		description: "SELF HOSTED",
+		// selected: false,
+		disabled: false,
+		computeRes: [
+			{
+				id: "local-gpu-workstation-1",
+				name: "local-gpu-workstation-1",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Local GPU / Workstation",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "local-gpu-workstation-2",
+				name: "local-gpu-workstation-2",
+				specs: "NVIDIA T4 • 16 GB VRAM • TRAINING • Local GPU / Workstation",
+				status: "Available",
+				isAuto: false,
+			},
+			{
+				id: "local-gpu-workstation-3",
+				name: "local-gpu-workstation-3",
+				specs: "NVIDIA A100 • 40 GB VRAM • TRAINING • Local GPU / Workstation",
+				status: "Busy",
+				isAuto: false,
+				busy: true,
+			},
+		],
+	},
+	{
+		id: "runpod-cloud-worker",
+		name: "RunPod Cloud Worker",
+		description: "Coming soon",
+		// selected: false,
+		disabled: true,
+		computeRes: [],
+	},
+	{
+		id: "serverless-gpu",
+		name: "Modal Serverless GPU",
+		description: "Coming soon",
+		// selected: false,
+		disabled: true,
+		computeRes: [],
+	},
+];
+
+export const baseModelsSftModal = [
+	{
+		name: "Qwen/Qwen2.5-0.5B-Instruct",
+		details:
+			"0.5B • Causal LM (Instruct) • 32K tokens • bf16 / 4-bit QLoRA",
+		vram: "~4 GB VRAM (QLoRA)",
+		disabled: false,
+		modelFamily: "defnex-qwen2.5-0.5b",
+		version: "v1",
+	},
+	{
+		name: "unsloth/Qwen2.5-7B-Instruct",
+		details: "7B • Causal LM (Instruct) • 32K tokens • bf16 / 4-bit QLoRA",
+		vram: "~16 GB VRAM (QLoRA)",
+		disabled: false,
+		modelFamily: "defnex-qwen2.5-7b",
+		version: "v1",
+	},
+	{
+		name: "unsloth/Llama-3.2-3B-Instruct",
+		details: "3B • Causal LM (Instruct) • 128K tokens • bf16 / 4-bit QLoRA",
+		vram: "~8 GB VRAM (QLoRA)",
+		disabled: false,
+		modelFamily: "defnex-llama-3.2-3b",
+		version: "v1",
+	},
+	{
+		name: "unsloth/Mistral-7B-Instruct-v0.3",
+		details: "7B • Causal LM (Instruct) • 32K tokens • bf16 / LoRA",
+		vram: "~16 GB VRAM (LoRA)",
+		disabled: false,
+		modelFamily: "defnex-mistral-7b",
+		version: "v1",
+	},
+	{
+		name: "Qwen/Qwen3.8-27B",
+		details:
+			"27B • Causal LM (Instruct) • 128K tokens • bf16 / 4-bit QLoRA",
+		vram: "Not available for execution",
+		disabled: true,
+		modelFamily: "defnex-qwen3.8-27b",
+		version: "v1",
+	},
+];

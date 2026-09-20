@@ -27,3 +27,4 @@ def test_successful_request_is_logged_with_duration(monkeypatch):
     assert fields["path"] == "/api/v1/health"
     assert fields["status_code"] == 200
     assert isinstance(fields["duration_ms"], float)
+    assert isinstance(fields["request_id"], str) and fields["request_id"]

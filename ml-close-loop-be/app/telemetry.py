@@ -16,6 +16,44 @@ _inference_latency: Any = None
 _active_training_runs: Any = None
 _gpu_lock_wait: Any = None
 
+# RED (Rate/Errors/Duration) HTTP metrics (issue #169): unlike the OTel-only instruments
+# above, these are created here at import time - independent of `setup_telemetry()`/
+# `OTEL_ENABLED` - so `/metrics` isn't a no-op just because OTel tracing is off. Still
+# genuinely optional: prometheus-client is only declared under the `otel` extra
+# (pyproject.toml), so this stays `None` (silent no-op, matching get_prometheus_metrics'
+# existing ImportError handling below) wherever that extra isn't installed.
+try:
+    from prometheus_client import Counter, Histogram
+
+    _http_requests_total: Any = Counter(
+        "http_requests_total",
+        "Total HTTP requests, labeled by method/route template/status code",
+        ["method", "path", "status_code"],
+    )
+    _http_request_duration_seconds: Any = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration in seconds, labeled by method/route template",
+        ["method", "path"],
+    )
+except ImportError:
+    _http_requests_total = None
+    _http_request_duration_seconds = None
+
+
+def record_http_request(
+    method: str, path: str, status_code: int, duration_seconds: float
+) -> None:
+    """Record one request's RED signals (issue #169). Called from AccessLogMiddleware for
+    every request. No-op when prometheus-client isn't installed."""
+    if _http_requests_total is not None:
+        _http_requests_total.labels(
+            method=method, path=path, status_code=str(status_code)
+        ).inc()
+    if _http_request_duration_seconds is not None:
+        _http_request_duration_seconds.labels(method=method, path=path).observe(
+            duration_seconds
+        )
+
 
 def _add_trace_to_structlog(
     logger: Any, method_name: str, event_dict: dict[str, Any]

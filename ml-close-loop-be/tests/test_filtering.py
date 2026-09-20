@@ -200,7 +200,7 @@ def test_list_models_search_by_id(client, admin_token):
         "/api/v1/models", params={"search": "qwen"}, headers=auth_header(admin_token)
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["items"]
     assert len(data) == 1
     assert "qwen" in data[0]["model_id"].lower()
 
@@ -212,7 +212,7 @@ def test_list_models_search_no_match(client, admin_token):
         "/api/v1/models", params={"search": "gpt4"}, headers=auth_header(admin_token)
     )
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
 
 
 def test_list_models_filter_status_and_search_combined(client, admin_token):
@@ -224,7 +224,7 @@ def test_list_models_filter_status_and_search_combined(client, admin_token):
         headers=auth_header(admin_token),
     )
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    assert len(response.json()["items"]) == 1
 
     response = client.get(
         "/api/v1/models",
@@ -232,4 +232,4 @@ def test_list_models_filter_status_and_search_combined(client, admin_token):
         headers=auth_header(admin_token),
     )
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []

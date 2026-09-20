@@ -12,7 +12,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 54 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 56 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept
@@ -53,7 +53,7 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
   in its manifest for provenance
 - DB index optimization on foreign keys + connection pool tuning
 - N+1 query prevention via eager loading
-- pytest-cov coverage gate `--cov-fail-under=80` (currently 477 tests, 96% coverage)
+- pytest-cov coverage gate `--cov-fail-under=80` (currently 1011 tests, ~92% coverage)
 
 ## Quickstart — Docker
 
@@ -167,7 +167,10 @@ it.
 ## Tests & Quality
 
 ```bash
-.venv/bin/pytest tests/ -q          # 423 tests, 97% coverage (threshold --cov-fail-under=80)
+.venv/bin/pytest tests/ -q          # 1011 tests, ~92% coverage (threshold --cov-fail-under=80)
+                                     # 27 of these (tests/test_file_signaling.py) currently fail
+                                     # in this dev environment with ModuleNotFoundError: gpu_controller
+                                     # (pre-existing, tracked separately, not caused by app code)
 ruff check .                        # lint
 ruff format --check .               # format check
 ```

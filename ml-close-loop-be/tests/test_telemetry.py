@@ -284,3 +284,47 @@ def test_training_duration_recorded(db_session, lock_file, tmp_path, monkeypatch
     result = process_next_job(db_session, _Runner(), lock_file=lock_file)
     assert result is not None
     assert result.status == "COMPLETED"
+
+
+def test_red_metrics_populate_independently_of_otel_enabled(client: TestClient):
+    """Issue #169: RED (Rate/Errors/Duration) HTTP metrics must not require OTEL_ENABLED=true
+    -- the pre-#169 counters (_training_runs_counter etc.) stayed None with OTel disabled
+    (the default, asserted by test_telemetry_disabled_when_not_configured above); these new
+    ones must populate regardless.
+
+    prometheus-client is an optional dependency (pyproject.toml's `otel` extra, not
+    installed by the [dev] extra CI/local dev use) -- skip only this test (not the whole
+    module, which has plenty of tests unrelated to prometheus-client) where it's absent.
+    """
+    pytest.importorskip("prometheus_client")
+    from app.telemetry import _http_request_duration_seconds, _http_requests_total
+
+    assert _http_requests_total is not None
+    assert _http_request_duration_seconds is not None
+
+    client.get("/api/v1/health")
+
+    body = client.get("/metrics").content.decode()
+    assert 'http_requests_total{method="GET"' in body
+    assert "http_request_duration_seconds" in body
+
+
+def test_record_http_request_uses_route_template_not_resolved_path(
+    client: TestClient, admin_token
+):
+    """Issue #169: the path label must be the route template (e.g.
+    "/models/{model_id}/versions" - `request.scope["route"].path` doesn't include the
+    `/api/v1` mount prefix in this FastAPI version, only the path segment the router was
+    decorated with), not the resolved path with the real model_id interpolated in - using
+    the resolved path would create one Prometheus time series per model_id ever requested
+    (unbounded cardinality)."""
+    pytest.importorskip("prometheus_client")
+    from tests.conftest import auth_header
+
+    client.get(
+        "/api/v1/models/some-model-id/versions", headers=auth_header(admin_token)
+    )
+
+    body = client.get("/metrics").content.decode()
+    assert 'path="/models/{model_id}/versions"' in body
+    assert "some-model-id" not in body

@@ -118,7 +118,7 @@ def test_list_and_get_eval_set_versions(client, admin_token):
 
     summary = client.get("/api/v1/eval-sets", headers=h)
     assert summary.status_code == 200
-    assert summary.json() == [
+    assert summary.json()["items"] == [
         {"eval_set_id": "domain-benchmark", "latest_version": 2, "version_count": 2}
     ]
 
@@ -136,7 +136,27 @@ def test_list_eval_sets_empty(client, admin_token):
     response = client.get("/api/v1/eval-sets", headers=auth_header(admin_token))
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
+
+
+def test_list_eval_sets_respects_pagination_params(client, admin_token):
+    """Issue #176: GET /eval-sets is now paginated like every other list endpoint."""
+    h = auth_header(admin_token)
+    client.post(
+        "/api/v1/eval-sets/domain-benchmark/versions",
+        json={"records": [_valid_record()]},
+        headers=h,
+    )
+
+    page2 = client.get("/api/v1/eval-sets", params={"page": 2, "size": 1}, headers=h)
+
+    assert page2.status_code == 200
+    body = page2.json()
+    assert body["items"] == []
+    assert body["total"] == 1
+    assert body["page"] == 2
+    assert body["size"] == 1
+    assert body["pages"] == 1
 
 
 def test_get_missing_eval_set_returns_404(client, admin_token):

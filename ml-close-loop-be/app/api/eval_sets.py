@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import (
+    PaginationParams,
+    get_current_user,
+    get_pagination,
+    require_admin,
+)
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.common import ErrorResponse
+from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.eval_set import (
     EvalSetSummary,
     EvalSetVersion,
@@ -36,12 +41,22 @@ def create_eval_set_version(
     return eval_set_service.to_schema(version)
 
 
-@router.get("/eval-sets", response_model=list[EvalSetSummary])
+@router.get("/eval-sets", response_model=PaginatedResponse[EvalSetSummary])
 def list_eval_sets(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
-) -> list[EvalSetSummary]:
-    return eval_set_service.list_eval_sets(db)
+    pg: PaginationParams = Depends(get_pagination),
+) -> PaginatedResponse[EvalSetSummary]:
+    summaries, total = eval_set_service.list_eval_sets(
+        db, limit=pg.limit, offset=pg.offset
+    )
+    return PaginatedResponse(
+        items=summaries,
+        total=total,
+        page=pg.page,
+        size=pg.size,
+        pages=PaginationParams.pages_from(total, pg.size),
+    )
 
 
 @router.get(

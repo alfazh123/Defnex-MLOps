@@ -87,6 +87,11 @@ class ModelVersion(Base):
     promotion_decision_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     previous_model_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Issue #165: seed.py-inserted rows (fake artifact URIs, no real training) were
+    # indistinguishable from genuinely trained models. True only for rows created by
+    # seed.py; real training always leaves this False.
+    is_seed_data: Mapped[bool] = mapped_column(default=False, server_default="0")
+
     model: Mapped["Model"] = relationship(back_populates="versions")
     training_run: Mapped["TrainingRun"] = relationship(back_populates="model_versions")
     promotion_decisions: Mapped[list["PromotionDecision"]] = relationship(

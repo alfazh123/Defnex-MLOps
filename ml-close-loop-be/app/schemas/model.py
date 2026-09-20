@@ -132,3 +132,6 @@ class ModelRegistryRecord(BaseModel):
     artifacts: list[Artifact]
     promotion_decision_ref: str | None = None
     previous_model_id: str | None = None
+    # Issue #165: True only for seed.py-inserted rows, so API/UI consumers can filter
+    # or clearly label them instead of mistaking them for real trained models.
+    is_seed_data: bool = False

@@ -424,4 +424,5 @@ def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
         artifacts=model_version.artifacts,
         promotion_decision_ref=model_version.promotion_decision_ref,
         previous_model_id=model_version.previous_model_id,
+        is_seed_data=model_version.is_seed_data,
     )

@@ -278,6 +278,7 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
         "artifacts",
         "promotion_decision_ref",
         "previous_model_id",
+        "is_seed_data",
     }
     assert data["status"] == "REGISTERED"
     assert isinstance(data["training_config"], dict)

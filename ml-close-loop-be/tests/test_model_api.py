@@ -404,6 +404,7 @@ def test_list_model_versions_paginated_full_record(client, admin_token):
         "artifacts",
         "promotion_decision_ref",
         "previous_model_id",
+        "is_seed_data",
     }
     assert item["model_id"] == model_id
     assert item["version"] == version

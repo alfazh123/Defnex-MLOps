@@ -115,10 +115,21 @@ def list_eval_set_versions(db: Session, eval_set_id: str) -> list[EvalSetVersion
     )
 
 
-def list_eval_sets(db: Session) -> list[EvalSetSummary]:
-    """Every eval set with its latest version + version count, for GET /eval-sets."""
+def list_eval_sets(
+    db: Session, limit: int | None = None, offset: int = 0
+) -> tuple[list[EvalSetSummary], int]:
+    """Every eval set with its latest version + version count, for GET /eval-sets.
 
-    eval_sets = db.scalars(select(EvalSet).order_by(EvalSet.eval_set_id)).all()
+    Returns ``(page_of_summaries, total_count)`` (issue #176); `limit=None` (the pre-#176
+    default, e.g. from tests calling this directly) returns every eval set with no slicing.
+    """
+    from sqlalchemy import func
+
+    total = db.scalar(select(func.count()).select_from(EvalSet))
+    query = select(EvalSet).order_by(EvalSet.eval_set_id)
+    if limit is not None:
+        query = query.limit(limit).offset(offset)
+    eval_sets = db.scalars(query).all()
     return [
         EvalSetSummary(
             eval_set_id=eval_set.eval_set_id,
@@ -126,7 +137,7 @@ def list_eval_sets(db: Session) -> list[EvalSetSummary]:
             version_count=len(eval_set.versions),
         )
         for eval_set in eval_sets
-    ]
+    ], total
 
 
 def to_schema(version: EvalSetVersionModel) -> EvalSetVersionSchema:

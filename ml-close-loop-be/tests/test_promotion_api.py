@@ -241,6 +241,32 @@ def test_create_decision_returns_409_when_already_decided(client, admin_token):
     assert response.json()["error"]["code"] == "DECISION_NOT_ALLOWED"
 
 
+def test_create_decision_idempotency_key_replays_instead_of_duplicating(
+    client, admin_token
+):
+    """Issue #170: a retried POST with the same X-Idempotency-Key must return the same
+    DecisionRecord and must not create a second PromotionDecision row."""
+    from sqlalchemy import func, select
+
+    from app.models.promotion import PromotionDecision
+
+    model_id, version = _evaluated_model_version(client, admin_token)
+    h = {**auth_header(admin_token), "X-Idempotency-Key": "decision-key-1"}
+    url = f"/api/v1/models/{model_id}/versions/{version}/decisions"
+    body = {"decision": "PROMOTED", "decided_by": "reviewer-1", "rationale": "first"}
+
+    first = client.post(url, json=body, headers=h)
+    second = client.post(url, json=body, headers=h)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json() == first.json()
+
+    with Session(client.engine) as db:
+        count = db.scalar(select(func.count()).select_from(PromotionDecision))
+    assert count == 1
+
+
 def _promoted_model_version(client, admin_token):
     model_id, version = _evaluated_model_version(client, admin_token)
     client.post(

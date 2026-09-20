@@ -9,6 +9,8 @@ from app.limiter import limiter
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     RefreshRequest,
     TokenResponse,
     UserCreate,
@@ -150,3 +152,48 @@ def logout(
     auth_service.revoke_refresh_family_from_access_token(token, db)
     db.commit()
     logger.info("logout_success", user_id=user.id)
+
+
+@router.post("/auth/forgot-password", status_code=200)
+@limiter.limit("3/minute")
+def forgot_password(
+    request: Request, body: PasswordResetRequest, db: Session = Depends(get_db)
+) -> dict:
+    """Issue #177: no email/SMS provider is wired in this codebase (mock-first, like
+    MockTrainingRunner) - the reset code is logged instead of sent, as an explicit
+    placeholder channel for an operator to relay manually. Always returns the same 200
+    message whether or not `username` exists, so this endpoint can't be used to enumerate
+    registered usernames.
+    """
+    user = auth_service.get_user_by_username(db, body.username)
+    if user is not None:
+        reset_code = auth_service.create_password_reset_token(db, user)
+        db.commit()
+        # Named "reset_code", not "token" (structlog's _scrub_secrets in app/logging.py
+        # redacts any field whose name contains "token"/"password"/"secret"/etc.) -
+        # unlike those, this value is *meant* to leave the server and reach the user, so
+        # redacting it here would make the placeholder channel useless.
+        logger.info(
+            "password_reset_requested", username=body.username, reset_code=reset_code
+        )
+    return {
+        "message": "If that username exists, a password reset code has been issued."
+    }
+
+
+@router.post("/auth/reset-password", status_code=200)
+@limiter.limit("5/minute")
+def reset_password(
+    request: Request, body: PasswordResetConfirmRequest, db: Session = Depends(get_db)
+) -> dict:
+    user = auth_service.consume_password_reset_token(db, body.token)
+    if user is None:
+        raise APIError(
+            400,
+            "INVALID_RESET_TOKEN",
+            "Reset token is invalid, expired, or already used",
+        )
+    user.hashed_password = auth_service.hash_password(body.new_password)
+    db.commit()
+    logger.info("password_reset_completed", user_id=user.id)
+    return {"message": "Password has been reset"}

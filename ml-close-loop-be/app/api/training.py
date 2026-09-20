@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -16,8 +16,15 @@ from app.limiter import limiter
 from app.models.user import User
 from app.schemas.common import ErrorResponse, PaginatedResponse
 from app.schemas.training import TrainingRun, TrainingRunCreateRequest
-from app.services import dataset_service, training_service, validation_service
+from app.services import (
+    dataset_service,
+    idempotency_service,
+    training_service,
+    validation_service,
+)
 from app.services import unsloth_client
+
+_IDEMPOTENCY_ENDPOINT = "create_training_run"
 
 router = APIRouter(tags=["Training"])
 
@@ -34,7 +41,16 @@ async def create_training_run(
     body: TrainingRunCreateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
-) -> TrainingRun:
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
+) -> dict:
+    # Issue #170: durable Postgres-backed cache (app.services.idempotency_service), same
+    # pattern as deployment_service/intake_validate.py -- a retried POST with the same
+    # X-Idempotency-Key replays the earlier response instead of creating a second TrainingRun.
+    if x_idempotency_key:
+        cached = idempotency_service.get_cached_response(db, x_idempotency_key)
+        if cached is not None:
+            return cached.body
+
     dataset_version = dataset_service.get_dataset_version(
         db, body.dataset_id, body.dataset_version
     )
@@ -71,7 +87,17 @@ async def create_training_run(
     training_run = training_service.create_training_run(db, dataset_version, body)
     db.commit()
 
-    return training_service.to_schema(training_run)
+    result = training_service.to_schema(training_run).model_dump(mode="json")
+    if x_idempotency_key:
+        idempotency_service.store_response(
+            db,
+            x_idempotency_key,
+            endpoint=_IDEMPOTENCY_ENDPOINT,
+            status=201,
+            body=result,
+        )
+        db.commit()
+    return result
 
 
 @router.get(

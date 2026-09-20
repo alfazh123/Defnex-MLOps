@@ -1,5 +1,11 @@
 # Dataset / Model Artifact Retention Policy
 
+> **Not enforced.** Everything below — including the windows in the tables — is an
+> eligibility policy only. No scheduled job, admin endpoint, or CLI in this codebase deletes
+> anything per these rules yet; storage is not currently reclaimed. See "Deletion: explicitly
+> out of scope for this issue" below for why, and what a future implementer must satisfy
+> first (issue #172).
+
 Issue #132. Written to close a gap named in that issue: PRD §43 states only a *negative*
 retention rule ("don't delete rollback artifacts") with no positive policy for when
 rejected/superseded data may be deleted.

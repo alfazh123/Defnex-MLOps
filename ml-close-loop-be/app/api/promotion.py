@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 import structlog
 from sqlalchemy.orm import Session
 
@@ -38,8 +38,14 @@ def create_decision(
     body: DecisionCreateRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(PROMOTE)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     model_version = get_model_version_or_404(db, model_id, version)
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "create_decision", model_version.id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     try:
         decision = promotion_service.create_decision(
             db, model_version, body, actor_id=_admin.id
@@ -49,7 +55,16 @@ def create_decision(
     except ValueError as exc:
         raise APIError(409, "DECISION_NOT_ALLOWED", str(exc)) from exc
     db.commit()
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "create_decision",
+        model_version.id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result
 
 
 @router.post(
@@ -63,8 +78,14 @@ def rollback_model(
     request: RollbackRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(ROLLBACK)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     target = get_model_version_or_404(db, model_id, request.rollback_of_version)
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "rollback_model", target.id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     try:
         decision = promotion_service.rollback(db, target, request, actor_id=_admin.id)
     except deployment_service.DeploymentLockTimeout as exc:
@@ -72,7 +93,16 @@ def rollback_model(
     except ValueError as exc:
         raise APIError(409, "ROLLBACK_NOT_ALLOWED", str(exc)) from exc
     db.commit()
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "rollback_model",
+        target.id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result
 
 
 def _ladder_error(exc: ValueError, code: str) -> APIError:
@@ -98,11 +128,17 @@ def deploy_to_staging_endpoint(
     request: LadderActionRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(DEPLOY)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     """Ladder step 1 (issue #69 AC 1), PRD §16.2: deploy an EVALUATED candidate to staging without
     touching the production pointer. Records the STAGING decision; smoke test runs automatically as
     part of the deploy (PRD §38.4)."""
     model_version = get_model_version_or_404(db, model_id, version)
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "deploy_to_staging", model_version.id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     try:
         decision = promotion_service.deploy_to_staging(
             db, model_version, request, actor_id=_admin.id
@@ -112,7 +148,16 @@ def deploy_to_staging_endpoint(
     except ValueError as exc:
         raise _ladder_error(exc, "STAGING_DEPLOY_NOT_ALLOWED") from exc
     db.commit()
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "deploy_to_staging",
+        model_version.id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result
 
 
 @router.post(
@@ -127,18 +172,33 @@ def validate_staging_endpoint(
     request: LadderActionRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(VALIDATE_STAGING)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     """Ladder step 2 (issue #69 AC 2/3): the human quality-gate approval that the staged candidate
     passed integration validation. Only a STAGING version may be validated, which structurally
     blocks production promotion until staging happened. Records the VALIDATED decision with the
     frozen evaluation snapshot as the gate result (PRD §8.4)."""
     model_version = get_model_version_or_404(db, model_id, version)
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "validate_staging", model_version.id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     try:
         decision = promotion_service.validate_staging(db, model_version, request)
     except ValueError as exc:
         raise _ladder_error(exc, "VALIDATION_NOT_ALLOWED") from exc
     db.commit()
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "validate_staging",
+        model_version.id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result
 
 
 @router.post(
@@ -157,11 +217,17 @@ def promote_production_endpoint(
     request: LadderActionRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(PROMOTE)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     """Ladder step 3 (issue #69 AC 2/4/5): the authorized controlled promotion of a VALIDATED
     (or legacy PROMOTED) candidate to the production pointer. Records the PRODUCTION decision;
     the registry terminal status stays DEPLOYED (single source of truth for production)."""
     model_version = get_model_version_or_404(db, model_id, version)
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "promote_production", model_version.id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     try:
         decision = promotion_service.promote_to_production(
             db, model_version, request, actor_id=_admin.id
@@ -195,7 +261,16 @@ def promote_production_endpoint(
         decided_by=request.decided_by,
         decision_id=decision.decision_id,
     )
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "promote_production",
+        model_version.id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result
 
 
 @router.post(
@@ -213,6 +288,7 @@ def rollback_deployment(
     request: LadderActionRequest,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_permission(ROLLBACK)),
+    x_idempotency_key: str | None = Header(None, alias="X-Idempotency-Key"),
 ) -> DecisionRecord:
     """Issue #70, PRD §14.4 "Rollback": restore the previous immutable version for a deployment
     target, discovered by the deployment row (POST .../deployments/{id}/rollback, PRD §25). The
@@ -224,6 +300,11 @@ def rollback_deployment(
         raise APIError(
             404, "DEPLOYMENT_NOT_FOUND", f'deployment_id "{deployment_id}" not found'
         )
+    cached = promotion_service.check_idempotency(
+        db, x_idempotency_key, "rollback_deployment", deployment_id
+    )
+    if cached is not None:
+        return DecisionRecord(**cached)
     target = get_model_version_or_404(db, deployment.model_id, deployment.model_version)
     try:
         decision = promotion_service.rollback(
@@ -242,4 +323,13 @@ def rollback_deployment(
     except ValueError as exc:
         raise _ladder_error(exc, "ROLLBACK_NOT_ALLOWED") from exc
     db.commit()
-    return promotion_service.to_schema(decision)
+    result = promotion_service.to_schema(decision)
+    promotion_service.store_idempotency(
+        db,
+        x_idempotency_key,
+        "rollback_deployment",
+        deployment_id,
+        result.model_dump(mode="json"),
+    )
+    db.commit()
+    return result

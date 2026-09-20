@@ -35,13 +35,23 @@ def list_available_models(_user: User = Depends(get_current_user)) -> dict:
     return {"models": models, "default": default}
 
 
-@router.get("/models", response_model=list[ModelSummary])
+@router.get("/models", response_model=PaginatedResponse[ModelSummary])
 def list_models(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
     fl: FilterParams = Depends(get_filters),
-) -> list[ModelSummary]:
-    return model_service.list_models(db, status=fl.status, search=fl.search)
+    pg: PaginationParams = Depends(get_pagination),
+) -> PaginatedResponse[ModelSummary]:
+    summaries, total = model_service.list_models(
+        db, status=fl.status, search=fl.search, limit=pg.limit, offset=pg.offset
+    )
+    return PaginatedResponse(
+        items=summaries,
+        total=total,
+        page=pg.page,
+        size=pg.size,
+        pages=PaginationParams.pages_from(total, pg.size),
+    )
 
 
 @router.get(

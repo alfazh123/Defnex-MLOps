@@ -12,7 +12,7 @@ from app.schemas.promotion import (
     LadderActionRequest,
     RollbackRequest,
 )
-from app.services import audit_service, deployment_service
+from app.services import audit_service, deployment_service, idempotency_service
 from app.services.model_service import get_evaluation
 
 # EVALUATED -> PROMOTED|REJECTED is the only transition this story records
@@ -482,4 +482,39 @@ def to_schema(decision: PromotionDecision) -> DecisionRecord:
         dataset_license=dataset_license,
         base_model_license=_base_model_license(model_version.base_model),
         license_warning=_license_warning(decision.decision, dataset_license),
+    )
+
+
+def _idempotency_key(endpoint: str, key: str, resource_id: object) -> str:
+    """Namespace a caller-supplied `X-Idempotency-Key` by endpoint + resource (issue #170,
+    mirrors deployment_service._idempotency_key): the same header value reused against a
+    different model version, or a different ladder step on the same version, is an
+    independent request, not a replay."""
+    return f"{endpoint}:{key}:{resource_id}"
+
+
+def check_idempotency(
+    db: Session, key: str | None, endpoint: str, resource_id: object
+) -> dict | None:
+    """Check if this ladder action already ran with the same idempotency key (issue #170)."""
+    if key is None:
+        return None
+    cached = idempotency_service.get_cached_response(
+        db, _idempotency_key(endpoint, key, resource_id)
+    )
+    return cached.body if cached is not None else None
+
+
+def store_idempotency(
+    db: Session, key: str | None, endpoint: str, resource_id: object, result: dict
+) -> None:
+    """Store a ladder action's result for idempotency replay (issue #170)."""
+    if key is None:
+        return
+    idempotency_service.store_response(
+        db,
+        _idempotency_key(endpoint, key, resource_id),
+        endpoint=endpoint,
+        status=201,
+        body=result,
     )

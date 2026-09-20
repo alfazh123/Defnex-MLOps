@@ -16,8 +16,10 @@ Almost every command below runs from `ml-close-loop-be/`.
 
 `DEFNEX_MLOps_Multi_Server_Architecture_v2_PRD.md` (repo root) is the **authoritative target**
 architecture. The current codebase is the Phase 0 prototype being migrated toward it;
-`AUDIT_MLOPS_v2.md` records the gaps per area. Do not implement anything that contradicts
-the PRD without a written decision. Key targets (details live in the PRD):
+`../docs/qa/AUDIT_MLOPS_v2.md` (one level up, outside this repo — not `AUDIT_MLOPS_v2.md`
+inside it) records the gaps per area, but predates the 2026-09-14/16 training-path fixes, so
+treat it as historical context rather than current status. Do not implement anything that
+contradicts the PRD without a written decision. Key targets (details live in the PRD):
 
 - Multi-server control plane: FastAPI + PostgreSQL + Redis + Celery + MinIO. Training runs on a
   GPU VPS (Unsloth) or Colab runner — never inside the HTTP handler (PRD §10.1).

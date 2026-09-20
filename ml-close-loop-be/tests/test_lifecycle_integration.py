@@ -171,7 +171,7 @@ def _run_lifecycle(client, admin_token, serving_backend=None, training_request=N
     assert record["dataset_version"] == 1
     assert record["artifacts"][0]["uri"] is not None
 
-    assert client.get("/api/v1/models", headers=h).json() == [
+    assert client.get("/api/v1/models", headers=h).json()["items"] == [
         {"model_id": MODEL_ID, "latest_version": model_version, "status": "REGISTERED"}
     ]
 
@@ -467,6 +467,6 @@ def test_lifecycle_sequential_multi_version(client, admin_token):
         assert record["dataset_version"] == version
         assert record["status"] == "REGISTERED"
 
-    assert client.get("/api/v1/models", headers=h).json() == [
+    assert client.get("/api/v1/models", headers=h).json()["items"] == [
         {"model_id": MODEL_ID, "latest_version": 2, "status": "REGISTERED"}
     ]

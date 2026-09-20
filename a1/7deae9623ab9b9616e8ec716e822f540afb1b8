@@ -1,0 +1,24 @@
+.github/workflows/ci.yml
+  s_65ab45a32e34d2::t_bb2ee694b2ffad 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a17deae9623ab9b9616e8ec716e822f540afb1b8",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65ab45a32e34d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9755058-d217-43f6-b51f-c0b66a01e0f7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

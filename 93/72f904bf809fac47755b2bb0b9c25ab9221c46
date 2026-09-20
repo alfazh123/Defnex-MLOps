@@ -1,0 +1,150 @@
+ml-close-loop-be/app/api/auth.py
+  s_65ab45a32e34d2::t_4422fcb055daaa 12-13
+  s_65ab45a32e34d2::t_bea3f867434902 155-199
+ml-close-loop-be/app/main.py
+  s_65ab45a32e34d2::t_3aa428a2f7c650 187-193
+  s_65ab45a32e34d2::t_44cd0bfa4b8f0e 236-242
+  s_65ab45a32e34d2::t_026369f6119232 36
+  s_65ab45a32e34d2::t_51b3f898bf6221 258-264
+  s_65ab45a32e34d2::t_41b1e374804974 116-121
+  s_65ab45a32e34d2::t_9f60df1b9a0f8e 155-156
+  s_65ab45a32e34d2::t_dbf68cc8d2a101 210-216
+ml-close-loop-be/app/api/models.py
+  s_65ab45a32e34d2::t_349b3176215df5 38,43-54
+ml-close-loop-be/tests/test_auth.py
+  s_65ab45a32e34d2::t_c7c9b4e62be758 426-563
+ml-close-loop-be/app/api/promotion.py
+  s_65ab45a32e34d2::t_1f01b87907730b 1
+  s_65ab45a32e34d2::t_615691886f549c 81,84-88,96-97,103-105
+  s_65ab45a32e34d2::t_f7953bf04be5fa 131,137-141,151-152,158-160
+  s_65ab45a32e34d2::t_4b3b372afb267b 60-64,98-102,153-157,194-198,266-270,328-332
+  s_65ab45a32e34d2::t_021af26126517b 264-265,271-273
+  s_65ab45a32e34d2::t_7b9e8d5db86410 326-327,333-335
+  s_65ab45a32e34d2::t_7177ca3f4bd484 220,226-230
+  s_65ab45a32e34d2::t_36c038dbf673b8 291,303-307
+  s_65ab45a32e34d2::t_6fd45988b599b3 175,182-186,192-193,199-201
+  s_65ab45a32e34d2::t_9a6fa7994afd1d 41,44-48,58-59,65-67
+ml-close-loop-be/app/services/model_service.py
+  s_65ab45a32e34d2::t_88691aea3ad0ea 205-210,213-220,239-242
+ml-close-loop-be/app/api/eval_sets.py
+  s_65ab45a32e34d2::t_9648c507754a15 44,48-59
+  s_65ab45a32e34d2::t_4ccbfee896fbf2 4-9
+  s_65ab45a32e34d2::t_50417e9dcb0a2f 13
+ml-close-loop-be/tests/test_filtering.py
+  s_65ab45a32e34d2::t_dba4cc2407824f 203,215,227,235
+ml-close-loop-be/app/middleware/access_log.py
+  s_65ab45a32e34d2::t_853231d519551d 23-24,27-28,31-32,41-42
+  s_65ab45a32e34d2::t_d24d0f250a62fe 25-26,29-30
+  s_65ab45a32e34d2::t_2347b5f90ec823 7-8
+  s_65ab45a32e34d2::t_b3be8455e64c7f 43
+ml-close-loop-be/tests/test_request_id.py
+  s_65ab45a32e34d2::t_d243f251e38a47 1-4,6-31,35-39
+  s_65ab45a32e34d2::t_a2d68676a80f8e 5
+  s_65ab45a32e34d2::t_8e60c1d6728e2a 32-34
+ml-close-loop-be/app/telemetry.py
+  s_65ab45a32e34d2::t_a2faf01fd5730f 19-56
+ml-close-loop-be/app/models/password_reset.py
+  s_65ab45a32e34d2::t_74d4129c533de9 1-22
+CLAUDE.md
+  s_65ab45a32e34d2::t_dc4115def2404d 19-22
+ml-close-loop-be/app/services/promotion_service.py
+  s_65ab45a32e34d2::t_13f169910eac75 486-520
+  s_65ab45a32e34d2::t_76356ca20dd3c5 15
+ml-close-loop-be/app/models/__init__.py
+  s_65ab45a32e34d2::t_2962c3ddae25d2 12
+  s_65ab45a32e34d2::t_46c5e88d5c8ffa 36
+ml-close-loop-be/tests/test_dataset_api.py
+  s_65ab45a32e34d2::t_0988b81ff48ea9 66-69
+ml-close-loop-be/alembic/versions/b7c8d9e0f1a2_add_password_reset_tokens.py
+  s_65ab45a32e34d2::t_c2f9cbcc938ef4 1-43,50
+  s_65ab45a32e34d2::t_e99ab0cfafafe0 44-49
+ml-close-loop-be/openapi.yaml
+  s_65ab45a32e34d2::t_c7adfba6cb62aa 702-718,731
+  s_65ab45a32e34d2::t_61b83e1b482581 1942
+  s_65ab45a32e34d2::t_741d5b6b726db3 4621-4647
+  s_65ab45a32e34d2::t_d869df799d82d2 4837-4862
+  s_65ab45a32e34d2::t_95c60547f5da2e 1889-1905
+  s_65ab45a32e34d2::t_468da6f2a08e3b 4702-4728
+  s_65ab45a32e34d2::t_a5349da61e1785 229-294
+  s_65ab45a32e34d2::t_864e442743f949 3803-3807,3813-3815
+ml-close-loop-be/app/schemas/auth.py
+  s_65ab45a32e34d2::t_0f8b8f88ac43a7 7-18,39-58
+ml-close-loop-be/docs/dataset/retention-policy.md
+  s_65ab45a32e34d2::t_e6b63a95d88d30 3-8
+ml-close-loop-be/app/api/training.py
+  s_65ab45a32e34d2::t_4b3b372afb267b 19-24
+  s_65ab45a32e34d2::t_8af3db0b8ceadd 45
+  s_65ab45a32e34d2::t_ffcfe7caefa128 44,46-53
+  s_65ab45a32e34d2::t_a5c4852443ddb9 90-100
+  s_65ab45a32e34d2::t_1e1f3d86e7bed3 1
+  s_65ab45a32e34d2::t_7f6f5465d8d51f 27
+  s_65ab45a32e34d2::t_08a3cb609b13f8 28
+ml-close-loop-be/tests/test_model_api.py
+  s_65ab45a32e34d2::t_2cf284bc904cb8 131
+  s_65ab45a32e34d2::t_a55be8b8b9944c 144
+  s_65ab45a32e34d2::t_00609918f78b97 361
+  s_65ab45a32e34d2::t_a1425bbf4f5035 364-380
+  s_65ab45a32e34d2::t_7936fc0544df78 362-363
+ml-close-loop-be/README.md
+  s_65ab45a32e34d2::t_1187031309d98f 15
+  s_65ab45a32e34d2::t_7f146e63b86b06 170-173
+  s_65ab45a32e34d2::t_febb20a3ff3432 56
+ml-close-loop-be/tests/test_telemetry.py
+  s_65ab45a32e34d2::t_868c26a341c8ef 308
+  s_65ab45a32e34d2::t_62ebcd6d66ffa7 316-320,329
+  s_65ab45a32e34d2::t_640137115d1cb6 322-323,325
+  s_65ab45a32e34d2::t_6d7e7cf217d2d3 293-299
+  s_65ab45a32e34d2::t_b7c90fe309bd9a 287-292,300-307,309-315,324,326-328,330
+  s_65ab45a32e34d2::t_a8096a461ae228 321
+ml-close-loop-be/tests/test_lifecycle_integration.py
+  s_65ab45a32e34d2::t_d05c712c7ec75b 470
+  s_65ab45a32e34d2::t_27458d59a4f82a 174
+ml-close-loop-be/tests/test_training_api.py
+  s_65ab45a32e34d2::t_ef4308ab84d701 566-589
+ml-close-loop-be/app/services/auth_service.py
+  s_65ab45a32e34d2::t_2681e5c486e37e 231-232,240-245,247-267,269-272
+  s_65ab45a32e34d2::t_68426a33a353d4 233-239,246,268
+  s_65ab45a32e34d2::t_cf7e1ea155c8db 2,12,16
+  s_65ab45a32e34d2::t_08df330f4e55f5 17
+ml-close-loop-be/tests/test_promotion_api.py
+  s_65ab45a32e34d2::t_e6a58b2c11f2e3 244-269
+README.md
+  s_65ab45a32e34d2::t_db7f68dd129395 20
+ml-close-loop-be/tests/test_access_log.py
+  s_65ab45a32e34d2::t_fe10d02c3884ee 30
+ml-close-loop-be/tests/test_contract.py
+  s_65ab45a32e34d2::t_612cd15c569a6f 457,460
+  s_65ab45a32e34d2::t_aebd376caf08ca 358
+  s_65ab45a32e34d2::t_9ed5d3c1936815 248-251
+ml-close-loop-be/app/middleware/request_id.py
+  s_65ab45a32e34d2::t_8ee9c2d93bafe7 1-25
+ml-close-loop-be/tests/test_eval_set_api.py
+  s_65ab45a32e34d2::t_1b45c5484681d3 121
+  s_65ab45a32e34d2::t_6d5ea410d68862 151
+  s_65ab45a32e34d2::t_ba6ae79c6c4e25 139
+  s_65ab45a32e34d2::t_518c4199d44cfc 142-150,152-159
+  s_65ab45a32e34d2::t_7752afb9c96b96 140-141
+ml-close-loop-be/app/services/eval_set_service.py
+  s_65ab45a32e34d2::t_7c4f6c7a637479 118-121,123-132,140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9372f904bf809fac47755b2bb0b9c25ab9221c46",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65ab45a32e34d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9755058-d217-43f6-b51f-c0b66a01e0f7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

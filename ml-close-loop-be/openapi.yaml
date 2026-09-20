@@ -4329,6 +4329,10 @@ components:
           - type: string
           - type: 'null'
           title: Previous Model Id
+        is_seed_data:
+          type: boolean
+          title: Is Seed Data
+          default: false
       type: object
       required:
       - model_id

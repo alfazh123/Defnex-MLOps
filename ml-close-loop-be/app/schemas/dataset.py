@@ -8,7 +8,7 @@ DatasetVersionStatus = Literal["PENDING", "PROCESSING", "PROCESSED", "FAILED"]
 # Broader than DatasetVersionCreateRequest.source_type below: "feedback" versions are never
 # created through that request (issue #42's separate from-feedback endpoint), but the manifest
 # has to be able to describe them once they exist.
-DatasetSourceType = Literal["huggingface", "file_upload", "feedback"]
+DatasetSourceType = Literal["huggingface", "file_upload", "feedback", "seed"]
 
 
 class DatasetManifest(BaseModel):

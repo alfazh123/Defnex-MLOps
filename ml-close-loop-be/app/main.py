@@ -32,6 +32,7 @@ from app.api.users import router as users_router
 from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
+from app.middleware.access_log import AccessLogMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.services.deployment_service import SmokeTestError
@@ -106,6 +107,10 @@ app.add_middleware(ApiVersionRedirectMiddleware)
 # so the last-added middleware ends up outermost and sees every response —
 # including CORS preflights, body-size 413s, and legacy-prefix 301s.
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Outermost of all (added very last): logs every request/response that reaches
+# the app, including ones the middlewares above short-circuit (issue #160).
+app.add_middleware(AccessLogMiddleware)
 
 v1_router = APIRouter(prefix="/api/v1")
 

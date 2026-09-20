@@ -48,6 +48,28 @@ def test_finalize_version_moves_staging_into_immutable_layout(tmp_path):
     assert (target / "adapter_config.json").is_file()
 
 
+def test_finalize_version_leaves_artifact_world_readable(tmp_path):
+    """Issue #164: artifacts finalized inside the worker container were root-owned with
+    restricted permissions, so even the worker itself couldn't read them back afterward."""
+    storage = LocalFilesystemArtifactStorage(base_dir=tmp_path)
+    staging = _staging_dir(tmp_path)
+
+    storage.finalize_version(
+        "qwen-sft-domain-x",
+        "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1",
+        staging,
+        {"model_id": "qwen-sft-domain-x"},
+    )
+
+    target = tmp_path / "qwen-sft-domain-x" / "qwen-sft-domain-x-Qwen-Qwen3.8-27B-v1"
+    for p in target.rglob("*"):
+        mode = p.stat().st_mode & 0o777
+        if p.is_dir():
+            assert mode == 0o755
+        else:
+            assert mode == 0o644
+
+
 def test_finalize_version_rejects_existing_path(tmp_path):
     """Issue #38 required test (immutability): overwriting an existing version's artifact is
     refused — data written to a version path is permanent."""

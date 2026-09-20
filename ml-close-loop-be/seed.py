@@ -127,6 +127,10 @@ def make_dataset(
             source_format=fmt,
         )
         dv = dataset_service.create_dataset_version(db, dataset_id, req)
+        # Issue #165: this is fixture data, not a real HuggingFace/upload source -
+        # override the create-request's source_type (which only allows real intake
+        # sources) so the response manifest honestly says "seed" instead of "huggingface".
+        dv.source_type = "seed"
         dv.row_count = row_counts()[dataset_id][v]
         dv.cleaning_steps_applied = [
             "dedupe_by_normalized_pair",
@@ -174,7 +178,10 @@ def make_run(
     run.current_epoch = loss_cfg["epochs"]
     run.current_step = loss_cfg["steps"]
     db.flush()
-    model_service.register_model_version(db, run)
+    mv = model_service.register_model_version(db, run)
+    # Issue #165: fake artifact_uri above (s3://... pointing nowhere real) means this
+    # ModelVersion must never be presented as a genuinely trained model.
+    mv.is_seed_data = True
     db.commit()
     return run
 

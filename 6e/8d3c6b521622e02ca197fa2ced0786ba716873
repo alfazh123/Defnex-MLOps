@@ -1,0 +1,60 @@
+ml-close-loop-be/app/main.py
+  s_65ab45a32e34d2::t_8c0b2bb4442e38 35
+  s_65ab45a32e34d2::t_bbcd5f2fc7ac43 111-114
+ml-close-loop-be/openapi.yaml
+  s_65ab45a32e34d2::t_7ac3ba38059ffc 4332-4335
+ml-close-loop-be/tests/test_artifact_storage.py
+  s_65ab45a32e34d2::t_fe4fa2f6dc86bb 51-72
+ml-close-loop-be/tests/test_model_api.py
+  s_65ab45a32e34d2::t_65b3dd56cc69d8 407
+ml-close-loop-be/tests/test_access_log.py
+  s_65ab45a32e34d2::t_e7ffda7a2bbd18 18
+  s_65ab45a32e34d2::t_4935b5b56ba7ba 1-17,19-29
+ml-close-loop-be/app/schemas/model.py
+  s_65ab45a32e34d2::t_e134178df35068 135-137
+ml-close-loop-be/tests/test_contract.py
+  s_65ab45a32e34d2::t_f8d0293a1704c2 281
+ml-close-loop-be/app/middleware/access_log.py
+  s_65ab45a32e34d2::t_ead6d444cada1a 1-30
+ml-close-loop-be/app/api/health.py
+  s_65ab45a32e34d2::t_335092173803ef 1,8-11,14
+  s_65ab45a32e34d2::t_05f376b923cba0 46-49
+ml-close-loop-be/app/schemas/dataset.py
+  s_65ab45a32e34d2::t_bff6693f76fa3a 11
+ml-close-loop-be/app/models/model.py
+  s_65ab45a32e34d2::t_4a9b8cc1921bd1 90-94
+ml-close-loop-be/tests/test_health.py
+  s_65ab45a32e34d2::t_2f97ab87de14db 1-2,17-38
+ml-close-loop-be/seed.py
+  s_65ab45a32e34d2::t_aa112a894a0e9d 130-133
+  s_65ab45a32e34d2::t_c8381b73168801 181-184
+ml-close-loop-be/app/services/artifact_storage.py
+  s_65ab45a32e34d2::t_af27f280abbf36 142-143
+  s_65ab45a32e34d2::t_c7377f8f2fd490 3
+  s_65ab45a32e34d2::t_45b7cec289a2d7 50-65
+ml-close-loop-be/alembic/versions/a1b2c3d4e5f6_add_is_seed_data_to_model_versions.py
+  s_65ab45a32e34d2::t_1bd315fc8e8d36 1-35
+ml-close-loop-be/app/services/model_service.py
+  s_65ab45a32e34d2::t_55deb9f0fac7f1 427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6e8d3c6b521622e02ca197fa2ced0786ba716873",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65ab45a32e34d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9755058-d217-43f6-b51f-c0b66a01e0f7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

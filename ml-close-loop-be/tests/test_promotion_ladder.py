@@ -334,3 +334,49 @@ def test_promote_production_warns_on_non_commercial_dataset_license(
     assert (
         _pointer(client, admin_token, model_id)["current_deployed_version"] == version
     )
+
+
+def test_full_ladder_from_evaluation_through_inference(client, admin_token):
+    """Issue #167: regression coverage for the exact path most likely to be shown live to
+    a mentor - train (mocked) -> evaluate -> deploy-staging -> validate-staging ->
+    promote-production -> inference against the resulting `prod` alias. No GPU/real vLLM
+    involved (MockTrainingRunner + the default mock serving backend), but every HTTP call
+    and state transition is the real one a live demo would make.
+    """
+    model_id, version = _evaluated_model_version(client, admin_token)
+    h = auth_header(admin_token)
+    url = f"/api/v1/models/{model_id}/versions/{version}"
+
+    staged = client.post(
+        f"{url}/deploy-staging", json={"rationale": "stage"}, headers=h
+    )
+    assert staged.status_code == 201, staged.text
+    assert staged.json()["decision"] == "STAGING"
+
+    validated = client.post(
+        f"{url}/validate-staging", json={"rationale": "integration passed"}, headers=h
+    )
+    assert validated.status_code == 201, validated.text
+    assert validated.json()["decision"] == "VALIDATED"
+
+    promoted = client.post(
+        f"{url}/promote-production", json={"rationale": "ship it"}, headers=h
+    )
+    assert promoted.status_code == 201, promoted.text
+    assert promoted.json()["decision"] == "PRODUCTION"
+
+    assert (
+        _pointer(client, admin_token, model_id)["current_deployed_version"] == version
+    )
+
+    for target in ("prod", str(version)):
+        inference = client.post(
+            f"/api/v1/models/{model_id}/inference",
+            json={"target": target, "prompt": "What is the capital of France?"},
+            headers=h,
+        )
+        assert inference.status_code == 200, inference.text
+        body = inference.json()
+        assert body["model_id"] == model_id
+        assert body["version"] == version
+        assert body["generation"]  # non-empty; exact text is the mock backend's concern

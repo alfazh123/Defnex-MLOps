@@ -214,11 +214,16 @@ def create_user(db: Session, username: str, password: str, role: str = "user") -
     return user
 
 
-def list_users(db: Session, limit: int = 20, offset: int = 0) -> tuple[list[User], int]:
-    total = db.scalar(select(func.count()).select_from(User))
-    users = list(
-        db.scalars(select(User).order_by(User.id).limit(limit).offset(offset)).all()
-    )
+def list_users(
+    db: Session, limit: int = 20, offset: int = 0, search: str | None = None
+) -> tuple[list[User], int]:
+    """List users, optionally filtered to usernames matching `search` (issue #179 -
+    GET /users was the one list endpoint with no filter/search param at all)."""
+    query = select(User)
+    if search:
+        query = query.where(User.username.ilike(f"%{search}%"))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    users = list(db.scalars(query.order_by(User.id).limit(limit).offset(offset)).all())
     return users, total
 
 

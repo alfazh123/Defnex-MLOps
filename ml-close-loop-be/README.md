@@ -347,3 +347,32 @@ All variables are in [`.env.example`](.env.example) with defaults.
 | `DEBUG` | `false` | Debug mode (verbose logging) |
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry tracing and metrics (requires `pip install -e ".[otel]"`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP exporter endpoint (Jaeger, Collector, etc.) |
+
+## Troubleshooting
+
+Issue #179: this consolidates gotchas that were previously only scattered across other
+sections of this README and code comments.
+
+- **`ModuleNotFoundError: No module named 'boto3'` / `'prometheus_client'`** — expected.
+  Both are optional extras (`pip install -e ".[s3]"` / `".[otel]"`), not part of the base
+  or `[dev]` install; tests that need them (`tests/test_artifact_storage_minio_integration.py`,
+  the RED-metrics tests in `tests/test_telemetry.py`) skip automatically when absent.
+- **`(trapped) error reading bcrypt version` warning in test/server logs** — harmless.
+  `passlib`'s bcrypt backend probes `bcrypt.__about__`, which newer `bcrypt` releases removed;
+  password hashing itself still works correctly. Nothing to fix here.
+- **27 pre-existing failures in `tests/test_file_signaling.py` with
+  `ModuleNotFoundError: No module named 'gpu_controller'`** — a known, tracked, pre-existing
+  gap (not introduced by your change) where that test file's import path assumes a working
+  directory / PYTHONPATH this repo's default `pytest tests/` invocation doesn't set up. Not
+  yet fixed; see git history/issues before assuming a change you made caused it.
+- **GPU-lock timeout (`GPU_LOCK_TIMEOUT`, 503) on deploy or training** — see "Training
+  concurrency & GPU lock" above; another operation (or a stale lock file) is holding it. Do
+  not manually kill GPU processes to "fix" this (project policy — the GPU is shared with
+  other tenants); wait for the timeout or investigate the lock file the section above names.
+- **`alembic upgrade head` complains about multiple heads** — find them with
+  `alembic heads`; this repo's migrations are meant to form a single linear chain, so more
+  than one head usually means two branches were written against the same parent by mistake.
+- **A flaky-looking failure in a test with a tight real subprocess timeout** (e.g.
+  `test_worker_timeout_sets_failed_and_registers_nothing`, `timeout=1`) — these use a real
+  subprocess and a 1-second wall-clock budget; under a loaded/shared CI runner they can
+  occasionally miss that budget. Re-run in isolation before assuming a regression.

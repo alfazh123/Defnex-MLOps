@@ -133,6 +133,56 @@ def test_inference_prod_alias_and_explicit_version(client, admin_token):
         }
 
 
+def test_inference_forwards_optional_sampling_params_to_backend(
+    client, admin_token, monkeypatch
+):
+    """Issue #179: max_tokens/temperature are optional per-request overrides that must
+    reach the serving backend, not just validate-and-discard."""
+    from app.services import serving as serving_module
+
+    model_id, version = _deployed_model(client, admin_token)
+    calls = []
+
+    class _RecordingBackend:
+        def deploy(self, model_version) -> None: ...
+
+        def unload(self, model_version) -> None: ...
+
+        def generate(
+            self, prompt, model_id, version, *, max_tokens=None, temperature=None
+        ) -> str:
+            calls.append({"max_tokens": max_tokens, "temperature": temperature})
+            return "ok"
+
+    monkeypatch.setattr(serving_module, "_backend", _RecordingBackend())
+
+    resp = client.post(
+        f"/api/v1/models/{model_id}/inference",
+        json={
+            "target": "prod",
+            "prompt": "hi",
+            "max_tokens": 64,
+            "temperature": 0.7,
+        },
+        headers=auth_header(admin_token),
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert calls == [{"max_tokens": 64, "temperature": 0.7}]
+
+
+def test_inference_rejects_out_of_range_temperature(client, admin_token):
+    model_id, _ = _deployed_model(client, admin_token)
+
+    resp = client.post(
+        f"/api/v1/models/{model_id}/inference",
+        json={"target": "prod", "prompt": "hi", "temperature": 5.0},
+        headers=auth_header(admin_token),
+    )
+
+    assert resp.status_code == 422
+
+
 def test_inference_409_when_explicit_version_is_not_deployed(client, admin_token):
     model_id, version = _promoted_model_version(
         client, admin_token
@@ -208,7 +258,15 @@ def test_inference_502_upstream_failure(client, admin_token, monkeypatch):
 
         def unload(self, model_version) -> None: ...
 
-        def generate(self, prompt: str, model_id: str, version: int) -> str:
+        def generate(
+            self,
+            prompt: str,
+            model_id: str,
+            version: int,
+            *,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> str:
             raise InferenceError("vLLM down")
 
     monkeypatch.setattr(serving_module, "_backend", _FailingBackend())

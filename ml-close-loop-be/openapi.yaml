@@ -4207,6 +4207,21 @@ components:
           minLength: 1
           title: Prompt
           description: Prompt to generate from
+        max_tokens:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Max Tokens
+          description: Override the server default max_tokens for this request
+        temperature:
+          anyOf:
+          - type: number
+            minimum: 0
+            maximum: 2
+          - type: 'null'
+          title: Temperature
+          description: Sampling temperature for this request (backend-default if omitted)
       type: object
       required:
       - target

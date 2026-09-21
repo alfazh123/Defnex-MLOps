@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
+    FilterParams,
     PaginationParams,
     get_current_user,
+    get_filters,
     get_pagination,
     require_permission,
 )
@@ -59,19 +61,25 @@ def create_compute_resource(
 def list_compute_resources(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
-    pg=Depends(get_pagination),
+    pg: PaginationParams = Depends(get_pagination),
+    fl: FilterParams = Depends(get_filters),
     role: str | None = None,
     environment: str | None = None,
-    search: str | None = None,
 ) -> PaginatedResponse[ComputeResource]:
-    """List compute resources with optional filters. Any authenticated user."""
+    """List compute resources with optional filters. Any authenticated user.
+
+    `search` comes from the shared FilterParams/get_filters dependency (issue #179 -
+    this was the one router still declaring its own `search` param). `role`/`environment`
+    stay as their own params: no other router filters by these, so a shared dataclass
+    field for them would be premature generalization for a single caller.
+    """
     resources, total = compute_resource_service.list_compute_resources(
         db,
         limit=pg.limit,
         offset=pg.offset,
         role=role,
         environment=environment,
-        search=search,
+        search=fl.search,
     )
     return PaginatedResponse(
         items=[ComputeResource.model_validate(r) for r in resources],

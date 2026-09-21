@@ -55,8 +55,10 @@ def _make_world_readable(target: Path) -> None:
     """
     try:
         for p in target.rglob("*"):
-            os.chmod(p, 0o755 if p.is_dir() else 0o644)
-        os.chmod(target, 0o755)
+            # nosec B103 - 0o755/0o644 is the point of this function (issue #164): the
+            # artifact tree is meant to be world-readable, not a permission bug.
+            os.chmod(p, 0o755 if p.is_dir() else 0o644)  # nosec B103
+        os.chmod(target, 0o755)  # nosec B103
     except OSError:
         # Best-effort: a filesystem that doesn't support chmod (or a permission we can't
         # change ourselves) shouldn't fail the whole artifact finalization.

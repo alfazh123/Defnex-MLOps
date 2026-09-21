@@ -3,6 +3,16 @@
 ## Verification Date
 2026-09-15 05:15 UTC
 
+> **Update 2026-09-21 (issue #171):** item 2 in §22 and item 6 in the priority list below
+> are now partially resolved. `MinioArtifactStorage` was exercised end-to-end against a
+> real (locally-run) MinIO server — `store`, `finalize_version` (with checksum), the
+> immutability guard, tamper detection, and presigned-URL generation all verified working.
+> See `tests/test_artifact_storage_minio_integration.py`. `ARTIFACT_BACKEND` default was
+> deliberately left as `local`, not flipped to `minio` — that's a deployment decision
+> (this host already has a long-running `ml-close-loop-be-backend-1` container whose
+> current artifact data lives on local disk; switching the default here wouldn't migrate
+> it) rather than something to change silently as a side effect of a test.
+
 ## Verification Scope
 Full system verification: host, containers, configuration, GPU, training runtime, serving, artifact storage, database, and integration paths.
 

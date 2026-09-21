@@ -1,19 +1,19 @@
 {
   "errors": [],
-  "generated_at": "2026-09-20T14:41:09Z",
+  "generated_at": "2026-09-21T03:08:45Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 21,
-      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.HIGH": 19,
+      "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 5,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 2,
       "SEVERITY.LOW": 18,
-      "SEVERITY.MEDIUM": 7,
+      "SEVERITY.MEDIUM": 4,
       "SEVERITY.UNDEFINED": 0,
       "loc": 10711,
       "nosec": 0,
-      "skipped_tests": 0
+      "skipped_tests": 3
     },
     "app/__init__.py": {
       "CONFIDENCE.HIGH": 0,
@@ -978,17 +978,17 @@
       "skipped_tests": 0
     },
     "app/services/artifact_storage.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 267,
       "nosec": 0,
-      "skipped_tests": 0
+      "skipped_tests": 1
     },
     "app/services/artifact_transfer.py": {
       "CONFIDENCE.HIGH": 0,
@@ -1044,16 +1044,16 @@
     },
     "app/services/dataset_service.py": {
       "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 234,
       "nosec": 0,
-      "skipped_tests": 0
+      "skipped_tests": 1
     },
     "app/services/dataset_storage.py": {
       "CONFIDENCE.HIGH": 0,
@@ -1303,17 +1303,17 @@
       "skipped_tests": 0
     },
     "app/training/run_training.py": {
-      "CONFIDENCE.HIGH": 2,
+      "CONFIDENCE.HIGH": 1,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 2,
+      "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
       "loc": 173,
       "nosec": 0,
-      "skipped_tests": 0
+      "skipped_tests": 1
     },
     "app/worker.py": {
       "CONFIDENCE.HIGH": 0,
@@ -1542,26 +1542,6 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "58             os.chmod(p, 0o755 if p.is_dir() else 0o644)\n59         os.chmod(target, 0o755)\n60     except OSError:\n",
-      "col_offset": 8,
-      "end_col_offset": 31,
-      "filename": "app/services/artifact_storage.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 732,
-        "link": "https://cwe.mitre.org/data/definitions/732.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Chmod setting a permissive mask 0o755 on file (target).",
-      "line_number": 59,
-      "line_range": [
-        59
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b103_set_bad_file_permissions.html",
-      "test_id": "B103",
-      "test_name": "set_bad_file_permissions"
-    },
-    {
       "code": "182     with SSHRemoteHost(transfer.target_host, credential=cred) as host:\n183         host.upload(src_path, f\"/tmp/transfer_{transfer.transfer_id}\")\n184 \n",
       "col_offset": 32,
       "end_col_offset": 46,
@@ -1580,27 +1560,6 @@
       "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b108_hardcoded_tmp_directory.html",
       "test_id": "B108",
       "test_name": "hardcoded_tmp_directory"
-    },
-    {
-      "code": "260         raise ValueError(\n261             f\"Cannot update dataset {version.dataset_id!r} version {version.version} \"\n262             f\"in status {version.status!r} (already processed)\"\n263         )\n",
-      "col_offset": 14,
-      "end_col_offset": 36,
-      "filename": "app/services/dataset_service.py",
-      "issue_confidence": "LOW",
-      "issue_cwe": {
-        "id": 89,
-        "link": "https://cwe.mitre.org/data/definitions/89.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Possible SQL injection vector through string-based query construction.",
-      "line_number": 261,
-      "line_range": [
-        261,
-        262
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
-      "test_id": "B608",
-      "test_name": "hardcoded_sql_expressions"
     },
     {
       "code": "62     feedback = db.get(Feedback, feedback_id)\n63     assert feedback is not None\n64     db.refresh(feedback)\n",
@@ -1816,27 +1775,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "150     if os.path.isfile(hf_dataset):\n151         dataset = load_dataset(\"json\", data_files=hf_dataset, split=\"train\")\n152     else:\n",
-      "col_offset": 18,
-      "end_col_offset": 76,
-      "filename": "app/training/run_training.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 494,
-        "link": "https://cwe.mitre.org/data/definitions/494.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Unsafe Hugging Face Hub download without revision pinning in load_dataset()",
-      "line_number": 151,
-      "line_range": [
-        151
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b615_huggingface_unsafe_download.html",
-      "test_id": "B615",
-      "test_name": "huggingface_unsafe_download"
-    },
-    {
-      "code": "152     else:\n153         dataset = load_dataset(hf_dataset)\n154 \n",
+      "code": "158         # not just a one-line change. Left in the bandit baseline until that's scoped.\n159         dataset = load_dataset(hf_dataset)\n160 \n",
       "col_offset": 18,
       "end_col_offset": 42,
       "filename": "app/training/run_training.py",
@@ -1847,9 +1786,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Unsafe Hugging Face Hub download without revision pinning in load_dataset()",
-      "line_number": 153,
+      "line_number": 159,
       "line_range": [
-        153
+        159
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b615_huggingface_unsafe_download.html",
       "test_id": "B615",

@@ -125,6 +125,18 @@ def test_list_users_requires_admin(client, admin_token, user_token):
     assert resp.json()["error"]["code"] == "FORBIDDEN"
 
 
+def test_list_users_search_filters_by_username(client, admin_token, user_token):
+    """Issue #179: GET /users had no filter/search param, unlike every other list endpoint."""
+    resp = client.get(
+        "/api/v1/users", params={"search": "ali"}, headers=auth_header(admin_token)
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert [u["username"] for u in body["items"]] == ["alice"]
+
+
 def test_delete_user_requires_admin(client, admin_token, user_token):
     # create a user to delete
     client.post(

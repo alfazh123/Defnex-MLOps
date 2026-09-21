@@ -62,7 +62,11 @@ def run_inference(
         raise APIError(404, "DEPLOYMENT_NOT_FOUND", str(exc)) from exc
     try:
         generation = inference_service.generate(
-            get_serving_backend(), model_version, request.prompt
+            get_serving_backend(),
+            model_version,
+            request.prompt,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
         )
     except InferenceError as exc:
         raise APIError(502, "INFERENCE_FAILED", str(exc)) from exc

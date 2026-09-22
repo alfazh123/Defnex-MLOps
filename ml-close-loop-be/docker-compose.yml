@@ -68,6 +68,9 @@ services:
       # Adapter artifacts written by the training worker live under ./data; vLLM mounts them
       # at /data so `lora_path` URIs (file:///data/...) resolve inside the serving container.
       - ./data:/data
+      # Read-only mount of the experiment artifact storage so runtime LoRA can load
+      # adapters from /models/artifacts/... (same mount as defnex-vllm and worker).
+      - /home/ubuntu/defnex-mlops-experiment/outputs:/models:ro
     command:
       - --model
       - ${VLLM_MODEL_NAME:-unsloth/Qwen3-0.6B}
@@ -78,6 +81,12 @@ services:
       - ${VLLM_MAX_LORAS:-4}
       - --max-lora-rank
       - ${VLLM_MAX_LORA_RANK:-64}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.15}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN:-1024}
+      - --dtype
+      - bfloat16
     deploy:
       resources:
         reservations:

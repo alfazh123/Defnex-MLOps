@@ -5,7 +5,12 @@ services:
       - "8000:8000"
     env_file: .env
     environment:
-      # Reach the existing standalone defnex-vllm via Docker bridge gateway (verified by live test).
+      # ── External vLLM dependency (issue #162) ──────────────────────────────
+      # The real model-serving stack (defnex-vllm) runs in a SEPARATE Docker
+      # Compose project (defnex-mlops-experiment) on its own network. This
+      # backend reaches it via the Docker bridge gateway IP (172.17.0.1:8001).
+      # Changing this URL requires matching changes in the external project.
+      # See docs/runbooks/vllm-dependency.md for full details.
       VLLM_URL: http://172.17.0.1:8001
       SERVING_BACKEND: vllm
       SERVED_BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
@@ -21,9 +26,12 @@ services:
     volumes:
       - ./app:/app/app
       - ./data:/app/data
-      # Mount the same host dir as defnex-vllm's /models so artifacts are visible to both.
+      # ── External vLLM dependency (issue #162) ──────────────────────────────
+      # These mounts point at the external defnex-mlops-experiment project's
+      # output directory and training venv. Both paths are managed outside this
+      # repository. Changing them requires matching changes in the external
+      # project. See docs/runbooks/vllm-dependency.md for full details.
       - /home/ubuntu/defnex-mlops-experiment/outputs:/models
-      # Mount the experiment venv for ML deps (Python 3.12 matches the 3.12-slim base image).
       - /home/ubuntu/defnex-mlops-experiment/.venv:/opt/training-venv:ro
     environment:
       VLLM_URL: http://172.17.0.1:8001
@@ -47,13 +55,16 @@ services:
     depends_on:
       - backend
 
-  # The real model-serving stack (issue #40). GPU-only: excluded from `docker compose up`
-  # unless the `gpu` profile is explicitly enabled. vLLM serves the base model and loads
-  # per-version LoRA adapters at runtime (load/unload over the vLLM runtime API, no restart).
-  # Runtime LoRA updates require `VLLM_ALLOW_RUNTIME_LORA_UPDATING=true` and `--enable-lora`.
-  # NOTE: This profile is for fresh environments. If an externally-managed vLLM already exists
-  # (e.g. defnex-vllm), do NOT enable this profile — it will conflict on port 8001. Use
-  # VLLM_URL to point at the existing vLLM instead.
+  # ── Self-contained vLLM serving (GPU profile) ────────────────────────────
+  # GPU-only: excluded from `docker compose up` unless the `gpu` profile is
+  # explicitly enabled (`docker compose --profile gpu up`). vLLM serves the
+  # base model and loads per-version LoRA adapters at runtime.
+  #
+  # IMPORTANT: This profile is for FRESH environments only. If an externally-
+  # managed vLLM already exists (e.g. defnex-vllm from the
+  # defnex-mlops-experiment project), do NOT enable this profile — it will
+  # conflict on port 8001. Instead, keep VLLM_URL pointed at the external
+  # vLLM. See docs/runbooks/vllm-dependency.md for details.
   serving:
     image: vllm/vllm-openai:latest
     profiles: ["gpu"]

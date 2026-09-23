@@ -529,3 +529,87 @@ def test_deploy_returns_502_when_vllm_rejects_load(client, admin_token, monkeypa
         ]
         is None
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #167 / Phase 2C regression: plain-text vLLM responses
+# vLLM 0.30.0 POST /v1/load_lora_adapter returns HTTP 200, Content-Type
+# text/plain, body: "Success: LoRA adapter 'x' added successfully."
+# The old code called resp.json() unconditionally, raising JSONDecodeError
+# which propagated as STAGING_DEPLOY_NOT_ALLOWED.
+# ---------------------------------------------------------------------------
+
+
+def test_load_plain_text_response_succeeds(db_session, monkeypatch):
+    """Phase 2C regression: deploy succeeds when vLLM returns plain-text HTTP 200."""
+    monkeypatch.setattr("app.config.settings.served_base_model", "")
+    _seed(db_session, "m-plain", [1])
+    v1 = _v(db_session, "m-plain", 1)
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            text="Success: LoRA adapter 'm-plain-v1' added successfully.",
+            headers={"Content-Type": "text/plain"},
+        )
+
+    backend = VLLMServingBackend(
+        base_url="http://vllm:8000",
+        api_key="secret-key",
+        client=_client_for(handler),
+    )
+
+    deployment_service.deploy(db_session, v1, backend=backend)
+    db_session.commit()
+
+    assert v1.status == "DEPLOYED"
+    assert db_session.query(Deployment).count() == 1
+
+
+def test_unload_plain_text_response_succeeds():
+    """Phase 2C regression: unload succeeds when vLLM returns plain-text HTTP 200."""
+    v = ModelVersion(model_id="m-plain-u", version=1)
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            text="Success: LoRA adapter 'm-plain-u-v1' removed successfully.",
+            headers={"Content-Type": "text/plain"},
+        )
+
+    backend = VLLMServingBackend(client=_client_for(handler))
+    backend.unload(v)  # must not raise
+
+
+def test_unload_404_json_still_handled():
+    """Existing behavior: unload 404 with JSON body is still handled gracefully."""
+    v = ModelVersion(model_id="m-json-404", version=1)
+
+    def handler(request):
+        return httpx.Response(404, json={"message": "Requested LoRA not found"})
+
+    backend = VLLMServingBackend(client=_client_for(handler))
+    backend.unload(v)  # must not raise
+
+
+def test_load_plain_text_not_converted_to_serving_error(db_session, monkeypatch):
+    """Phase 2C regression: a plain-text 200 must NOT be treated as a serving error.
+    The previous code would raise JSONDecodeError which was caught upstream as
+    STAGING_DEPLOY_NOT_ALLOWED. This test verifies the deploy succeeds."""
+    monkeypatch.setattr("app.config.settings.served_base_model", "")
+    _seed(db_session, "m-txt-ok", [1])
+    v1 = _v(db_session, "m-txt-ok", 1)
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            text="Success: LoRA adapter 'm-txt-ok-v1' added successfully.",
+        )
+
+    backend = VLLMServingBackend(client=_client_for(handler))
+
+    # Must NOT raise ServingError
+    deployment_service.deploy(db_session, v1, backend=backend)
+    db_session.commit()
+
+    assert v1.status == "DEPLOYED"

@@ -234,6 +234,7 @@ class VLLMServingBackend:
                 json={"lora_name": adapter_name, "lora_path": adapter_path},
                 headers=self._headers(),
                 context=adapter_name,
+                parse_json=False,
             )
         except httpx.HTTPStatusError as exc:
             raise ServingError(
@@ -262,6 +263,7 @@ class VLLMServingBackend:
                 json={"lora_name": adapter_name},
                 headers=self._headers(),
                 context=adapter_name,
+                parse_json=False,
             )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:

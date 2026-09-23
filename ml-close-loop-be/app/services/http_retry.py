@@ -63,7 +63,8 @@ async def request_with_retry(
     dest: Any = logger,
     error_event: str = "http_api_error",
     retry_event: str = "http_api_retry",
-) -> dict[str, Any]:
+    parse_json: bool = True,
+) -> dict[str, Any] | httpx.Response:
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -71,7 +72,9 @@ async def request_with_retry(
                 method, url, json=json, params=params, headers=headers
             )
             resp.raise_for_status()
-            return resp.json()
+            if parse_json:
+                return resp.json()
+            return resp
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code < 500:
                 _log_failure(
@@ -121,7 +124,8 @@ def request_sync_with_retry(
     dest: Any = logger,
     error_event: str = "http_api_error",
     retry_event: str = "http_api_retry",
-) -> dict[str, Any]:
+    parse_json: bool = True,
+) -> dict[str, Any] | httpx.Response:
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -129,7 +133,9 @@ def request_sync_with_retry(
                 method, url, json=json, params=params, headers=headers
             )
             resp.raise_for_status()
-            return resp.json()
+            if parse_json:
+                return resp.json()
+            return resp
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code < 500:
                 _log_failure(

@@ -1,0 +1,35 @@
+docs/qa/ISSUE_RECONCILIATION_AFTER_PHASE2ABC.md
+  s_65ab45a32e34d2::t_e06b7be384dd36 11-18
+  s_65ab45a32e34d2::t_1c6d8b17439d86 201-203
+  s_65ab45a32e34d2::t_2a8f12822b27fb 170-178
+  s_65ab45a32e34d2::t_260bdbb779c835 1,3,5-9,21-62,64-71,73-145,149-152,154-169,179-191,193-195,197,199-200,205,207-212,214,216,218,220,222,224-225,227,229,231,233-235,237,239-244,248,250,258-270,276-277,289-292,299,311,315-337
+  s_65ab45a32e34d2::t_94d6f3485ed3af 293-297,300-301,307
+  s_65ab45a32e34d2::t_d8cd31959b5322 72
+  s_65ab45a32e34d2::t_45298b618dd23e 153
+  s_65ab45a32e34d2::t_3ec85ac0fbcf7d 2,4,10,19-20,63,146-148,192,196,198,204,206,213,215,217,219,221,223,226,228,230,232,236,238,245-247,249,251-257,271-275,278-288,298,302-306,308-310,312-314
+docs/qa/manual-qa-scalar-walkthrough.md
+  s_65ab45a32e34d2::t_a33f1ed17e960f 1-342
+docs/qa/terminal-qa-golden-path.md
+  s_65ab45a32e34d2::t_b9987187da2bac 1-645
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ec3b43b56bd95057bb6f5f2b31ffa574736b8f14",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65ab45a32e34d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9755058-d217-43f6-b51f-c0b66a01e0f7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

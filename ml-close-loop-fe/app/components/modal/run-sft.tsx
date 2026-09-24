@@ -8,7 +8,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "../ui/dialog";
-import { Check, XIcon } from "lucide-react";
 import { useState } from "react";
 import { clsx } from "clsx";
 import {
@@ -40,6 +39,7 @@ import {
 	type StepResponseValueProps,
 } from "./rus-sft-steps/sft-step-response";
 import { baseModelsSftModal, datasetForSft, providers } from "~/utils";
+import { CheckIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 
 const steps = [
 	{ id: 1, name: "Dataset" },
@@ -246,7 +246,7 @@ export default function ModalRunSFT({ isOpen, toggleModal }: { isOpen: boolean, 
 													: "bg-gray-200 text-gray-500 rounded-full",
 										)}>
 										{stepActive > step.id ? (
-											<Check className="w-5 h-5" />
+											<CheckIcon className="w-5 h-5" />
 										) : (
 											<span className="font-semibold">
 												{step.id}

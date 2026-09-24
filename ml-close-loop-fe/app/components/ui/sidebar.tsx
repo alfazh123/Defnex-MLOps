@@ -23,7 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { SidebarIcon } from "@phosphor-icons/react/dist/ssr";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -256,22 +256,21 @@ function SidebarTrigger({
   const { toggleSidebar } = useSidebar()
 
   return (
-    <Button
-      data-sidebar="trigger"
-      data-slot="sidebar-trigger"
-      variant="ghost"
-      size="icon-sm"
-      className={cn(className)}
-      onClick={(event) => {
-        onClick?.(event)
-        toggleSidebar()
-      }}
-      {...props}
-    >
-      <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
-  )
+		<Button
+			data-sidebar="trigger"
+			data-slot="sidebar-trigger"
+			variant="ghost"
+			size="icon-sm"
+			className={cn(className)}
+			onClick={(event) => {
+				onClick?.(event);
+				toggleSidebar();
+			}}
+			{...props}>
+			<SidebarIcon />
+			<span className="sr-only">Toggle Sidebar</span>
+		</Button>
+  );
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
@@ -301,15 +300,15 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   return (
-    <main
-      data-slot="sidebar-inset"
-      className={cn(
-        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
-        className
-      )}
-      {...props}
-    />
-  )
+		<main
+			data-slot="sidebar-inset"
+			className={cn(
+				"relative flex w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
+				className,
+			)}
+			{...props}
+		/>
+  );
 }
 
 function SidebarInput({
@@ -476,23 +475,57 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 interface SidebarMenuItemWrapProps {
-  className?: string;
-  title: string;
-  isActive: boolean;
-  href: string;
+	className?: string;
+	title: string;
+	isActive: boolean;
+	href: string;
+	icon: React.ReactNode;
+	isCollapsed?: boolean;
 }
 
-export function SidebarMenuItemWrap({className, title, isActive, href}: SidebarMenuItemWrapProps) {
-  return (
-    <div className="flex items-center hover:bg-sidebar-accent" key={title}>
-      <div className={`${isActive ? "bg-stone-400" : "bg-slate-200"} w-1 h-[80%] rounded-2xl`}></div>
-      <a href={href} className={`block px-3 py-1 text-sm font-medium w-full ${isActive ? "text-slate-900" : "text-slate-500"} hover:text-slate-900`}>
-        <p>
-          {title}
-        </p>
-      </a>
-    </div>
-  )
+export function SidebarMenuItemWrap({
+	title,
+	isActive,
+	href,
+	icon,
+	isCollapsed,
+}: SidebarMenuItemWrapProps) {
+	return (
+		<div className="relative group">
+			<a
+				href={href}
+				title={isCollapsed ? title : undefined}
+				className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+					isCollapsed ? "justify-center px-0" : ""
+				} ${
+					isActive
+						? "bg-white text-slate-900 shadow-sm font-semibold"
+						: "text-slate-500 hover:text-slate-900 hover:bg-slate-100/60"
+				}`}>
+				{isCollapsed ? (
+					<Tooltip>
+						<TooltipTrigger>
+							<span className="shrink-0 flex items-center justify-center">
+								{icon}
+							</span>
+						</TooltipTrigger>
+						<TooltipContent
+							side="right"
+							align="center">
+							<p>{title}</p>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<>
+						<span className="shrink-0 flex items-center justify-center">
+							{icon}
+						</span>
+						<span className="truncate">{title}</span>
+					</>
+				)}
+			</a>
+		</div>
+	);
 }
 
 const sidebarMenuButtonVariants = cva(

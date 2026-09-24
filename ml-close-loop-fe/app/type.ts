@@ -1,16 +1,16 @@
 export type Dataset = {
-    id: string;
-    title: string;
-    fileName: string;
-    format: "JSONL" | "CSV" | "Alpaca" | "ShareGPT";
-    category: string;
-    fileSize: number; // in MB or KB
-    totalRows: number;
-    validationStatus: "Valid" | "Invalid" | "Error";
-    sftStatus: "Ready" | "Training" | "Queued" | "Failed";
-    uploadedAt: string; // ISO 8601 date string
-    uploadedBy: string;
-}
+	id: string;
+	title: string;
+	fileName: string;
+	format: "JSONL" | "CSV" | "Alpaca" | "ShareGPT";
+	category: string;
+	fileSize: number; // in MB or KB
+	totalRows: number;
+	validationStatus: "Valid" | "Invalid" | "Error";
+	sftStatus: "Ready" | "Training" | "Queued" | "Failed";
+	uploadedAt: string; // ISO 8601 date string
+	uploadedBy: string;
+};
 
 export type TrainingRun = {
 	runId: string;
@@ -54,4 +54,16 @@ export type RecordSample = {
 	environment: string;
 	time: string;
 	location: string;
+};
+
+export type ModelRegistryProp = {
+	family: {
+		name: string;
+		id: string;
+	};
+	latestVersion: string;
+	stagingVersion: string;
+	productionVersion: string;
+	status: "candidate" | "evaluated" | "staging" | "production" | "archive";
+	updatedAt: Date;
 };

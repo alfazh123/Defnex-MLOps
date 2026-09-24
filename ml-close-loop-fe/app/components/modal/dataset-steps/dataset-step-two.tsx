@@ -6,7 +6,7 @@ import {
 } from "../../ui/field";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
-import { CircleCheck } from "lucide-react";
+import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr"; 
 import clsx from "clsx";
 import {
 	Select,
@@ -201,7 +201,7 @@ export function DatasetStepTwo({
 											}
 										/>
 										<div className="absolute right-3 top-2.5 flex gap-1 items-center text-green-400 border border-green-500 bg-green-50 px-1 rounded-sm font-semibold">
-											<CircleCheck className="text-green h-4 w-4" />
+											<CheckCircleIcon className="text-green h-4 w-4" />
 											<span>Imutable</span>
 										</div>
 									</div>
@@ -269,7 +269,7 @@ export function DatasetStepTwo({
 											}
 										/>
 										<div className="absolute right-3 top-2.5 flex gap-1 items-center text-green-400 border border-green-500 bg-green-50 px-1 rounded-sm font-semibold">
-											<CircleCheck className="text-green h-4 w-4" />
+											<CheckCircleIcon className="text-green h-4 w-4" />
 											<span>Imutable</span>
 										</div>
 									</div>

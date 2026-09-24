@@ -6,7 +6,6 @@ import {
 } from "../../ui/field";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
-import { FileBox, FileText, Upload, CircleCheck, Repeat } from "lucide-react";
 import { Separator } from "../../ui/separator";
 import { Button } from "../../ui/button";
 import clsx from "clsx";
@@ -19,6 +18,13 @@ import {
 } from "../../ui/select";
 import { processDatasetFile } from "../../../lib/dataset-format";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+	CheckCircleIcon,
+	FileTextIcon,
+	PackageIcon,
+	RepeatIcon,
+	UploadIcon,
+} from "@phosphor-icons/react/dist/ssr";
 
 export type StepOneValueProps = {
 	sourceMethod: "file" | "hf";
@@ -109,14 +115,14 @@ export function DatasetStepOne({
 										htmlFor="file-upload-input"
 										className="flex justify-between w-full p-2 rounded-sm border-dashed border-2 border-gray-300 items-center">
 										{value.sourceFile.name}
-										<Repeat className="h-6 w-6 text-black" />
+										<RepeatIcon className="h-6 w-6 text-black" />
 									</Label>
 								) : (
 									<Label
 										htmlFor="file-upload-input"
 										className="flex flex-col h-52 gap-2 border-dashed w-full items-center justify-center border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100">
 										<div className="flex flex-col gap-1 items-center justify-center bg-gray-200 p-2 rounded-full">
-											<Upload className="mx-auto h-6 w-6 text-black" />
+											<UploadIcon className="mx-auto h-6 w-6 text-black" />
 										</div>
 										<p className="text-base font-semibold">
 											Click to browse or drag and drop
@@ -141,7 +147,7 @@ export function DatasetStepOne({
 								/>
 
 								<div className="flex gap-1 p-2 rounded-lg border border-yellow-300 text-yellow-600 bg-amber-50 text-xs">
-									<FileText className="h-8 w-8 text-yellow-600" />
+									<FileTextIcon className="h-8 w-8 text-yellow-600" />
 									<p className="font-light">
 										<span className="font-semibold">
 											Format Normalization:
@@ -238,7 +244,7 @@ export function DatasetStepOne({
 								<div className="flex flex-col gap-2 border p-2 rounded-lg bg-emerald-50/40 border-emerald-200">
 									<div className="flex justify-between items-center">
 										<div className="flex gap-2 items-center text-emerald-700">
-											<CircleCheck className="h-4 w-4" />
+											<CheckCircleIcon className="h-4 w-4" />
 											<p className="text-sm font-semibold">
 												{value.sourceFile?.name || ""}
 											</p>
@@ -251,7 +257,7 @@ export function DatasetStepOne({
 												Sample Detected
 											</p>
 											<div className="flex gap-1 items-center">
-												<FileBox className="h-4 w-4 text-accent-foreground" />
+												<PackageIcon className="h-4 w-4 text-accent-foreground" />
 												<span className="font-bold break-all">
 													{value.detectedSample ||
 														"--"}

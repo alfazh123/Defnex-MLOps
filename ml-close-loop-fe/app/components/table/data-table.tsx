@@ -15,11 +15,16 @@ import { features, type DataTableFeatures } from "./table-features";
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { useState } from "react"
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
-import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Calendar } from "../ui/calendar"
 import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
+import {
+	CalendarIcon,
+	CaretLeftIcon,
+	CaretRightIcon,
+	MagnifyingGlassIcon,
+} from "@phosphor-icons/react/dist/ssr";
 
 interface DatasetTableProps<TData extends RowData> {
 	columns: ColumnDef<DataTableFeatures, TData>[];
@@ -101,7 +106,7 @@ export function DataTable<TData extends RowData>({
 						</div>
 
 						<div className="flex items-center bg-input/50 rounded-md px-2 py-1 focus:ring-1 focus:ring-ring/50 focus:outline-2 focus:outline-ring">
-							<Search className="h-4 w-4 text-muted-foreground" />
+							<MagnifyingGlassIcon className="h-4 w-4 text-muted-foreground" />
 							<Input
 								placeholder="Filter by ID or Target model"
 								value={globalFilter}
@@ -129,7 +134,7 @@ export function DataTable<TData extends RowData>({
 						</div>
 
 						<div className="flex items-center bg-input/50 rounded-md px-2 py-1 focus:ring-1 focus:ring-ring/50 focus-within:ring-1 focus-within:ring-ring/50">
-							<Search className="h-4 w-4 text-muted-foreground" />
+							<MagnifyingGlassIcon className="h-4 w-4 text-muted-foreground" />
 							<Input
 								placeholder="Filter by ID or Target model"
 								value={globalFilter}
@@ -145,7 +150,7 @@ export function DataTable<TData extends RowData>({
 				{dataset && (
 					<>
 						<div className="flex items-center bg-input/50 rounded-md px-2 py-1 focus:ring-1 focus:ring-ring/50 focus-within:ring-1 focus-within:ring-ring/50">
-							<Search className="h-4 w-4 text-muted-foreground" />
+							<MagnifyingGlassIcon className="h-4 w-4 text-muted-foreground" />
 							<Input
 								placeholder="Filter titles..."
 								value={
@@ -222,14 +227,12 @@ export function DataTable<TData extends RowData>({
 
 			{/* Table */}
 			<Table className="w-full ">
-				<TableHeader className="bg-gray-600">
+				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id}>
 							{headerGroup.headers.map((header) => {
 								return (
-									<TableHead
-										key={header.id}
-										className="text-white">
+									<TableHead key={header.id}>
 										{header.isPlaceholder ? null : (
 											<table.FlexRender header={header} />
 										)}
@@ -268,22 +271,22 @@ export function DataTable<TData extends RowData>({
 			{pagination && (
 				<div className="flex sm:items-center justify-between gap-4 py-3 sm:flex-row flex-col">
 					<div className="flex flex-1 items-center gap-4 flex-wrap">
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-1">
 							<Button
 								variant="default"
 								size="sm"
 								onClick={() => table.previousPage()}
 								disabled={!table.getCanPreviousPage()}
-								className="rounded-md p-0 h-8 w-8">
-								<ChevronLeft className="h-4 w-4" />
+								className="rounded-[16px_6px_6px_16px] p-0 h-8 w-8">
+								<CaretLeftIcon className="h-4 w-4" />
 							</Button>
 							<Button
 								variant="default"
 								size="sm"
 								onClick={() => table.nextPage()}
 								disabled={!table.getCanNextPage()}
-								className="rounded-md p-0 h-8 w-8">
-								<ChevronRight className="h-4 w-4" />
+								className="rounded-[6px_16px_16px_6px] p-0 h-8 w-8">
+								<CaretRightIcon className="h-4 w-4" />
 							</Button>
 						</div>
 						<p className="text-sm font-medium text-muted-foreground">

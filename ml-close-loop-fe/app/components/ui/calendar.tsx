@@ -8,7 +8,7 @@ import {
 
 import { cn } from "~/lib/utils"
 import { Button, buttonVariants } from "~/components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
+import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react/dist/ssr";
 
 function Calendar({
   className,
@@ -145,19 +145,28 @@ function Calendar({
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
-              <ChevronLeftIcon className={cn("size-4", className)} {...props} />
-            )
+				<CaretDownIcon
+					className={cn("size-4", className)}
+					{...props}
+				/>
+			);
           }
 
           if (orientation === "right") {
             return (
-              <ChevronRightIcon className={cn("size-4", className)} {...props} />
-            )
+				<CaretRightIcon
+					className={cn("size-4", className)}
+					{...props}
+				/>
+			);
           }
 
           return (
-            <ChevronDownIcon className={cn("size-4", className)} {...props} />
-          )
+				<CaretDownIcon
+					className={cn("size-4", className)}
+					{...props}
+				/>
+			);
         },
         DayButton: ({ ...props }) => (
           <CalendarDayButton locale={locale} {...props} />

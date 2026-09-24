@@ -19,7 +19,7 @@ jobs:
         working-directory: ml-close-loop-be
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install ruff==0.15.13
@@ -34,7 +34,7 @@ jobs:
         working-directory: ml-close-loop-be
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -54,7 +54,7 @@ jobs:
         working-directory: ml-close-loop-be
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit

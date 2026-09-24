@@ -1,0 +1,6 @@
+# Issue #175: fingerprints of known false positives, so CI's secret-scan step only fails
+# on genuinely new findings. Each line is `<commit>:<file>:<rule-id>:<start-line>`.
+
+# tests/test_ssh.py:407 - literal placeholder ("...") inside a mocked PEM string used to
+# unit-test SSHRemoteHost's private-key auth path; not a real key.
+fae7aefc64369185aed97851f9bbbaac8c519364:ml-close-loop-be/tests/test_ssh.py:private-key:407

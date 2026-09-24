@@ -32,6 +32,8 @@ from app.api.users import router as users_router
 from app.api.validation import router as validation_router
 from app.config import settings
 from app.logging import configure_logging
+from app.middleware.access_log import AccessLogMiddleware
+from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.services.deployment_service import SmokeTestError
@@ -107,6 +109,16 @@ app.add_middleware(ApiVersionRedirectMiddleware)
 # including CORS preflights, body-size 413s, and legacy-prefix 301s.
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Outermost of all (added very last): logs every request/response that reaches
+# the app, including ones the middlewares above short-circuit (issue #160).
+app.add_middleware(AccessLogMiddleware)
+
+# Added even later than AccessLogMiddleware, making this the true outermost layer: every
+# request must get its id assigned before anything else (including the access log) runs, so
+# that literally every response -- even a 413 or a 301 -- carries X-Request-Id and is logged
+# with it (issue #168).
+app.add_middleware(RequestIdMiddleware)
+
 v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(health_router)
@@ -140,6 +152,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         if isinstance(exc.detail, dict) and "error" in exc.detail
         else {"detail": exc.detail}
     )
+    if isinstance(content, dict) and "error" in content:
+        content["error"]["request_id"] = getattr(request.state, "request_id", None)
 
     log_kwargs: dict = {
         "method": request.method,
@@ -170,7 +184,13 @@ async def serving_error_handler(request: Request, exc: ServingError) -> JSONResp
     )
     return JSONResponse(
         status_code=502,
-        content={"error": {"code": "DEPLOY_FAILED", "message": str(exc)}},
+        content={
+            "error": {
+                "code": "DEPLOY_FAILED",
+                "message": str(exc),
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        },
     )
 
 
@@ -187,7 +207,13 @@ async def smoke_test_error_handler(
     )
     return JSONResponse(
         status_code=502,
-        content={"error": {"code": "SMOKE_TEST_FAILED", "message": str(exc)}},
+        content={
+            "error": {
+                "code": "SMOKE_TEST_FAILED",
+                "message": str(exc),
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        },
     )
 
 
@@ -207,7 +233,13 @@ async def base_model_mismatch_handler(
     )
     return JSONResponse(
         status_code=409,
-        content={"error": {"code": "BASE_MODEL_MISMATCH", "message": str(exc)}},
+        content={
+            "error": {
+                "code": "BASE_MODEL_MISMATCH",
+                "message": str(exc),
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        },
     )
 
 
@@ -223,7 +255,13 @@ async def rate_limit_exception_handler(
     )
     response = JSONResponse(
         status_code=429,
-        content={"error": {"code": "RATE_LIMIT_EXCEEDED", "message": str(exc.detail)}},
+        content={
+            "error": {
+                "code": "RATE_LIMIT_EXCEEDED",
+                "message": str(exc.detail),
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        },
     )
     view_rate_limit = getattr(request.state, "view_rate_limit", None)
     if view_rate_limit is not None:

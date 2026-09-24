@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import PaginationParams, get_pagination, require_admin
+from app.api.deps import (
+    FilterParams,
+    PaginationParams,
+    get_filters,
+    get_pagination,
+    require_admin,
+)
 from app.api.errors import APIError
 from app.db.session import get_db
 from app.models.user import User
@@ -17,8 +23,11 @@ def list_users(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
     pg: PaginationParams = Depends(get_pagination),
+    fl: FilterParams = Depends(get_filters),
 ) -> PaginatedResponse[UserResponse]:
-    users, total = auth_service.list_users(db, limit=pg.limit, offset=pg.offset)
+    users, total = auth_service.list_users(
+        db, limit=pg.limit, offset=pg.offset, search=fl.search
+    )
     return PaginatedResponse(
         items=[
             UserResponse(

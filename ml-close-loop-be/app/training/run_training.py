@@ -148,8 +148,14 @@ def _run_training(config: dict, staging: str) -> int:
 
     hf_dataset = config.get("hf_dataset")
     if os.path.isfile(hf_dataset):
-        dataset = load_dataset("json", data_files=hf_dataset, split="train")
+        # nosec B615 - this branch loads a local JSON file (`data_files=`), not a remote
+        # HuggingFace Hub dataset name; "revision pinning" doesn't apply to a local path.
+        dataset = load_dataset("json", data_files=hf_dataset, split="train")  # nosec B615
     else:
+        # Genuine finding (issue #182): this branch DOES resolve a remote Hub dataset name
+        # with no revision pin. Not fixed here - no revision/commit field is threaded
+        # through TrainingConfig/config today, so pinning it would need a schema addition,
+        # not just a one-line change. Left in the bandit baseline until that's scoped.
         dataset = load_dataset(hf_dataset)
 
     training_args = SFTConfig(

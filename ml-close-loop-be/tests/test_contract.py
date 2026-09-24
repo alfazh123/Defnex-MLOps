@@ -245,9 +245,10 @@ def test_list_models_returns_list_shape(client, admin_token):
 
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
-    assert set(data[0]) == {"model_id", "latest_version", "status"}
-    assert data[0]["model_id"] == "qwen-sft-domain-x"
+    assert set(data) == {"items", "total", "page", "size", "pages"}
+    items = data["items"]
+    assert set(items[0]) == {"model_id", "latest_version", "status"}
+    assert items[0]["model_id"] == "qwen-sft-domain-x"
 
 
 def test_get_model_version_returns_full_lineage_shape(client, admin_token):
@@ -278,6 +279,7 @@ def test_get_model_version_returns_full_lineage_shape(client, admin_token):
         "artifacts",
         "promotion_decision_ref",
         "previous_model_id",
+        "is_seed_data",
     }
     assert data["status"] == "REGISTERED"
     assert isinstance(data["training_config"], dict)
@@ -353,7 +355,7 @@ def test_eval_set_version_endpoints_return_shapes(client, admin_token):
 
     summary = client.get("/api/v1/eval-sets", headers=h)
     assert summary.status_code == 200
-    assert summary.json() == [
+    assert summary.json()["items"] == [
         {"eval_set_id": "domain-benchmark", "latest_version": 1, "version_count": 1}
     ]
 
@@ -452,9 +454,10 @@ def test_error_response_always_has_error_envelope(client, admin_token):
         assert resp.status_code == 404, path
         data = resp.json()
         assert set(data) == {"error"}, path
-        assert set(data["error"]) == {"code", "message"}, path
+        assert set(data["error"]) == {"code", "message", "request_id"}, path
         assert isinstance(data["error"]["code"], str), path
         assert isinstance(data["error"]["message"], str), path
+        assert isinstance(data["error"]["request_id"], str), path
 
 
 def test_wrong_content_type_is_rejected(client):

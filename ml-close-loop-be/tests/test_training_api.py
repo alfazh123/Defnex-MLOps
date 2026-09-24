@@ -563,3 +563,27 @@ def test_retry_returns_409_when_run_not_failed(client, admin_token):
     with Session(client.engine) as db:
         count = db.scalar(select(func.count()).select_from(TrainingRun))
     assert count == 1
+
+
+def test_create_training_run_idempotency_key_replays_instead_of_duplicating(
+    client, admin_token
+):
+    """Issue #170: a retried POST with the same X-Idempotency-Key must return the same
+    TrainingRun and must not create a second row."""
+    h = {**auth_header(admin_token), "X-Idempotency-Key": "train-key-1"}
+    _pass_validation(client, admin_token)
+
+    first = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+    second = client.post(
+        "/api/v1/training-runs", json=TRAINING_RUN_CREATE_REQUEST, headers=h
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json() == first.json()
+
+    with Session(client.engine) as db:
+        count = db.scalar(select(func.count()).select_from(TrainingRun))
+    assert count == 1

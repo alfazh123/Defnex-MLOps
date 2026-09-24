@@ -257,9 +257,12 @@ def update_dataset_version(
     """Update mutable fields on a DatasetVersion, rejecting if status is immutable."""
 
     if version.status in _IMMUTABLE_STATUSES:
+        # bandit's SQL-injection heuristic false-positives on this f-string (an error
+        # message, not a query); this function only ever does ORM attribute assignment
+        # (setattr below), never raw/string-built SQL.
         raise ValueError(
             f"Cannot update dataset {version.dataset_id!r} version {version.version} "
-            f"in status {version.status!r} (already processed)"
+            f"in status {version.status!r} (already processed)"  # nosec B608
         )
     for key, value in fields.items():
         if hasattr(version, key):

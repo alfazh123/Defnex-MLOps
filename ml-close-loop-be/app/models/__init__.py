@@ -9,6 +9,7 @@ from app.models.feedback import Feedback
 from app.models.idempotency import IdempotencyKey
 from app.models.model import Model, ModelVersion
 from app.models.notification import Notification
+from app.models.password_reset import PasswordResetToken
 from app.models.promotion import PromotionDecision
 from app.models.revoked_refresh_token import RevokedRefreshToken
 from app.models.training import TrainingRun
@@ -32,6 +33,7 @@ __all__ = [
     "ModelDriftCheck",
     "ModelVersion",
     "Notification",
+    "PasswordResetToken",
     "PromotionDecision",
     "RevokedRefreshToken",
     "TrainingRun",

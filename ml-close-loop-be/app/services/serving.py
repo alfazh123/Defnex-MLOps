@@ -86,10 +86,20 @@ class ServingBackend(Protocol):
         deploy that retires this version."""
         ...
 
-    def generate(self, prompt: str, model_id: str, version: int) -> str:
+    def generate(
+        self,
+        prompt: str,
+        model_id: str,
+        version: int,
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Generate a completion for `prompt` from the adapter `{model_id}-v{version}` that
-        must already be loaded. Returns the generated text; raises `InferenceError` on
-        upstream failure or a malformed/empty completion (issue #41)."""
+        must already be loaded. `max_tokens`/`temperature` are optional per-request sampling
+        overrides (issue #179); omitted means "use the backend's own default". Returns the
+        generated text; raises `InferenceError` on upstream failure or a malformed/empty
+        completion (issue #41)."""
         ...
 
 
@@ -116,9 +126,19 @@ class MockServingBackend:
         self.unloaded.append((model_version.model_id, model_version.version))
         self.events.append(("unload", (model_version.model_id, model_version.version)))
 
-    def generate(self, prompt: str, model_id: str, version: int) -> str:
+    def generate(
+        self,
+        prompt: str,
+        model_id: str,
+        version: int,
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Canned, non-empty generation so the deploy-time smoke test (issue #41) passes in
-        tests and no-GPU local dev the same way a real vLLM adapter would."""
+        tests and no-GPU local dev the same way a real vLLM adapter would. Sampling params
+        are accepted (protocol compliance) but don't affect the canned text - there's no
+        real model here to sample from."""
         return f"mock generation for {model_id}-v{version}"
 
 
@@ -214,6 +234,7 @@ class VLLMServingBackend:
                 json={"lora_name": adapter_name, "lora_path": adapter_path},
                 headers=self._headers(),
                 context=adapter_name,
+                parse_json=False,
             )
         except httpx.HTTPStatusError as exc:
             raise ServingError(
@@ -242,6 +263,7 @@ class VLLMServingBackend:
                 json={"lora_name": adapter_name},
                 headers=self._headers(),
                 context=adapter_name,
+                parse_json=False,
             )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
@@ -278,18 +300,31 @@ class VLLMServingBackend:
             version=model_version.version,
         )
 
-    def generate(self, prompt: str, model_id: str, version: int) -> str:
+    def generate(
+        self,
+        prompt: str,
+        model_id: str,
+        version: int,
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         adapter_name = f"{model_id}-v{version}"
+        payload = {
+            "model": adapter_name,
+            "prompt": prompt,
+            "max_tokens": max_tokens
+            if max_tokens is not None
+            else settings.inference_max_tokens,
+        }
+        if temperature is not None:
+            payload["temperature"] = temperature
         try:
             data = request_sync_with_retry(
                 self._client,
                 "POST",
                 f"{self.base_url}/v1/completions",
-                json={
-                    "model": adapter_name,
-                    "prompt": prompt,
-                    "max_tokens": settings.inference_max_tokens,
-                },
+                json=payload,
                 headers=self._headers(),
                 context=adapter_name,
             )

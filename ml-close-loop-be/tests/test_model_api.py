@@ -128,7 +128,7 @@ def test_list_models_returns_latest_version_and_status(client, admin_token):
         "model_id": model_id,
         "latest_version": version,
         "status": "REGISTERED",
-    } in body
+    } in body["items"]
 
 
 def test_list_models_filters_by_status(client, admin_token):
@@ -141,7 +141,7 @@ def test_list_models_filters_by_status(client, admin_token):
     )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
 
 
 def test_get_evaluation_returns_404_when_missing(client, admin_token):
@@ -358,7 +358,26 @@ def test_list_models_empty(client, admin_token):
     response = client.get("/api/v1/models", headers=auth_header(admin_token))
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
+
+
+def test_list_models_respects_pagination_params(client, admin_token):
+    """Issue #176: GET /models is now paginated like every other list endpoint."""
+    _registered_model_version(client, admin_token)
+
+    page2 = client.get(
+        "/api/v1/models",
+        params={"page": 2, "size": 1},
+        headers=auth_header(admin_token),
+    )
+
+    assert page2.status_code == 200
+    body = page2.json()
+    assert body["items"] == []
+    assert body["total"] == 1
+    assert body["page"] == 2
+    assert body["size"] == 1
+    assert body["pages"] == 1
 
 
 def test_list_model_versions_returns_404_when_model_missing(client, admin_token):
@@ -404,6 +423,7 @@ def test_list_model_versions_paginated_full_record(client, admin_token):
         "artifacts",
         "promotion_decision_ref",
         "previous_model_id",
+        "is_seed_data",
     }
     assert item["model_id"] == model_id
     assert item["version"] == version

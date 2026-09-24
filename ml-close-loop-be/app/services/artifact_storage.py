@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -44,6 +45,24 @@ def compute_checksum_from_bytes(entries: list[tuple[str, bytes]]) -> str:
         h.update(f"{rel}:{len(data)}:".encode())
         h.update(data)
     return h.hexdigest()
+
+
+def _make_world_readable(target: Path) -> None:
+    """Issue #164: artifacts written by the training worker are root-owned (UID 0) inside
+    the container, so the worker itself (and any host user without sudo) can't read them
+    back. chmod alone can't fix ownership, but it makes the bytes actually accessible -
+    directories need the execute bit to be traversable, files just need read.
+    """
+    try:
+        for p in target.rglob("*"):
+            # nosec B103 - 0o755/0o644 is the point of this function (issue #164): the
+            # artifact tree is meant to be world-readable, not a permission bug.
+            os.chmod(p, 0o755 if p.is_dir() else 0o644)  # nosec B103
+        os.chmod(target, 0o755)  # nosec B103
+    except OSError:
+        # Best-effort: a filesystem that doesn't support chmod (or a permission we can't
+        # change ourselves) shouldn't fail the whole artifact finalization.
+        pass
 
 
 def _compute_checksum(target: Path) -> str:
@@ -122,6 +141,8 @@ class LocalFilesystemArtifactStorage:
         shutil.move(str(staging), str(target))
         metadata["checksum"] = _compute_checksum(target)
         self._write_metadata(target, metadata)
+        # After metadata.json is written too, so it's covered by the chmod pass as well.
+        _make_world_readable(target)
         return f"file://{target}"
 
     @staticmethod

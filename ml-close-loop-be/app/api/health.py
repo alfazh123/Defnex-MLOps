@@ -1,13 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 
 router = APIRouter()
 
+# Values that mean "this dependency is fine" for overall-status purposes.
+# "skipped" covers checks intentionally not run (e.g. vllm when SERVING_BACKEND != vllm).
+_HEALTHY_CHECK_VALUES = {"ok", "skipped"}
+
 
 @router.get("/health")
-def health(db: Session = Depends(get_db)) -> dict:
+def health(response: Response, db: Session = Depends(get_db)) -> dict:
     checks: dict[str, str] = {"db": "ok"}
     try:
         db.execute(__import__("sqlalchemy", fromlist=["text"]).text("SELECT 1"))
@@ -39,4 +43,7 @@ def health(db: Session = Depends(get_db)) -> dict:
     except Exception:
         checks["vllm"] = "error"
 
-    return {"status": "ok", "checks": checks}
+    degraded = any(v not in _HEALTHY_CHECK_VALUES for v in checks.values())
+    if degraded:
+        response.status_code = 503
+    return {"status": "degraded" if degraded else "ok", "checks": checks}

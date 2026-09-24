@@ -63,12 +63,10 @@ def test_list_dataset_versions_returns_404_error_envelope_when_missing(
     )
 
     assert response.status_code == 404
-    assert response.json() == {
-        "error": {
-            "code": "DATASET_NOT_FOUND",
-            "message": 'dataset_id "missing" not found',
-        }
-    }
+    body = response.json()
+    assert body["error"]["code"] == "DATASET_NOT_FOUND"
+    assert body["error"]["message"] == 'dataset_id "missing" not found'
+    assert isinstance(body["error"]["request_id"], str)
 
 
 def test_list_dataset_versions_returns_all_versions(client, admin_token):

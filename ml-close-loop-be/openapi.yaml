@@ -226,6 +226,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/forgot-password:
+    post:
+      tags:
+      - Auth
+      summary: Forgot Password
+      description: >-
+        Issue #177: no email/SMS provider is wired in this codebase (mock-first, like
+        MockTrainingRunner) - the reset code is logged instead of sent, as an explicit
+        placeholder channel for an operator to relay manually. Always returns the same 200
+        message whether or not `username` exists, so this endpoint can't be used to
+        enumerate registered usernames.
+      operationId: forgot_password_api_v1_auth_forgot_password_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Forgot Password Api V1 Auth Forgot Password Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/reset-password:
+    post:
+      tags:
+      - Auth
+      summary: Reset Password
+      operationId: reset_password_api_v1_auth_reset_password_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Reset Password Api V1 Auth Reset Password Post
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/users:
     get:
       tags:
@@ -633,6 +699,23 @@ paths:
       summary: List Eval Sets
       operationId: list_eval_sets_api_v1_eval_sets_get
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
       - name: authorization
         in: header
         required: false
@@ -645,10 +728,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/EvalSetSummary'
-                title: Response List Eval Sets Api V1 Eval Sets Get
+                $ref: '#/components/schemas/PaginatedResponse_EvalSetSummary_'
         '422':
           description: Validation Error
           content:
@@ -1806,6 +1886,23 @@ paths:
       summary: List Models
       operationId: list_models_api_v1_models_get
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
       - name: status
         in: query
         required: false
@@ -1842,10 +1939,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ModelSummary'
-                title: Response List Models Api V1 Models Get
+                $ref: '#/components/schemas/PaginatedResponse_ModelSummary_'
         '422':
           description: Validation Error
           content:
@@ -3706,12 +3800,19 @@ components:
         message:
           type: string
           title: Message
+        request_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Request Id
       type: object
       required:
       - code
       - message
       title: ErrorDetail
-      description: openapi.yaml Error.error (PRD §18 standard error envelope).
+      description: >-
+        openapi.yaml Error.error (PRD §18 standard error envelope). request_id (issue #168)
+        echoes the X-Request-Id response header for correlating an error with server logs.
     ErrorResponse:
       properties:
         error:
@@ -4106,6 +4207,21 @@ components:
           minLength: 1
           title: Prompt
           description: Prompt to generate from
+        max_tokens:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Max Tokens
+          description: Override the server default max_tokens for this request
+        temperature:
+          anyOf:
+          - type: number
+            minimum: 0
+            maximum: 2
+          - type: 'null'
+          title: Temperature
+          description: Sampling temperature for this request (backend-default if omitted)
       type: object
       required:
       - target
@@ -4329,6 +4445,10 @@ components:
           - type: string
           - type: 'null'
           title: Previous Model Id
+        is_seed_data:
+          type: boolean
+          title: Is Seed Data
+          default: false
       type: object
       required:
       - model_id
@@ -4513,6 +4633,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[DatasetSummary]
+    PaginatedResponse_EvalSetSummary_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/EvalSetSummary'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[EvalSetSummary]
     PaginatedResponse_FeedbackRecord_:
       properties:
         items:
@@ -4567,6 +4714,33 @@ components:
       - size
       - pages
       title: PaginatedResponse[ModelRegistryRecord]
+    PaginatedResponse_ModelSummary_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ModelSummary'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        size:
+          type: integer
+          title: Size
+        pages:
+          type: integer
+          title: Pages
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - pages
+      title: PaginatedResponse[ModelSummary]
     PaginatedResponse_NotificationEntry_:
       properties:
         items:
@@ -4675,6 +4849,32 @@ components:
       - size
       - pages
       title: PaginatedResponse[UserResponse]
+    PasswordResetConfirmRequest:
+      properties:
+        token:
+          type: string
+          title: Token
+        new_password:
+          type: string
+          title: New Password
+      type: object
+      required:
+      - token
+      - new_password
+      title: PasswordResetConfirmRequest
+      description: POST /auth/reset-password (issue #177).
+    PasswordResetRequest:
+      properties:
+        username:
+          type: string
+          title: Username
+      type: object
+      required:
+      - username
+      title: PasswordResetRequest
+      description: >-
+        POST /auth/forgot-password (issue #177). Always responds the same way regardless of
+        whether `username` exists, to avoid leaking which usernames are registered.
     QualitativeComparison:
       properties:
         question_table_version:

@@ -202,11 +202,22 @@ def register_model_version(
 
 
 def list_models(
-    db: Session, status: str | None = None, search: str | None = None
-) -> list[ModelSummary]:
+    db: Session,
+    status: str | None = None,
+    search: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> tuple[list[ModelSummary], int]:
     """List every model_id with its latest version and status (openapi.yaml GET /models),
     optionally filtered to models whose latest version is currently in `status`
-    and/or whose model_id matches a search substring."""
+    and/or whose model_id matches a search substring.
+
+    Returns ``(page_of_summaries, total_count)`` (issue #176). Filtering happens in Python
+    because the filter is on each model's *latest* version status, not a plain column - the
+    same shape this function already had before pagination, just sliced afterward instead of
+    returned whole; `limit=None` (the pre-#176 default when called without pagination, e.g.
+    from tests) returns every match with no slicing.
+    """
 
     models = db.scalars(select(Model).options(selectinload(Model.versions))).all()
     summaries = []
@@ -225,7 +236,10 @@ def list_models(
                 status=latest.status,
             )
         )
-    return summaries
+    total = len(summaries)
+    if limit is None:
+        return summaries, total
+    return summaries[offset : offset + limit], total
 
 
 def list_model_versions(
@@ -424,4 +438,5 @@ def to_schema(model_version: ModelVersion) -> ModelRegistryRecord:
         artifacts=model_version.artifacts,
         promotion_decision_ref=model_version.promotion_decision_ref,
         previous_model_id=model_version.previous_model_id,
+        is_seed_data=model_version.is_seed_data,
     )

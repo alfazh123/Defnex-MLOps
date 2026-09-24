@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import secrets
 import uuid
 
 from jose import JWTError, jwt
@@ -8,8 +9,11 @@ from sqlalchemy.orm import Session
 import structlog
 
 from app.config import settings
+from app.models.password_reset import PasswordResetToken
 from app.models.revoked_refresh_token import RevokedRefreshToken
 from app.models.user import User
+
+PASSWORD_RESET_TOKEN_TTL_MINUTES = 30
 
 logger = structlog.get_logger(__name__)
 
@@ -210,11 +214,16 @@ def create_user(db: Session, username: str, password: str, role: str = "user") -
     return user
 
 
-def list_users(db: Session, limit: int = 20, offset: int = 0) -> tuple[list[User], int]:
-    total = db.scalar(select(func.count()).select_from(User))
-    users = list(
-        db.scalars(select(User).order_by(User.id).limit(limit).offset(offset)).all()
-    )
+def list_users(
+    db: Session, limit: int = 20, offset: int = 0, search: str | None = None
+) -> tuple[list[User], int]:
+    """List users, optionally filtered to usernames matching `search` (issue #179 -
+    GET /users was the one list endpoint with no filter/search param at all)."""
+    query = select(User)
+    if search:
+        query = query.where(User.username.ilike(f"%{search}%"))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    users = list(db.scalars(query.order_by(User.id).limit(limit).offset(offset)).all())
     return users, total
 
 
@@ -224,3 +233,45 @@ def delete_user(db: Session, user_id: int) -> bool:
         return False
     db.delete(user)
     return True
+
+
+def _utc_now_naive() -> datetime:
+    """Naive-but-always-UTC "now" (matches idempotency_service._utc_now): SQLite's plain
+    DateTime column type round-trips a tz-aware value unreliably, so both write and read
+    sides of PasswordResetToken.expires_at must stay naive to compare correctly."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def create_password_reset_token(db: Session, user: User) -> str:
+    """Issue #177: no email provider is wired in this codebase, so the caller (the router)
+    logs the token via structlog instead of sending it - a placeholder channel, same
+    mock-first pattern as MockTrainingRunner. Returns the raw token (only ever held in
+    memory/logs, never re-derivable from the stored row)."""
+    token = secrets.token_urlsafe(32)
+    now = _utc_now_naive()
+    db.add(
+        PasswordResetToken(
+            token=token,
+            user_id=user.id,
+            used=False,
+            created_at=now,
+            expires_at=now + timedelta(minutes=PASSWORD_RESET_TOKEN_TTL_MINUTES),
+        )
+    )
+    db.flush()
+    return token
+
+
+def consume_password_reset_token(db: Session, token: str) -> User | None:
+    """Validate and single-use-consume a password-reset token. Returns the target User on
+    success, or None if the token is missing/expired/already used - the router maps any
+    None into one generic 400 (never distinguishing which reason, to avoid giving an
+    attacker a token-guessing oracle)."""
+    row = db.get(PasswordResetToken, token)
+    if row is None or row.used:
+        return None
+    if row.expires_at < _utc_now_naive():
+        return None
+    row.used = True
+    db.flush()
+    return get_user_by_id(db, row.user_id)

@@ -48,7 +48,21 @@ def resolve_target(db: Session, model_id: str, target: str) -> ModelVersion:
     )
 
 
-def generate(backend: ServingBackend, model_version: ModelVersion, prompt: str) -> str:
-    """Generate a completion for `prompt` from `model_version`'s adapter. Raises the backend's
-    `InferenceError` on upstream failure (translated to 502 by the router)."""
-    return backend.generate(prompt, model_version.model_id, model_version.version)
+def generate(
+    backend: ServingBackend,
+    model_version: ModelVersion,
+    prompt: str,
+    *,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+) -> str:
+    """Generate a completion for `prompt` from `model_version`'s adapter. `max_tokens`/
+    `temperature` are optional per-request sampling overrides (issue #179). Raises the
+    backend's `InferenceError` on upstream failure (translated to 502 by the router)."""
+    return backend.generate(
+        prompt,
+        model_version.model_id,
+        model_version.version,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )

@@ -15,6 +15,20 @@ class InferenceRequest(BaseModel):
         description="Deployment alias (e.g. 'prod') or an explicit deployed version number"
     )
     prompt: str = Field(min_length=1, description="Prompt to generate from")
+    # Issue #179: previously the only sampling knob was the server-side
+    # settings.inference_max_tokens default - no per-request control existed at all.
+    # Both optional/None-default so an existing caller that omits them is unaffected.
+    max_tokens: int | None = Field(
+        default=None,
+        gt=0,
+        description="Override the server default max_tokens for this request",
+    )
+    temperature: float | None = Field(
+        default=None,
+        ge=0,
+        le=2,
+        description="Sampling temperature for this request (backend-default if omitted)",
+    )
 
 
 class InferenceResponse(BaseModel):

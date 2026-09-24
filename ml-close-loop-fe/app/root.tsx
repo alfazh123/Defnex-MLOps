@@ -12,6 +12,8 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/app-sidebar";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -29,7 +31,7 @@ export const links: Route.LinksFunction = () => [
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
-  if (location.pathname === "/auth/login") {
+  if (location.pathname.includes("auth")) {
 		return (
 			<html lang="en">
 				<head>
@@ -71,15 +73,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Links />
 			</head>
 			<body>
-				<SidebarProvider>
-					<AppSidebar />
-					<SidebarInset>
-						<div className="@container/main flex flex-1">
-							<div className="flex-1 flex flex-col overflow-y-auto bg-sidebar rounded-lg">
-								{children}
+				<SidebarProvider className="flex gap-4 bg-gray-200 h-screen">
+					<TooltipProvider>
+						<AppSidebar />
+						<SidebarInset>
+							<div className="@container/main flex flex-col flex-1 bg-transparent rounded-lg">
+								{/* <ScrollArea> */}
+								<ScrollArea className="flex-1 flex flex-col bg-white rounded-lg m-4 max-h-[calc(100vh-2rem)] h-full shadow-sm">
+									{children}
+								</ScrollArea>
+								{/* </ScrollArea> */}
 							</div>
-						</div>
-					</SidebarInset>
+						</SidebarInset>
+					</TooltipProvider>
 					<ScrollRestoration />
 					<Scripts />
 				</SidebarProvider>

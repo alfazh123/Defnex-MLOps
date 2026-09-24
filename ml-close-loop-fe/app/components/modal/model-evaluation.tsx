@@ -1,5 +1,4 @@
 // import { baseModels, datasets, signal1, signal2, signal3 } from "~/utils";
-import { baseModels, datasets } from "~/utils";
 import {
 	Dialog,
 	DialogClose,
@@ -12,21 +11,13 @@ import {
 import { Field, FieldGroup } from "../ui/field";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "../ui/select";
-import { XIcon } from "lucide-react";
 import { Button } from "../ui/button";
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { TrainingRun } from "~/type";
 import { Separator } from "../ui/separator";
 import { Textarea } from "../ui/textarea";
+import { XIcon } from "@phosphor-icons/react/dist/ssr";
 
 export default function ModalEvaluationModel({
 	isOpen,

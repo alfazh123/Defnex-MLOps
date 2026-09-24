@@ -1,4 +1,3 @@
-import { Check, XIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -36,6 +35,7 @@ import {
 	type AddDatasetResponseProps,
 } from "./dataset-steps/add-dataset-response";
 import { targetSchemas } from "~/utils";
+import { CheckIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 
 const steps = [
 	{ id: 1, name: "Source", description: "File / HF" },
@@ -235,7 +235,7 @@ export default function AddDatasetModal({
 													: "bg-gray-200 text-gray-500 rounded-full",
 										)}>
 										{stepAtive > step.id ? (
-											<Check className="w-5 h-5" />
+											<CheckIcon className="w-5 h-5" />
 										) : (
 											<span className="font-semibold">
 												{step.id}

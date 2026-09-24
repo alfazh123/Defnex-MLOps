@@ -1,4 +1,4 @@
-import { CheckCircle2, Eye } from "lucide-react";
+import { CheckCircleIcon, EyeIcon } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "../../ui/button";
 import { Separator } from "../../ui/separator";
 
@@ -35,7 +35,7 @@ export function AddDatasetResponse({
 		<div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl max-w-lg mx-auto gap-6">
 			{/* Success Icon */}
 			<div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-600 shadow-sm">
-				<CheckCircle2 className="h-8 w-8" />
+				<CheckCircleIcon className="h-8 w-8" />
 			</div>
 
 			{/* Title & Description */}
@@ -77,7 +77,7 @@ export function AddDatasetResponse({
 						Training Readiness:
 					</span>
 					<div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-semibold">
-						<CheckCircle2 className="h-3.5 w-3.5" />
+						<CheckCircleIcon className="h-3.5 w-3.5" />
 						Ready
 					</div>
 				</div>
@@ -91,7 +91,7 @@ export function AddDatasetResponse({
 						resetForm();
 						toggleModal();
 					}}>
-					<Eye className="h-4 w-4" />
+					<EyeIcon className="h-4 w-4" />
 					View Dataset List
 				</Button>
 				{/* <Button

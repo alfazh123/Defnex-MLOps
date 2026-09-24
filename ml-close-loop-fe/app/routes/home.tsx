@@ -1,6 +1,5 @@
 import Header from "~/components/ui/header";
 import type { Route } from "./+types/home";
-import Layout from "~/components/layout";
 
 export function meta({}: Route.MetaArgs) {
 	return [

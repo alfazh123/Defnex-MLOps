@@ -1,0 +1,24 @@
+docs/qa/BACKEND_PROGRESS_PRESENTATION_SOURCE_MAP.md
+  s_77551a5bb0dbb4::t_5b84478b0c8164 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d4ab79bc6d7d4d4e20082441639581a0b5535ef9",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_77551a5bb0dbb4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f28effefdffectileRdmLdlJbr",
+        "model": "mimo-v2.6-pro"
+      },
+      "human_author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

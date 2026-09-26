@@ -1,0 +1,16 @@
+ml-close-loop-be/app/api/training.py
+  h_0fbac3cbabbc88 79-89
+ml-close-loop-be/app/services/validation_service.py
+  h_0fbac3cbabbc88 9,19-28,63-86,95,105-123,171,176,189-190,204,212-226,287,302-316,318-343,363-368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "de3413304ba6db916507cee96c7664011c6c3fce",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

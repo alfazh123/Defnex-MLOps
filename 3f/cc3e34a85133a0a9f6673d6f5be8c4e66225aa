@@ -1,0 +1,26 @@
+ml-close-loop-be/app/api/intake.py
+  h_0fbac3cbabbc88 8-9,14-15,18,129-242
+ml-close-loop-be/app/api/intake_validate.py
+  h_0fbac3cbabbc88 113-119,125-127,271-275,299-307,315,329-332
+ml-close-loop-be/app/services/dataset_pinning.py
+  h_0fbac3cbabbc88 85
+ml-close-loop-be/app/services/dataset_storage.py
+  h_0fbac3cbabbc88 88-93,107-115,118-120,137-143,151-166,171,214
+ml-close-loop-be/app/services/hf_dataset_import.py
+  h_0fbac3cbabbc88 1-264
+ml-close-loop-be/tests/test_hf_dataset_import.py
+  h_0fbac3cbabbc88 1-440
+ml-close-loop-be/tests/test_intake_validate.py
+  h_0fbac3cbabbc88 125-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3fcc3e34a85133a0a9f6673d6f5be8c4e66225aa",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

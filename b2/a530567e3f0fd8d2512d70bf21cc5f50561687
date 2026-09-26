@@ -1,0 +1,64 @@
+ml-close-loop-be/app/services/inference_service.py
+  h_0fbac3cbabbc88 17-92,133,136-140
+README.md
+  h_0fbac3cbabbc88 20-21
+ml-close-loop-be/tests/test_lineage.py
+  h_0fbac3cbabbc88 1-365
+ml-close-loop-be/app/main.py
+  h_0fbac3cbabbc88 157-163
+ml-close-loop-be/app/services/deployment_service.py
+  h_0fbac3cbabbc88 430,436,445,451,458
+ml-close-loop-be/app/api/inference.py
+  h_0fbac3cbabbc88 1-14,25-34,38,42-47,49,52,56-57,60-76,78,81,83,85-88,91-92,99-107,112,118-132,134-168
+ml-close-loop-be/app/services/serving.py
+  h_0fbac3cbabbc88 24,98,101-103,107-144,176,180-191,360,396-405,412-413,415
+ml-close-loop-be/tests/test_promotion_ladder.py
+  h_0fbac3cbabbc88 372-374,376-382,387-391
+ml-close-loop-be/app/api/models.py
+  h_0fbac3cbabbc88 25,84-111
+ml-close-loop-be/app/services/model_service.py
+  h_0fbac3cbabbc88 90-107,145-152
+ml-close-loop-be/openapi.yaml
+  h_0fbac3cbabbc88 24-25,27,146,199,231-232,234-235,513-514,677-678,786-787,827-828,830,900-901,1330-1332,1414,1531,1569,1760-1761,1800,1823-1824,1943-1945,2045-2046,2048,2050,2052-2053,2161-2162,2215,2360-2362,2425-2429,2486-2487,2489,2554-2559,2682-2683,2760,2762-2763,2866,2913,2972,2980-3185,3282-3448,3524,3593,3780,3966-3967,3977-3980,4026-4027,4029,4031,4046-4047,4066-4068,4077,4199-4200,4216,4219,4221,4223-4224,4226-4227,4232-4233,4275-4276,4278-4279,4281,4283,4293-4294,4319,4324-4325,4327,4442-4444,4446,4448-4449,4451-4461,4463,4465-4468,4470,4472-4477,4480-4485,4487,4489-4505,4507-4511,4513-4522,4525-4538,4622-4623,4639-4677,4782-4783,5179,5189-5190,5243,5398-5402,5595-5611,5685-5694,5764-5766,5768,5770-5771,5777-5779,5781,5783,5785-5786,5808-5809,5826-5830
+ml-close-loop-be/app/schemas/openai.py
+  h_0fbac3cbabbc88 1-24,28-31,33-38,40-46,49-54,56-92,94-115,117-119,122-123
+ml-close-loop-be/tests/test_smoke_test.py
+  h_0fbac3cbabbc88 128
+ml-close-loop-be/app/services/evaluation_engine.py
+  h_0fbac3cbabbc88 102,105
+ml-close-loop-be/tests/test_inference.py
+  h_0fbac3cbabbc88 1-5,13-14,54-55,57-59,61-67,70-71,73-76,78,80,82-96,99-100,102-103,106,109-111,113-114,116-119,121-122,125,128-134,137-140,143,146-152,154-161,163-180,182-185,187-196,198-209,211-223,225-227,229-258,260-269,271-276,279,282-319,321-336,338-353,355-368,370-378,381,384-393,395-397,399-401,403-412,414-444,446-455,457-469,471-485,487-490,492-545
+ml-close-loop-be/tests/test_model_service.py
+  h_0fbac3cbabbc88 27-28,30,38-43,45-46,251-258,260,263,281-297
+ml-close-loop-be/README.md
+  h_0fbac3cbabbc88 15-18,173-175,362-374
+ml-close-loop-be/scripts/sync_openai_paths.py
+  h_0fbac3cbabbc88 1-127
+ml-close-loop-be/app/services/lineage_service.py
+  h_0fbac3cbabbc88 1-227
+ml-close-loop-be/tests/test_vllm_serving.py
+  h_0fbac3cbabbc88 211-213
+ml-close-loop-be/tests/test_auth_service.py
+  h_0fbac3cbabbc88 18-54
+ml-close-loop-be/tests/test_file_signaling.py
+  h_0fbac3cbabbc88 18-19,39-82,230,311,536,771,970,1227
+ml-close-loop-be/pyproject.toml
+  h_0fbac3cbabbc88 13-16
+ml-close-loop-be/app/services/auth_service.py
+  h_0fbac3cbabbc88 5,20-39,43-56,60-69
+ml-close-loop-be/tests/test_deployment_single_source.py
+  h_0fbac3cbabbc88 256-269,274-280,284,289-302
+ml-close-loop-fe/pnpm-lock.yaml
+  h_0fbac3cbabbc88 36-37,58,77,80,94-95,98,312-313,334-335,402-403,408-409,414-415,420-421,426-427,432-433,438-439,444-445,450-451,456-457,462-463,468-469,474-475,480-481,486-487,685-686,706-707,714-715,734-735,938-939,1139-1140,1550-1551,1741-1742,1745,1747-1749,1796-1797,1990-1992,1995-1996,1998-1999,2044-2045,2182,2368,2393,2395,2416,2418,2428,2450,2457,2483,2497,2504,2524,2527,2530,2533,2536,2539,2542,2545,2548,2551,2554,2557,2560,2563,2566,2636,2641,2672,2731,2759,2761-2765,2769,2787,2873,2880,2916,2945,3170,3462,3641,3644-3645,3682,3684,3687-3701,3758,3765,3767,3770,3789,3931-3935,3943,3945,3957,3963,3968
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b2a530567e3f0fd8d2512d70bf21cc5f50561687",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

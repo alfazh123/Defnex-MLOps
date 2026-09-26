@@ -76,6 +76,17 @@ async def create_training_run(
             f'Dataset version {body.dataset_version} of dataset_id "{body.dataset_id}" '
             "failed validation and cannot be trained on.",
         )
+    if latest_report.gate_decision == "NEEDS_REVIEW":
+        # Issue #241: NEEDS_REVIEW may be committed (the bytes and the report are needed to
+        # act on it) but is not trainable. It has its own code so a client can tell "your
+        # dataset is broken" apart from "your dataset has records a human must accept".
+        raise APIError(
+            409,
+            "VALIDATION_NEEDS_REVIEW",
+            f'Dataset version {body.dataset_version} of dataset_id "{body.dataset_id}" '
+            "has records with hard errors and needs review: "
+            f"{latest_report.gate_reason}",
+        )
     if latest_report.record_count == 0:
         raise APIError(
             409,

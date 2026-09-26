@@ -5456,16 +5456,26 @@ components:
           title: Per Record Errors
           default: []
         records:
-          items:
-            additionalProperties: true
-            type: object
+          description: |-
+            Echoes exactly what was examined, so it is not narrowed to `dict`: intake can
+            surface a parsed value that is not a JSON object (issue #245), and the H0 shape
+            rules report that per record rather than this field silently dropping or
+            crashing on it.
+          items: {}
           type: array
           title: Records
           default: []
         gate_decision:
+          description: |-
+            Dataset-level verdict. `NEEDS_REVIEW` (issue #241) means some records carry hard
+            errors but the rate is below `VALIDATION_GATE_FAIL_RATIO`: the dataset may be
+            committed for inspection, but `POST /training-runs` refuses it with
+            `VALIDATION_NEEDS_REVIEW` until a re-validated version reaches PASS. Policy:
+            docs/dataset/validation-gate-policy.md.
           type: string
           enum:
           - PASS
+          - NEEDS_REVIEW
           - FAIL
           title: Gate Decision
         gate_reason:
@@ -5501,4 +5511,11 @@ components:
           default: 0
       type: object
       title: ValidationStatusCounts
-      description: Per-record status tally (validation-rules.md §2).
+      description: |-
+        Per-record status tally (validation-rules.md §2).
+
+
+        NEEDS_REVIEW is always 0: a per-record NEEDS_REVIEW status would need a warning-class
+        threshold (W2/W5), which validation-rules.md does not define. Do not confuse it with
+        the dataset-level `gate_decision == NEEDS_REVIEW`, which is driven by the hard-error
+        ratio (issue #241) and is reachable.

@@ -12,14 +12,23 @@ from tests.conftest import auth_header
 from app.services.dataset_storage import DatasetStorage
 
 
+# NOTE (issue #241): the assistant answer below is deliberately longer than H4's 20-word
+# minimum. The previous fixture was a 10-word sentence, so every "VALID_RECORD" in this file
+# was in fact H4-invalid -- which the leaky gate reported as PASS, so the tests passed while
+# asserting a dataset that validation would have rejected. Tightening the gate (correctly)
+# surfaced the bad fixture.
+ANSWER = (
+    "DEFNEX adalah platform MLOps untuk integrasi model AI secara terpusat, yang "
+    "menyatukan empat sub-proyek universitas di bawah satu arsitektur intelijen "
+    "terpadu agar seluruh tim dapat mengelola dataset, pelatihan, dan registri model "
+    "dari satu tempat dengan mudah."
+)
+
 VALID_RECORD = {
     "id": "rec-001",
     "messages": [
         {"role": "user", "content": "Apa itu defnex?"},
-        {
-            "role": "assistant",
-            "content": "DEFNEX adalah platform MLOps untuk integrasi model AI secara terpusat.",
-        },
+        {"role": "assistant", "content": ANSWER},
     ],
     "metadata": {"source_dataset": "test_ds", "source_id": "s-001"},
 }
@@ -28,7 +37,7 @@ LEAKAGE_RECORD = {
     "id": "rec-leak",
     "messages": [
         {"role": "user", "content": "eval_question_1"},
-        {"role": "assistant", "content": "This is the answer to eval question one."},
+        {"role": "assistant", "content": ANSWER},
     ],
     "metadata": {"source_dataset": "test_ds", "source_id": "s-leak"},
 }
@@ -37,7 +46,7 @@ EVAL_RECORD = {
     "id": "eval-001",
     "messages": [
         {"role": "user", "content": "eval_question_1"},
-        {"role": "assistant", "content": "Golden answer."},
+        {"role": "assistant", "content": ANSWER},
     ],
     "metadata": {"source_dataset": "eval", "source_id": "e-001"},
 }
@@ -79,41 +88,13 @@ class _FakeStorage:
         return self._files.get(staging_id)
 
     def read_records(self, path: Path, source_format: str = "jsonl") -> list[dict]:
-        if source_format == "jsonl":
-            records = []
-            for line in path.read_text().splitlines():
-                line = line.strip()
-                if line:
-                    records.append(json.loads(line))
-            return records
-        if source_format == "json":
-            data = json.loads(path.read_text())
-            if not isinstance(data, list):
-                return []
-            return [r for r in data if isinstance(r, dict)]
-        if source_format == "csv":
-            import csv
-            import io
+        # Issue #245: the fake fakes *storage* only. Parsing is delegated to the real
+        # `dataset_parsing` module so these tests exercise the single parser the app uses --
+        # the previous private copy here was free to drift from production behaviour, which
+        # is exactly the "dua parser" defect the issue closes.
+        from app.services import dataset_parsing
 
-            text = path.read_text()
-            reader = csv.DictReader(io.StringIO(text))
-            return [row for row in reader]
-        if source_format == "xlsx":
-            import io
-
-            try:
-                import openpyxl
-            except ImportError:
-                raise FileNotFoundError("openpyxl not installed")
-            wb = openpyxl.load_workbook(str(path), read_only=True)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            wb.close()
-            if not rows:
-                return []
-            headers = [str(h) for h in rows[0]]
-            return [dict(zip(headers, row)) for row in rows[1:]]
-        raise ValueError(f"Unsupported format: {source_format}")
+        return dataset_parsing.parse_file(path, source_format)
 
     def compute_checksum(self, path: Path) -> str:
         import hashlib
@@ -188,8 +169,21 @@ def test_validate_happy_path(client, admin_token, fake_storage):
     assert body["total_records"] == 1
     assert body["valid_records"] == 1
     assert body["blocking_error_count"] == 0
-    assert len(body["checks"]) == 6
+    # 7 checks: the original 6 plus an explicit `gate` entry, so a client can render
+    # PASS/NEEDS_REVIEW/FAIL without re-deriving the verdict (issue #241).
+    assert len(body["checks"]) == 7
     assert body["checks"][0]["name"] == "parse"
+    assert body["checks"][-1] == {
+        "name": "gate",
+        "status": "PASS",
+        "message": "No hard errors (H0-H9) and no leakage detected.",
+    }
+    # A clean dataset has nothing to report on the duplicate/leakage checks.
+    assert (
+        next(c for c in body["checks"] if c["name"] == "duplicate_ids")["status"]
+        == "PASS"
+    )
+    assert next(c for c in body["checks"] if c["name"] == "leakage")["status"] == "PASS"
     assert body["staging_id"] == info["staging_id"]
     assert "validation_report_id" in body
 
@@ -556,30 +550,20 @@ def test_staging_uses_directory_layout(client, admin_token):
     assert not (storage._staging / f"{info['staging_id']}_test.jsonl").exists()
 
 
-def test_validate_csv_records(client, admin_token, fake_storage):
-    csv_content = b"id,q,a\nrec-1,what is defnex,it is a platform\nrec-2,hello,hi\n"
-    info = fake_storage.stage_upload("data.csv", csv_content)
-
-    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
-        resp = client.post(
-            "/api/v1/datasets/intake/validate",
-            json={
-                "staging_id": info["staging_id"],
-                "dataset_id": "csv_ds",
-                "source_format": "csv",
-            },
-            headers=auth_header(admin_token),
-        )
-
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "PASS"
-    assert body["total_records"] == 2
-    assert body["preview"][0]["id"] == "rec-1"
-
-
 def test_validate_json_records(client, admin_token, fake_storage):
-    json_content = json.dumps([VALID_RECORD, VALID_RECORD]).encode()
+    # JSON can nest, so a canonical record round-trips intact and the gate is a real PASS.
+    # The two records differ in both `id` and message content: byte-identical records would
+    # trip H7_duplicate on the second one and (correctly) fail the gate at a 50% error rate.
+    second = {
+        **VALID_RECORD,
+        "id": "rec-002",
+        "messages": [
+            {"role": "user", "content": "Bagaimana DEFNEXkelola model?"},
+            {"role": "assistant", "content": ANSWER + " Registry modelnya terpusat."},
+        ],
+        "metadata": {"source_dataset": "test_ds", "source_id": "s-002"},
+    }
+    json_content = json.dumps([VALID_RECORD, second]).encode()
     info = fake_storage.stage_upload("data.json", json_content)
 
     with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
@@ -597,6 +581,40 @@ def test_validate_json_records(client, admin_token, fake_storage):
     body = resp.json()
     assert body["status"] == "PASS"
     assert body["total_records"] == 2
+
+
+# NOTE (issue #241): the CSV and XLSX cases below assert a non-PASS gate, and that is the
+# correct outcome, not a regression. A flat spreadsheet row has no `messages` array, so every
+# record is H1-invalid. Converting uploaded CSV/XLSX into canonical `{"messages": [...]}`
+# records is the normalizer's job (issue #243 / A11) and does not exist yet. These two tests
+# previously asserted `status == "PASS"` on exactly this un-normalizable input -- which is how
+# a 100%-invalid dataset could pass the gate unnoticed. What they still prove is that the
+# parser extracted the rows correctly.
+
+
+def test_validate_csv_records(client, admin_token, fake_storage):
+    csv_content = b"id,q,a\nrec-1,what is defnex,it is a platform\nrec-2,hello,hi\n"
+    info = fake_storage.stage_upload("data.csv", csv_content)
+
+    with patch("app.api.intake_validate.DatasetStorage", return_value=fake_storage):
+        resp = client.post(
+            "/api/v1/datasets/intake/validate",
+            json={
+                "staging_id": info["staging_id"],
+                "dataset_id": "csv_ds",
+                "source_format": "csv",
+            },
+            headers=auth_header(admin_token),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_records"] == 2
+    assert body["preview"][0]["id"] == "rec-1"
+    assert body["status"] == "FAIL"
+    assert body["valid_records"] == 0
+    assert body["blocking_error_count"] == 2
+    assert "H1_missing_required_field" in body["diagnostics"][0]
 
 
 def test_validate_xlsx_records(client, admin_token, fake_storage):
@@ -629,6 +647,8 @@ def test_validate_xlsx_records(client, admin_token, fake_storage):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["status"] == "PASS"
     assert body["total_records"] == 1
     assert body["preview"][0]["id"] == "rec-1"
+    assert body["status"] == "FAIL"
+    assert body["valid_records"] == 0
+    assert body["blocking_error_count"] == 1

@@ -34,7 +34,10 @@ from app.config import settings
 from app.logging import configure_logging
 from app.middleware.access_log import AccessLogMiddleware
 from app.middleware.request_id import RequestIdMiddleware
-from app.middleware.request_size import RequestSizeLimitMiddleware
+from app.middleware.request_size import (
+    MULTIPART_ENVELOPE_OVERHEAD_BYTES,
+    RequestSizeLimitMiddleware,
+)
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.services.deployment_service import SmokeTestError
 from app.services.serving import BaseModelMismatchError, ServingError
@@ -65,9 +68,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Issue #242: the intake routes carry a dataset file, so they get a body limit derived from
+# the same `max_upload_file_size` the intake handler enforces. A prefix-scoped override
+# keeps the 1 MB default on every other endpoint.
+_INTAKE_ROUTE_PREFIX = "/api/v1/datasets/intake"
+
 app.add_middleware(
     RequestSizeLimitMiddleware,
     max_body_size=settings.max_request_body_size,
+    path_overrides={
+        _INTAKE_ROUTE_PREFIX: (
+            settings.max_upload_file_size + MULTIPART_ENVELOPE_OVERHEAD_BYTES
+        )
+    },
 )
 
 

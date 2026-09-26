@@ -70,8 +70,30 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://localhost:8888,http://localhost:5173"
     )
 
-    # Request size limit
+    # Request size limits (issue #242, audit finding T3).
+    #
+    # `max_request_body_size` guards every route. It used to be the *only* limit, which
+    # made the intake endpoint's advertised 100 MB dataset-file cap unreachable: uploads
+    # over 1 MB were rejected here before the handler's own 100 MB check could run. The
+    # dataset intake routes are now granted a larger body limit derived from
+    # `max_upload_file_size` (see `app/main.py`), so both numbers come from here and
+    # cannot drift apart.
     max_request_body_size: int = 1_048_576  # 1MB
+    # Per-file cap enforced by the dataset intake handler (`app/api/intake.py`).
+    max_upload_file_size: int = 104_857_600  # 100MB
+
+    # Validation gate thresholds (issue #241, audit finding T2).
+    #
+    # The gate used to consider leakage and nothing else, so a file whose every record
+    # failed H1-H9 still reported `gate_decision: PASS` and could be committed and
+    # trained on. These two ratios make the decision explicit and tunable instead of
+    # implicit; see `docs/dataset/validation-gate-policy.md` for the full policy.
+    #
+    # `validation_gate_fail_ratio`: share of records carrying at least one hard error
+    # (H0-H9) at which the gate FAILs. Leakage (H8) fails the gate at any ratio
+    # regardless. Default 0.10 = one in ten records failing a hard rule is not a dataset
+    # worth training on without a human fixing the source first.
+    validation_gate_fail_ratio: float = 0.10
 
     # GPU training lock (issue #33): serializes training across worker processes.
     # `gpu_lock_file` must live on a filesystem all workers share (the ./data volume

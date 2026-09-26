@@ -1,0 +1,14 @@
+ml-close-loop-be/docs/dataset/validation-gate-policy.md
+  h_0fbac3cbabbc88 73,77,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8cffc36bd9c393397a111b7a0b28b44abae206ea",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

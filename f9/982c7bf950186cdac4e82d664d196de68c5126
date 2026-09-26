@@ -1,0 +1,18 @@
+ml-close-loop-be/app/api/intake.py
+  h_0fbac3cbabbc88 12,15-20,24-29,62-69,71,76-77,83-84,88,91,93-98,100-102,104-106,108,117,121
+ml-close-loop-be/app/api/intake_validate.py
+  h_0fbac3cbabbc88 21,69-97,138-150,152-155,160-163,168-174,177-182,185-189,250-254
+ml-close-loop-be/app/schemas/validation.py
+  h_0fbac3cbabbc88 2,6-8,12-18,40-45,64-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f9982c7bf950186cdac4e82d664d196de68c5126",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

@@ -13,7 +13,7 @@ from app.schemas.training import (
     TrainingRun as TrainingRunSchema,
     TrainingRunCreateRequest,
 )
-from app.services import audit_service, notification_service
+from app.services import audit_service, dataset_pinning, notification_service
 
 # Issue #135: rank used to order the claim query `priority DESC, created_at ASC`.
 # Any value outside PRIORITY_LEVELS (should not happen -- validated at the request
@@ -38,12 +38,22 @@ def create_training_run(
 ) -> TrainingRun:
     """Create a TrainingRun in PENDING status without waiting for training to finish (PRD §9)."""
 
+    # Issue #209: the run's `training_config` is the only thing that survives the dataset
+    # version being edited or deleted, so the dataset's identity is snapshotted into it here
+    # rather than left as a bare foreign key. Issue #208 reads that pin and loads the bytes
+    # it names; the two are deliberately a pair — a pin is only meaningful if the trainer
+    # actually resolves it.
+    pin = dataset_pinning.snapshot_pin(db, dataset_version)
+    training_config = dataset_pinning.with_pin(
+        request.training_config.model_dump(), pin
+    )
+
     training_run = TrainingRun(
         training_run_id=f"run-{uuid.uuid4().hex[:6]}",
         dataset_version_id=dataset_version.id,
         model_id=request.model_id,
         base_model=request.base_model,
-        training_config=request.training_config.model_dump(),
+        training_config=training_config,
         status="PENDING",
         triggered_by=request.triggered_by,
         compute_resource_id=request.compute_resource_id,

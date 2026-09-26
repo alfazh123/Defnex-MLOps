@@ -266,6 +266,11 @@ def test_concurrent_different_versions_one_winner(tmp_path):
     So the assertion is on the invariant, not on which thread won. The conflict path is still
     checked, just as "if there is a loser it is a clear error" -- never a silent double-deploy,
     which is the property that actually matters.
+
+    (A first attempt at this fix re-introduced the same bug by pinning the surviving version to
+    `oks[0]`, assuming the first thread to report "OK" was the one left DEPLOYED. It is not: both
+    threads report "OK" after their own commit, and the LAST committer is the survivor. CI caught
+    it -- 6/6 local runs passed and only the differently-timed CI run failed.)
     """
     engine = _fresh_engine(tmp_path, "diff.db", [1, 2])
     results = _run_race(engine, [1, 2])
@@ -287,19 +292,25 @@ def test_concurrent_different_versions_one_winner(tmp_path):
         status = deployment_service.get_deployment_status(db, "m1")
         assert status.current_deployed_version == deployed[0].version
 
-    # Whichever thread won, the version it deployed is the one left DEPLOYED. The other is
-    # RETIRED if it had held the pointer at the time, and still PROMOTED if it never did --
-    # both are correct end states, so the assertion is on which one is deployed.
-    winner_version = 1 if oks[0] == "A" else 2
-    assert deployed[0].version == winner_version
-    with Session(engine) as db:
+        # The survivor is whichever transaction committed LAST, which is NOT the same as
+        # `oks[0]`: when both threads succeed they both report "OK" once their own commit
+        # returns, and dict ordering has nothing to do with commit order. So the deployed
+        # version is only pinned to the winner's when exactly one thread succeeded; when
+        # both did, either is correct and what must hold is that the other one is not
+        # DEPLOYED.
+        survivor = deployed[0].version
+        assert survivor in (1, 2)
+        if len(oks) == 1:
+            assert survivor == (1 if oks[0] == "A" else 2)
+
         other = db.scalars(
             select(ModelVersion).where(
-                ModelVersion.model_id == "m1", ModelVersion.version != winner_version
+                ModelVersion.model_id == "m1", ModelVersion.version != survivor
             )
         ).one()
+        # RETIRED if it held the pointer when the survivor deployed; still PROMOTED if it
+        # never did. Both are correct end states.
         assert other.status in ("RETIRED", "PROMOTED")
-        assert other.status != "DEPLOYED"
 
 
 def test_concurrent_deploy_and_rollback_consistent(tmp_path):

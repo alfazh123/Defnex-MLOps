@@ -18,7 +18,7 @@ import structlog
 
 from app.config import settings
 from app.models.training import TrainingRun
-from app.services import training_service
+from app.services import dataset_pinning, training_service
 
 logger = structlog.get_logger(__name__)
 
@@ -49,16 +49,39 @@ class UnslothTrainingRunner:
     def run(self, db, training_run: TrainingRun) -> str:
         """Spawn the training subprocess and drive the run to a staging directory.
 
-        Raises on failure (non-zero exit, subprocess error, or timeout); the worker translates
-        that into a FAILED run so no run stays stuck RUNNING (issue #38).
+        Raises on failure (unresolvable dataset pin, non-zero exit, subprocess error, or
+        timeout); the worker translates that into a FAILED run so no run stays stuck RUNNING
+        (issue #38).
+
+        Issue #208: the dataset is resolved from the run's pin to a local file *before* the
+        subprocess is spawned, and the resolved path is passed as `dataset_local_path` in the
+        config handed to the child. The persisted `training_config` is not modified -- it
+        holds the pin (a durable URI + checksum), while the local path is per-attempt scratch
+        that would be meaningless the next time the run is retried.
         """
         staging = Path(tempfile.mkdtemp(prefix="defnex-training-"))
+        workspace = staging.parent / f"{staging.name}-dataset"
+        try:
+            child_config, dataset_source = dataset_pinning.resolve_pin_to_config(
+                training_run.training_config, workspace
+            )
+        except dataset_pinning.DatasetPinError:
+            # The run must not proceed on some other dataset. The worker turns this into
+            # FAILED with the message, which is the explicit failure issue #208 asks for.
+            dataset_pinning.cleanup_workspace(workspace)
+            raise
+        logger.info(
+            "training_dataset_resolved",
+            training_run_id=training_run.training_run_id,
+            dataset_source=dataset_source,
+        )
+
         cmd = [
             self._python,
             "-u",
             self._script,
             "--config",
-            json.dumps(training_run.training_config),
+            json.dumps(child_config),
             "--staging",
             str(staging),
         ]
@@ -111,6 +134,11 @@ class UnslothTrainingRunner:
         proc.wait()
         if watchdog:
             watchdog.cancel()
+
+        # The per-attempt dataset copy is scratch, not an artifact: the durable copy is the
+        # object the pin names. Cleaned on every exit path so a failed run doesn't leave a
+        # 100 MB download behind per retry (training runs are retryable via `retry_of`).
+        dataset_pinning.cleanup_workspace(workspace)
 
         if proc.returncode != 0:
             raise self._failure(

@@ -21,6 +21,7 @@ environment (PRD §19.4).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
@@ -94,13 +95,51 @@ class ServingBackend(Protocol):
         *,
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> GenerationResult:
         """Generate a completion for `prompt` from the adapter `{model_id}-v{version}` that
         must already be loaded. `max_tokens`/`temperature` are optional per-request sampling
-        overrides (issue #179); omitted means "use the backend's own default". Returns the
-        generated text; raises `InferenceError` on upstream failure or a malformed/empty
-        completion (issue #41)."""
+        overrides (issue #179); omitted means "use the backend's own default". Returns a
+        `GenerationResult` carrying the text plus token usage (issue #228); raises
+        `InferenceError` on upstream failure or a malformed/empty completion (issue #41)."""
         ...
+
+
+@dataclass
+class GenerationResult:
+    """What a serving backend produced for one request.
+
+    `usage` is not decoration: issue #228 found that vLLM already returns token counts and
+    this layer threw them away, so there was no way to attribute cost or rate-limit by token
+    volume. The three canonical fields are always present; the `*_details` sub-objects stay
+    None because they are optional in the OpenAI spec and this layer has no source for
+    them beyond what vLLM reports.
+    """
+
+    text: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    def to_usage(self) -> dict:
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+        }
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token count for backends that cannot report a real one.
+
+    Deliberately labeled an estimate: the mock backend has no tokenizer, and a number that
+    looks authoritative but is not would be worse than one that is documented as an
+    approximation. ~4 characters per token is the usual English-text rule of thumb.
+    """
+
+    return max(1, (len(text) + 3) // 4) if text else 0
 
 
 class MockServingBackend:
@@ -134,12 +173,22 @@ class MockServingBackend:
         *,
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> GenerationResult:
         """Canned, non-empty generation so the deploy-time smoke test (issue #41) passes in
         tests and no-GPU local dev the same way a real vLLM adapter would. Sampling params
         are accepted (protocol compliance) but don't affect the canned text - there's no
-        real model here to sample from."""
-        return f"mock generation for {model_id}-v{version}"
+        real model here to sample from.
+
+        Token counts are estimates (`_estimate_tokens`): this backend has no tokenizer, and
+        the point of the `usage` block (issue #228) is that callers get *something* to
+        account with, not that a mock is as accurate as vLLM.
+        """
+        text = f"mock generation for {model_id}-v{version}"
+        return GenerationResult(
+            text=text,
+            prompt_tokens=_estimate_tokens(prompt),
+            completion_tokens=_estimate_tokens(text),
+        )
 
 
 def _lora_name(model_version: ModelVersion) -> str:
@@ -308,7 +357,7 @@ class VLLMServingBackend:
         *,
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> GenerationResult:
         adapter_name = f"{model_id}-v{version}"
         payload = {
             "model": adapter_name,
@@ -344,14 +393,26 @@ class VLLMServingBackend:
                 f"vLLM returned no completion text for {adapter_name} "
                 f"(choices: {choices!r})"
             )
+        # Issue #228: vLLM already returns this block; it used to be dropped here, leaving
+        # no way to attribute token volume or cost per request. Read defensively -- an older
+        # or proxied vLLM may omit it, and a missing usage block should not fail a
+        # generation that succeeded.
+        raw_usage = data.get("usage") or {}
+        result = GenerationResult(
+            text=text,
+            prompt_tokens=int(raw_usage.get("prompt_tokens") or 0),
+            completion_tokens=int(raw_usage.get("completion_tokens") or 0),
+        )
         logger.info(
             "vllm_generation",
             model_id=model_id,
             version=version,
             adapter_name=adapter_name,
             output_chars=len(text),
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
         )
-        return text
+        return result
 
 
 _backend: ServingBackend | None = None

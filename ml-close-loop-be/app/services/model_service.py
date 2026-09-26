@@ -87,6 +87,24 @@ def _ensure_model_row(db: Session, model_id: str) -> None:
         pass
 
 
+def _validation_report_ref(db: Session, training_run: TrainingRun) -> str | None:
+    """The id of the validation report that cleared this run's dataset version (issue #237).
+
+    Reads the same report run creation gated on, so the value recorded here is the report
+    that actually authorized the training rather than "the latest one, if any". Returns None
+    when the dataset version has no report at all (a version created outside the wizard),
+    which is the honest answer: there is nothing to point at.
+    """
+
+    dataset_version = training_run.dataset_version
+    if dataset_version is None:
+        return None
+    from app.services import validation_service
+
+    report = validation_service.get_latest_validation_report(db, dataset_version)
+    return f"validation_reports:{report.id}" if report is not None else None
+
+
 def _allocate_version(
     db: Session, model_id: str, training_run: TrainingRun
 ) -> tuple[ModelVersion, int]:
@@ -124,6 +142,14 @@ def _allocate_version(
                     training_started_at=training_run.started_at,
                     training_completed_at=training_run.finished_at,
                     artifacts=[{"type": "adapter", "uri": training_run.artifact_uri}],
+                    # Issue #237: this column existed and was read by the promotion flow but
+                    # never written, so "which validation report cleared this version" was
+                    # permanently null. Run creation already requires a PASS report for the
+                    # dataset version (app/api/training.py), so the reference is known at
+                    # registration time -- it just was not being recorded.
+                    dataset_validation_report_ref=_validation_report_ref(
+                        db, training_run
+                    ),
                     created_at=datetime.now(timezone.utc),
                 )
                 db.add(model_version)

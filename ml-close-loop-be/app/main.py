@@ -149,11 +149,17 @@ v1_router.include_router(models_router)
 v1_router.include_router(notifications_router)
 v1_router.include_router(promotion_router)
 v1_router.include_router(deployment_router)
-v1_router.include_router(inference_router)
 v1_router.include_router(intake_router)
 v1_router.include_router(intake_validate_router)
 
 app.include_router(v1_router)
+
+# Issue #226: the OpenAI-compatible surface is mounted at the application root, NOT under
+# `/api/v1`. A standard client is configured with a base URL and appends `/chat/completions`
+# or `/models` itself, so the path has to be exactly `/v1/...` for an unmodified OpenAI SDK
+# to reach it. Nesting it under this service's own version prefix would be DEFNEX-shaped
+# again, which is the thing issue #226 exists to stop.
+app.include_router(inference_router)
 
 
 @app.exception_handler(HTTPException)

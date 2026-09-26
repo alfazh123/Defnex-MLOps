@@ -208,7 +208,9 @@ def test_generate_payload_reaches_vllm_completions_endpoint():
 
     output = backend.generate("What is the capital of France?", "m-gen", 3)
 
-    assert output == "Paris."
+    # Issue #228: a `GenerationResult` now, so the `usage` block the OpenAI contract needs
+    # can be filled from vLLM's own numbers instead of being discarded here.
+    assert output.text == "Paris."
     assert len(requests) == 1
     assert requests[0].url == "http://vllm:8000/v1/completions"
     assert requests[0].headers["Authorization"] == "Bearer secret-key"

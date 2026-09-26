@@ -81,8 +81,17 @@ def _map_training_config(config: dict[str, Any], base_model: str) -> dict[str, A
     lr = config.get("learning_rate", 2e-5)
     lr_str = str(lr) if lr is not None else "2e-4"
 
-    # Dataset: hf_dataset or local path
-    hf_dataset = config.get("hf_dataset") or config.get("dataset_path") or ""
+    # Dataset (issue #208): `dataset_local_path` is what the worker resolved from the run's
+    # dataset pin and verified against its checksum. It takes priority over the unpinned
+    # `hf_dataset`/`dataset_path` fields, which stay supported only for runs created before
+    # issue #209 -- this mapper sends whatever the worker handed it, and the worker is the
+    # single place that decides which dataset a run may use.
+    hf_dataset = (
+        config.get("dataset_local_path")
+        or config.get("hf_dataset")
+        or config.get("dataset_path")
+        or ""
+    )
 
     # Training type mapping — always LoRA/QLoRA; the "none" Full Finetuning branch was
     # removed because "none" is rejected at the request schema (issue #34).

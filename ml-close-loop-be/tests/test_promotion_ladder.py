@@ -369,14 +369,23 @@ def test_full_ladder_from_evaluation_through_inference(client, admin_token):
         _pointer(client, admin_token, model_id)["current_deployed_version"] == version
     )
 
-    for target in ("prod", str(version)):
+    # Issue #226: inference moved to the OpenAI-compatible surface. A bare `model` serves the
+    # DEPLOYED version; `model_id:version` pins one explicitly.
+    for ref in (model_id, f"{model_id}:{version}"):
         inference = client.post(
-            f"/api/v1/models/{model_id}/inference",
-            json={"target": target, "prompt": "What is the capital of France?"},
+            "/v1/chat/completions",
+            json={
+                "model": ref,
+                "messages": [
+                    {"role": "user", "content": "What is the capital of France?"}
+                ],
+            },
             headers=h,
         )
         assert inference.status_code == 200, inference.text
         body = inference.json()
-        assert body["model_id"] == model_id
-        assert body["version"] == version
-        assert body["generation"]  # non-empty; exact text is the mock backend's concern
+        assert body["object"] == "chat.completion"
+        assert body["model"] == f"{model_id}:{version}"
+        assert body["choices"][0]["message"][
+            "content"
+        ]  # non-empty; exact text is the mock's

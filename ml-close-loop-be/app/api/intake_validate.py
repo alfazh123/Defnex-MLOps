@@ -110,12 +110,21 @@ def validate_intake(
 
     dataset_service.register_dataset(db, intake_request.dataset_id)
 
+    # Issue #240: a file staged by the HF importer carries its origin (repo id + resolved
+    # commit SHA) in a sidecar written next to the bytes. It is read here rather than taken
+    # from the request, so a client cannot relabel a HuggingFace import as a plain upload --
+    # or vice versa -- and the resolved SHA reaches the columns meant to hold it.
+    provenance = storage.read_provenance(intake_request.staging_id)
+    source_type = provenance.get("source_type") or "file_upload"
+
     version_num = dataset_service._allocate_version(db, intake_request.dataset_id)
     dv = DatasetVersion(
         dataset_id=intake_request.dataset_id,
         version=version_num,
         status="PENDING",
-        source_type="file_upload",
+        source_type=source_type,
+        source_url_or_hf_id=provenance.get("source_url_or_hf_id"),
+        source_commit_or_snapshot_date=provenance.get("source_commit_or_snapshot_date"),
         source_format=intake_request.source_format,
         row_count=len(records),
         created_at=datetime.now(UTC),
@@ -259,6 +268,11 @@ def commit_intake(
             409, "CHECKSUM_MISMATCH", "File checksum changed since validation"
         )
 
+    # Issue #240: read the staged file's provenance BEFORE `commit_file`, which deletes the
+    # staging directory (and the sidecar with it). Read afterwards it always comes back empty
+    # and every HuggingFace import is silently recorded as a plain upload.
+    provenance = storage.read_provenance(intake_request.staging_id)
+
     dataset_service.register_dataset(db, intake_request.dataset_id)
 
     # Update the SAME DatasetVersion row `validate_intake` created (and `vr` is already linked
@@ -277,12 +291,20 @@ def commit_intake(
         )
     version_num = dv.version
 
-    canonical_uri = storage.commit_file(
+    canonical_uri, committed_name, committed_size = storage.commit_file(
         intake_request.staging_id, intake_request.dataset_id, version_num
     )
 
     dv.status = "PROCESSED"
-    dv.source_type = intake_request.source_type
+    # Issue #240: the sidecar recorded with the bytes outranks the request field. A commit
+    # request defaults `source_type` to "file_upload", which would silently relabel every
+    # HuggingFace import; and letting a client pass "huggingface" for a plain upload would
+    # invent a provenance record. The sidecar describes the actual bytes.
+    dv.source_type = provenance.get("source_type") or intake_request.source_type
+    if provenance.get("source_url_or_hf_id"):
+        dv.source_url_or_hf_id = provenance["source_url_or_hf_id"]
+    if provenance.get("source_commit_or_snapshot_date"):
+        dv.source_commit_or_snapshot_date = provenance["source_commit_or_snapshot_date"]
     dv.created_by = _user.username
     dv.canonical_file_uri = canonical_uri
     db.flush()
@@ -290,16 +312,32 @@ def commit_intake(
     manifest = {
         "dataset_id": intake_request.dataset_id,
         "version": version_num,
-        "source_type": intake_request.source_type,
+        "source_type": dv.source_type,
         "source_format": intake_request.source_format,
         "row_count": vr.record_count,
         "checksum_sha256": checksum,
+        # Issue #214: recorded in the manifest as well as on the row, because the row is
+        # only half the record — the other half is the object in storage, and these are what
+        # let a reader of the stored bytes tell which upload they came from.
+        "canonical_file_uri": canonical_uri,
+        "filename": committed_name,
+        "size_bytes": committed_size,
+        "gate_decision": vr.gate_decision,
         "created_at": datetime.now(UTC).isoformat(),
         "created_by": _user.username,
     }
-    storage.write_validation_report(intake_request.dataset_id, version_num, manifest)
-    storage.write_schema(
-        intake_request.dataset_id, version_num, {"schema": "defnex_scenario_v1"}
+    if dv.source_url_or_hf_id:
+        manifest["source_url_or_hf_id"] = dv.source_url_or_hf_id
+    if dv.source_commit_or_snapshot_date:
+        manifest["source_commit_or_snapshot_date"] = dv.source_commit_or_snapshot_date
+    storage.write_sidecar(
+        intake_request.dataset_id, version_num, "validation_report.json", manifest
+    )
+    storage.write_sidecar(
+        intake_request.dataset_id,
+        version_num,
+        "schema.json",
+        {"schema": "defnex_scenario_v1"},
     )
 
     if intake_request.display_name:

@@ -24,10 +24,10 @@ def _training_config_hash(config: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
-def _completed_training_run(db_session, **overrides):
-    dataset_version = dataset_service.create_dataset_version(
+def _dataset_version(db_session, dataset_id: str = "no_robots"):
+    return dataset_service.create_dataset_version(
         db_session,
-        "no_robots",
+        dataset_id,
         DatasetVersionCreateRequest(
             source_type="huggingface",
             source_dataset="HuggingFaceH4/no_robots",
@@ -35,9 +35,15 @@ def _completed_training_run(db_session, **overrides):
             source_format="chatml",
         ),
     )
+
+
+def _completed_training_run(db_session, **overrides):
+    dataset_version = overrides.pop("dataset_version", None) or _dataset_version(
+        db_session
+    )
     defaults = {
-        "dataset_id": "no_robots",
-        "dataset_version": 1,
+        "dataset_id": dataset_version.dataset_id,
+        "dataset_version": dataset_version.version,
         "model_id": "qwen-sft-domain-x",
         "base_model": "Qwen/Qwen3.8-27B",
         "training_config": TrainingConfig(),
@@ -242,12 +248,19 @@ def test_register_copies_git_commit_and_timestamps(db_session, monkeypatch):
 def test_register_stores_deterministic_training_config_hash(db_session):
     """Issue #64: the training config hash is stored on the row, exposed via to_schema,
     and is deterministic — identical configs hash identically, so the §37 lineage chain
-    can point at one config hash."""
+    can point at one config hash.
+
+    "Identical" now includes the dataset pin (issue #209 writes it into `training_config`),
+    so both runs here are built from the *same* dataset version. Building a fresh version
+    per run would make the configs genuinely differ, which is the point below, not a
+    counterexample to it.
+    """
+    dataset_version = _dataset_version(db_session)
     first = model_service.register_model_version(
-        db_session, _completed_training_run(db_session)
+        db_session, _completed_training_run(db_session, dataset_version=dataset_version)
     )
     second = model_service.register_model_version(
-        db_session, _completed_training_run(db_session)
+        db_session, _completed_training_run(db_session, dataset_version=dataset_version)
     )
 
     expected = _training_config_hash(first.training_config)
@@ -263,6 +276,23 @@ def test_register_stores_deterministic_training_config_hash(db_session):
         == expected_16
     )
     assert model_service.to_schema(first).training_config_hash == expected
+
+
+def test_config_hash_discriminates_the_dataset_pin(db_session):
+    """Issue #209: the pin is part of `training_config`, so two runs on different dataset
+    versions hash differently even with identical knobs. That is what makes the config hash
+    usable as a lineage discriminator rather than just a fingerprint of the hyperparameters.
+    """
+    v1 = _completed_training_run(db_session)
+    v2 = _completed_training_run(db_session)
+
+    assert (
+        v1.training_config["dataset_pin"]["dataset_version"]
+        != (v2.training_config["dataset_pin"]["dataset_version"])
+    )
+    first = model_service.register_model_version(db_session, v1)
+    second = model_service.register_model_version(db_session, v2)
+    assert first.training_config_hash != second.training_config_hash
 
 
 def test_register_training_config_hash_is_sensitive_to_config(db_session):

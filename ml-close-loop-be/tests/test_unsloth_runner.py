@@ -65,6 +65,21 @@ def _run_in_dir(db, *, model_id="qwen-sft-domain-x") -> "object":
             source_format="chatml",
         ),
     )
+    # Issue #208: the runner now resolves the run's dataset pin to real bytes before
+    # spawning the trainer, and refuses to run without them. This fixture used to create a
+    # dataset version with no `canonical_file_uri` at all, which under the new rule is
+    # (correctly) untrainable -- so these runner tests would have been exercising the pin
+    # failure path instead of the runner plumbing they are named for. Committing bytes here
+    # keeps them testing the runner *and* exercises pinning for real. `artifact_storage_dir`
+    # is already redirected to tmp_path by the `_artifact_sandbox` fixture.
+    from app.services.artifact_storage import LocalFilesystemArtifactStorage
+
+    store = LocalFilesystemArtifactStorage(settings.artifact_storage_dir)
+    payload = b'{"id": "r1", "messages": [{"role": "user", "content": "hi"}]}\n'
+    dataset_version.canonical_file_uri = store.put_immutable(
+        "datasets/no_robots/v1/train.jsonl", payload
+    )
+    db.flush()
     return training_service.create_training_run(
         db,
         dataset_version,

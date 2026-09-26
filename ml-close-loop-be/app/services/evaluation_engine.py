@@ -99,10 +99,10 @@ def compute_evaluation_update(
             if prompt is None:
                 continue
             try:
-                text = backend.generate(
+                generation = backend.generate(
                     prompt, model_version.model_id, model_version.version
                 )
-                ok = bool(text)
+                ok = bool(generation.text)
             except InferenceError:
                 ok = False
             if ok:

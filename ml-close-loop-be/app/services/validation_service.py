@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.dataset import DatasetVersion as DatasetVersionModel
 from app.models.validation import ValidationReport as ValidationReportModel
 from app.schemas.validation import ValidationReport, ValidationStatusCounts
@@ -14,6 +15,16 @@ from app.services import notification_service
 DEFAULT_RULE_SET_VERSION = "2.2.0"
 
 VALID_ROLES = {"system", "user", "assistant"}
+
+# H0: structural shape guards, checked before H1-H9 (issue #245).
+#
+# Intake can hand the rule set a record that is not a JSON object at all (a `.jsonl` line
+# of `[1, 2]` parses cleanly), or an object whose `messages`/`metadata` fields have the
+# wrong JSON type. The H1-H9 rules all assume `record["messages"]` is a list of objects,
+# so without these guards such a record raised AttributeError/TypeError and turned every
+# malformed upload into an unhandled 500. They are hard errors like the rest of the H* set:
+# a record whose shape is wrong cannot have been meaningfully checked, and reporting it as
+# VALID would be a silent pass over content nobody looked at.
 
 # H5: literal empty-enumeration artifact left over from bad link-stripping,
 # e.g. "yaitu: , , dan ." (validation-rules.md H5).
@@ -49,6 +60,30 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 
+def _shape_errors(record: object) -> list[str]:
+    """H0: JSON-type guards that must hold before any H1-H9 rule can run.
+
+    Returns the shape violations for one record; empty means the H1-H9 rules may run
+    against it. Kept separate from `_hard_errors_for_record` so callers that only need
+    "is this record even shaped like a record?" (the H7/H8 pair extractors) can bail out
+    without duplicating the checks.
+    """
+
+    if not isinstance(record, dict):
+        return ["H0_record_not_object"]
+    errors = []
+    if "messages" in record and not isinstance(record["messages"], list):
+        errors.append("H0_messages_not_a_list")
+    if "metadata" in record and not isinstance(record["metadata"], dict):
+        errors.append("H0_metadata_not_an_object")
+    if not errors:
+        for message in record.get("messages") or []:
+            if not isinstance(message, dict):
+                errors.append("H0_message_not_an_object")
+                break
+    return errors
+
+
 def _pii_warnings_for_record(record: dict) -> list[str]:
     """Scan a record's message content for common PII patterns (issue #132).
 
@@ -57,7 +92,7 @@ def _pii_warnings_for_record(record: dict) -> list[str]:
     emails still contributes one `PII_EMAIL` warning to that record's tally."""
 
     hits: list[str] = []
-    for message in record.get("messages") or []:
+    for message in _iter_message_objects(record):
         content = message.get("content")
         if not isinstance(content, str):
             continue
@@ -67,8 +102,25 @@ def _pii_warnings_for_record(record: dict) -> list[str]:
     return hits
 
 
-def _hard_errors_for_record(record: dict) -> list[str]:
-    """H1-H6, H9: per-record hard-error checks that don't need the full dataset."""
+def _iter_message_objects(record: object):
+    """Yield the record's message dicts, skipping anything that is not one (issue #245)."""
+
+    if not isinstance(record, dict):
+        return
+    messages = record.get("messages")
+    if not isinstance(messages, list):
+        return
+    for message in messages:
+        if isinstance(message, dict):
+            yield message
+
+
+def _hard_errors_for_record(record: object) -> list[str]:
+    """H0, H1-H6, H9: per-record hard-error checks that don't need the full dataset."""
+
+    shape_errors = _shape_errors(record)
+    if shape_errors:
+        return shape_errors
 
     errors = []
     messages = record.get("messages")
@@ -116,12 +168,12 @@ def _hard_errors_for_record(record: dict) -> list[str]:
     return sorted(set(errors))
 
 
-def _normalized_pair(record: dict) -> tuple[str, str] | None:
+def _normalized_pair(record: object) -> tuple[str, str] | None:
     """Normalized (user, assistant) content pair used for H7 duplicate detection."""
 
     user_content = None
     assistant_content = None
-    for message in record.get("messages") or []:
+    for message in _iter_message_objects(record):
         content = message.get("content")
         if not isinstance(content, str):
             return None
@@ -134,8 +186,8 @@ def _normalized_pair(record: dict) -> tuple[str, str] | None:
     return (user_content, assistant_content)
 
 
-def _user_content(record: dict) -> str | None:
-    for message in record.get("messages") or []:
+def _user_content(record: object) -> str | None:
+    for message in _iter_message_objects(record):
         if message.get("role") == "user" and isinstance(message.get("content"), str):
             return message["content"].strip()
     return None
@@ -149,7 +201,7 @@ def validate_dataset_version(
     eval_set_ref: str | None = None,
     rule_set_version: str = DEFAULT_RULE_SET_VERSION,
 ) -> ValidationReportModel:
-    """Run the WBS 2.2 hard-error rule set (H1-H9) against `records` and persist a report.
+    """Run the WBS 2.2 hard-error rule set (H0-H9) against `records` and persist a report.
 
     Scoped to the rules named in this story's acceptance criteria (schema/required-field/
     role-message/malformed-data/duplicate/leakage detection) plus the gate decision - all of
@@ -157,11 +209,21 @@ def validate_dataset_version(
     quality-review rules (Q1-Q4) are deliberately not implemented yet: several of them (W2, W5,
     Q2, Q4) have no concrete threshold or algorithm defined in validation-rules.md, and the doc
     itself (§9) recommends deferring exactly this kind of undefined threshold rather than
-    inventing one. NEEDS_REVIEW stays at zero until a future story adds those rules with real,
-    non-invented thresholds. `warnings_summary` is no longer always empty, though: issue #132
-    adds a PII-screening warning rule (see `_pii_warnings_for_record`) that populates it -- a
-    WARNING, never a hard-error, so a record containing PII stays VALID and the gate decision
-    is unaffected by it.
+    inventing one. That is why `status_counts.NEEDS_REVIEW` stays at zero -- a per-record
+    NEEDS_REVIEW status would require a warning-class threshold, which does not exist yet.
+    `warnings_summary` is not empty, though: issue #132 adds a PII-screening warning rule (see
+    `_pii_warnings_for_record`) that populates it -- a WARNING, never a hard-error, so a record
+    containing PII stays VALID and the gate decision is unaffected by it.
+
+    Note the two review concepts are deliberately different: `status_counts.NEEDS_REVIEW` is a
+    per-record status driven by undefined warning thresholds and is therefore always 0, while
+    `gate_decision == "NEEDS_REVIEW"` is a dataset-level verdict driven by the hard-error ratio
+    (issue #241) and is reachable. The gate policy is documented in
+    docs/dataset/validation-gate-policy.md.
+
+    `records` is typed loosely on purpose (issue #245): intake can surface a parsed value that
+    is not a JSON object, and the report has to be able to echo exactly what was examined while
+    the H0 shape rules report the problem per record.
 
     `eval_records` represents already-known eval-set content (e.g. the curated benchmark set) to
     check leakage (H8) against; `eval_set_ref` is a human-readable label of the stored eval set
@@ -222,7 +284,7 @@ def validate_dataset_version(
     word_counts = [
         len(message["content"].split())
         for record in records
-        for message in record.get("messages") or []
+        for message in _iter_message_objects(record)
         if message.get("role") == "assistant"
         and isinstance(message.get("content"), str)
     ]
@@ -237,14 +299,48 @@ def validate_dataset_version(
         else {}
     )
 
+    # Gate decision (issue #241). The rule set has always computed `per_record_errors` --
+    # and intake has always counted them into the response as `blocking_error_count` -- but
+    # the gate itself was `FAIL` only on leakage, so a file whose every record failed H1
+    # still reported PASS and flowed straight through commit into training. The policy is
+    # now explicit and three-valued; see docs/dataset/validation-gate-policy.md:
+    #
+    #   FAIL          leakage found (H8), regardless of anything else; or the share of
+    #                 records carrying hard errors reaches `validation_gate_fail_ratio`.
+    #   NEEDS_REVIEW  some records fail hard errors, but under the FAIL threshold. The
+    #                 dataset may be committed, but training is refused until a
+    #                 re-validation of a clean version passes.
+    #   PASS          no record carries a hard error.
+    #
+    # The thresholds are settings, not literals, because this is a data-governance call:
+    # the right ratio is a property of the datasets being ingested, not of the code.
     leakage_found = leakage_overlaps > 0
-    gate_decision = "FAIL" if leakage_found else "PASS"
-    gate_reason = (
-        "Leakage found between dataset records and the eval set - blocked regardless of other rates."
-        if leakage_found
-        else "No leakage found. Hard-error/NEEDS_REVIEW rate thresholds are not yet defined "
-        "(validation-rules.md §9), so the gate stays permissive on those counts for now."
-    )
+    invalid_ratio = (invalid_count / len(records)) if records else 0.0
+    fail_ratio = settings.validation_gate_fail_ratio
+    if leakage_found:
+        gate_decision = "FAIL"
+        gate_reason = (
+            "Leakage found between dataset records and the eval set - blocked regardless "
+            f"of other rates ({leakage_overlaps} overlapping record(s))."
+        )
+    elif invalid_count and invalid_ratio >= fail_ratio:
+        gate_decision = "FAIL"
+        gate_reason = (
+            f"{invalid_count} of {len(records)} records ({invalid_ratio:.1%}) carry at "
+            f"least one hard error, at or above the {fail_ratio:.1%} FAIL threshold. "
+            "Fix the source data and re-validate."
+        )
+    elif invalid_count:
+        gate_decision = "NEEDS_REVIEW"
+        gate_reason = (
+            f"{invalid_count} of {len(records)} records ({invalid_ratio:.1%}) carry at "
+            f"least one hard error, below the {fail_ratio:.1%} FAIL threshold. The "
+            "dataset may be committed for inspection, but training is refused until a "
+            "re-validated version reaches PASS."
+        )
+    else:
+        gate_decision = "PASS"
+        gate_reason = "No hard errors (H0-H9) and no leakage detected."
 
     report = ValidationReportModel(
         dataset_version_id=dataset_version.id,
@@ -264,6 +360,12 @@ def validate_dataset_version(
         dataset_statistics={
             "length_distribution_words": length_distribution_words,
             "duplicate_count": duplicate_count,
+            "hard_error_gate": {
+                "records_with_hard_errors": invalid_count,
+                "hard_error_ratio": round(invalid_ratio, 4),
+                "fail_ratio_threshold": fail_ratio,
+                "leakage_overlaps": leakage_overlaps,
+            },
             "leakage_check": {
                 "checked_against": [
                     eval_set_ref or ("eval/benchmark" if eval_records else "")

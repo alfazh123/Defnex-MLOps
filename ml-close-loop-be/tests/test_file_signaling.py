@@ -15,6 +15,8 @@ Covers:
 """
 
 import json
+import os
+import sys
 import time
 import threading
 from pathlib import Path
@@ -32,6 +34,50 @@ from app.workers.gpu_orchestrator import (
     RealServingCoordinator,
     make_coordinator,
     serving_cycle,
+)
+
+# ---------------------------------------------------------------------------
+# gpu_controller: a HOST-side artifact, not a module in this repo
+# ---------------------------------------------------------------------------
+# `gpu_controller` is the daemon script that runs on the experiment VM and answers the
+# file-signal requests this backend writes (issue #163). It is deliberately not vendored here:
+# it is deployed per host, and its own path is host-specific. The tests that exercise it are
+# therefore INTEGRATION tests against that script, not unit tests of this codebase.
+#
+# They used to `import gpu_controller` inline and blow up with ModuleNotFoundError on any
+# machine without the host artifact -- 27 red tests that said nothing about this repo's code,
+# and had trained everyone to ignore the whole file. They now skip, with a reason, via
+# `requires_gpu_controller` on the six classes below. The same pattern this repo already uses
+# for its other optional dependencies (tests/test_artifact_storage_minio_integration.py, the
+# telemetry tests).
+#
+# Skipping is per-class on purpose: a module-level `importorskip` would take the ~40 tests that
+# DO cover this repo's own `gpu_orchestrator.py` down with it, trading 27 false failures for a
+# real loss of coverage.
+#
+# Point DEFNEX_GPU_CONTROLLER_PATH at the deployed script to run them.
+GPU_CONTROLLER_PATH = os.environ.get(
+    "DEFNEX_GPU_CONTROLLER_PATH",
+    "/home/ubuntu/defnex-mlops-experiment/gpu_controller",
+)
+if GPU_CONTROLLER_PATH not in sys.path:
+    sys.path.insert(0, GPU_CONTROLLER_PATH)
+
+try:  # noqa: SIM105 - the reason string is the whole point of doing this explicitly
+    import gpu_controller as _gpu_controller  # noqa: F401
+except ImportError:
+    _GPU_CONTROLLER_AVAILABLE = False
+    _GPU_CONTROLLER_SKIP_REASON = (
+        "gpu_controller is a host-side script deployed per host, not a module in this repo "
+        "(issue #163). Set DEFNEX_GPU_CONTROLLER_PATH to run these integration tests."
+    )
+else:
+    _GPU_CONTROLLER_AVAILABLE = True
+    _GPU_CONTROLLER_SKIP_REASON = ""
+
+requires_gpu_controller = pytest.mark.skipif(
+    not _GPU_CONTROLLER_AVAILABLE,
+    reason=_GPU_CONTROLLER_SKIP_REASON,
 )
 
 
@@ -181,6 +227,7 @@ class TestAtomicWrites:
 # ---------------------------------------------------------------------------
 # Invalid action rejection
 # ---------------------------------------------------------------------------
+@requires_gpu_controller
 class TestInvalidActionRejection:
     def test_validate_request_rejects_invalid_action(self):
         """validate_request rejects actions not in the allowed set."""
@@ -261,6 +308,7 @@ class TestInvalidActionRejection:
 # ---------------------------------------------------------------------------
 # No arbitrary command injection
 # ---------------------------------------------------------------------------
+@requires_gpu_controller
 class TestCommandInjection:
     def test_validate_request_rejects_shell_injection(self):
         """validate_request rejects actions that could inject shell commands."""
@@ -485,6 +533,7 @@ class TestTimeoutHandling:
 # ---------------------------------------------------------------------------
 # Watchdog recovery
 # ---------------------------------------------------------------------------
+@requires_gpu_controller
 class TestWatchdogRecovery:
     def test_active_operation_persisted(self, tmp_path):
         """write_active_operation persists to active.json."""
@@ -719,6 +768,7 @@ def _import_gpu_controller():
     return gpu_controller
 
 
+@requires_gpu_controller
 class TestWatchdogPersistence:
     """Verify that active.json uses absolute wall-clock timestamps (time.time()),
     not monotonic time, so persisted state survives controller restarts."""
@@ -917,6 +967,7 @@ class TestWatchdogPersistence:
 # ---------------------------------------------------------------------------
 # Health timeout semantics (Phase 2A live test fix)
 # ---------------------------------------------------------------------------
+@requires_gpu_controller
 class TestHealthTimeoutSemantics:
     """Tests for configurable health timeout and active-operation lifecycle
     after health check timeout in handle_start_serving().
@@ -1173,6 +1224,7 @@ class TestHealthTimeoutSemantics:
 # ---------------------------------------------------------------------------
 # Health timeout configuration
 # ---------------------------------------------------------------------------
+@requires_gpu_controller
 class TestHealthTimeoutConfig:
     """Tests for GPU_CONTROLLER_HEALTH_TIMEOUT environment variable."""
 

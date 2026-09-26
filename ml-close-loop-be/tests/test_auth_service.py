@@ -15,6 +15,43 @@ def test_verify_password_rejects_wrong_password(db_session):
     assert auth_service.verify_password("Wrong456", hashed) is False
 
 
+def test_work_factor_matches_what_passlib_wrote(db_session):
+    """Existing `hashed_password` rows were written by passlib's CryptContext at 12 rounds.
+    New hashes must use the same cost so deployed credentials keep verifying and no user's
+    hash silently becomes cheaper to crack than it was."""
+    hashed = auth_service.hash_password("Secret123")
+    assert hashed.startswith(f"$2b${auth_service.BCRYPT_ROUNDS}$")
+    assert auth_service.BCRYPT_ROUNDS == 12
+
+
+def test_password_longer_than_the_bcrypt_limit_is_accepted(db_session):
+    """bcrypt only consumes 72 bytes. The input that triggered the whole CI failure was
+    longer than that, and passlib raised `ValueError: password cannot be longer than 72
+    bytes` out of its own import-time self-test -- taking every auth endpoint down with it.
+    Now it truncates, which is what bcrypt has always done with those bytes."""
+    long_password = "x" * 200
+    hashed = auth_service.hash_password(long_password)
+    assert auth_service.verify_password(long_password, hashed) is True
+    # Truncation is the documented bcrypt behaviour, so the first 72 bytes verify...
+    assert auth_service.verify_password("x" * 72, hashed) is True
+    # ...and a different long password does not.
+    assert auth_service.verify_password("y" * 200, hashed) is False
+
+
+def test_multibyte_password_is_measured_in_bytes_not_characters(db_session):
+    """72 is a BYTE limit. A 30-character CJK password is ~90 bytes, so a character-based
+    check would let it through and bcrypt would still raise."""
+    multibyte = "密" * 30  # 3 bytes each = 90 bytes
+    hashed = auth_service.hash_password(multibyte)
+    assert auth_service.verify_password(multibyte, hashed) is True
+
+
+def test_verify_password_returns_false_for_a_corrupt_hash(db_session):
+    """A malformed `hashed_password` row means "this login fails", not "the endpoint 500s"."""
+    assert auth_service.verify_password("Secret123", "not-a-bcrypt-hash") is False
+    assert auth_service.verify_password("Secret123", "") is False
+
+
 def test_create_access_token_has_exp_and_type(db_session):
     token = auth_service.create_access_token({"sub": "1", "role": "user"})
     payload = auth_service.decode_token(token)

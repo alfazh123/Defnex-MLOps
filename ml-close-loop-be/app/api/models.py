@@ -22,7 +22,7 @@ from app.schemas.model import (
     ModelRegistryRecord,
     ModelSummary,
 )
-from app.services import model_service
+from app.services import lineage_service, model_service
 
 router = APIRouter(tags=["Models"])
 
@@ -79,6 +79,34 @@ def list_model_versions(
         size=pg.size,
         pages=PaginationParams.pages_from(total, pg.size),
     )
+
+
+@router.get(
+    "/models/{model_id}/versions/{version}/lineage",
+    responses={404: {"model": ErrorResponse}},
+)
+def get_model_version_lineage(
+    model_id: str,
+    version: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Everything needed to answer "where did this artifact come from?" in one call.
+
+    Issue #236, from the meeting's fourth agenda item: which training, when, which dataset,
+    what metadata, what config. All of it existed, but across five tables plus a sidecar, so a
+    caller had to join them by hand — and the dataset's checksum and validation-report
+    reference were not reachable at all (issue #237 writes the report ref).
+
+    Unresolvable pieces come back in `gaps[]` with a reason, so "we do not know this" is
+    distinguishable from "this is null". Deliberately not a pydantic response model: a fixed
+    schema here would have to either drop the gap detail or invent empty fields for answers
+    that do not exist, and this record's whole value is being honest about what is missing.
+    """
+    try:
+        return lineage_service.build_lineage(db, model_id, version)
+    except lineage_service.LineageError as exc:
+        raise APIError(404, "MODEL_VERSION_NOT_FOUND", str(exc)) from exc
 
 
 @router.get(

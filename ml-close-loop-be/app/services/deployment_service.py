@@ -427,13 +427,13 @@ def _run_smoke_test(backend: ServingBackend, model_version: ModelVersion) -> Non
             f"smoke test failed for model_id {model_id!r} version {version}: "
             f"generation error: {exc}"
         ) from exc
-    if len(output) < settings.inference_smoke_min_chars:
+    if len(output.text) < settings.inference_smoke_min_chars:
         logger.warning(
             "smoke_test_failed",
             model_id=model_id,
             version=version,
             reason="output_too_short",
-            output_chars=len(output),
+            output_chars=len(output.text),
             min_chars=settings.inference_smoke_min_chars,
         )
         _unload_after_smoke_failure(backend, model_id, version)
@@ -442,20 +442,20 @@ def _run_smoke_test(backend: ServingBackend, model_version: ModelVersion) -> Non
         alert_deploy_failed(
             version=str(version),
             error=(
-                f"smoke test output too short: {len(output)} chars "
+                f"smoke test output too short: {len(output.text)} chars "
                 f"(min {settings.inference_smoke_min_chars})"
             ),
         )
         raise SmokeTestError(
             f"smoke test failed for model_id {model_id!r} version {version}: "
-            f"generated {len(output)} chars, below the configured minimum "
+            f"generated {len(output.text)} chars, below the configured minimum "
             f"{settings.inference_smoke_min_chars}"
         )
     logger.info(
         "smoke_test_passed",
         model_id=model_id,
         version=version,
-        output_chars=len(output),
+        output_chars=len(output.text),
     )
 
 

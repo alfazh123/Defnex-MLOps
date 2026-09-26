@@ -125,7 +125,7 @@ def test_smoke_too_short_aborts_and_alias_stays_on_old_version(db_session, monke
     generation = MockServingBackend().generate(
         "What is the capital of France?", resolved.model_id, resolved.version
     )
-    assert generation == (
+    assert generation.text == (
         f"mock generation for {resolved.model_id}-v{resolved.version}"
     )
     assert resolved.version == v1.version

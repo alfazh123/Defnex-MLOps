@@ -12,7 +12,10 @@ Static API spec: [`openapi.yaml`](openapi.yaml) · Live docs: `http://localhost:
 ## Features
 
 - JWT authentication with admin/user RBAC (first user auto-becomes admin)
-- 56 REST endpoints under `/api/v1/` (see [openapi.yaml](openapi.yaml))
+- 59 REST endpoints (see [openapi.yaml](openapi.yaml)) — 57 under `/api/v1/`, plus the
+  OpenAI-compatible surface at the root: `POST /v1/chat/completions` and `GET /v1/models`
+  (issue #226; those two are mounted at the root, not under `/api/v1`, so a standard OpenAI
+  client can be pointed at this backend unchanged)
 - Pagination (`?page=&size=`) on list endpoints
 - Query filtering (`?status=&search=&model=`)
 - Versioned golden/eval sets (`POST /eval-sets/{id}/versions`, admin-only) kept

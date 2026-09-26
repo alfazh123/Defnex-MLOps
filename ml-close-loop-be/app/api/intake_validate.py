@@ -18,6 +18,7 @@ from app.models.user import User
 from app.models.validation import ValidationReport
 from app.schemas.common import ErrorResponse
 from app.services import dataset_service, idempotency_service, validation_service
+from app.services import dataset_parsing
 from app.services.dataset_storage import DatasetStorage
 
 router = APIRouter(tags=["Dataset Intake"])
@@ -65,9 +66,35 @@ def validate_intake(
             404, "STAGING_NOT_FOUND", f"Staging {intake_request.staging_id} not found"
         )
 
-    records = storage.read_records(
-        staged_path, source_format=intake_request.source_format
-    )
+    # Issue #245: the declared `source_format` was previously never checked against the file
+    # actually staged. A CSV validated with the default `source_format="jsonl"` fell through
+    # to the JSONL parser and died as an unhandled `json.JSONDecodeError` -> 500. Reject the
+    # mismatch by name so the client can fix its request in one round trip.
+    detected_format = dataset_parsing.format_from_filename(staged_path.name)
+    if detected_format is not None and detected_format != intake_request.source_format:
+        raise APIError(
+            400,
+            "FORMAT_MISMATCH",
+            f"source_format {intake_request.source_format!r} does not match the staged file "
+            f"{staged_path.name!r}, which is {detected_format!r}. Re-run the request with "
+            f'source_format="{detected_format}".',
+        )
+    if detected_format is None:
+        raise APIError(
+            400,
+            "UNSUPPORTED_FORMAT",
+            f"Staged file {staged_path.name!r} does not have a readable dataset extension. "
+            f"Readable: {', '.join(dataset_parsing.SUPPORTED_FORMATS)}.",
+        )
+
+    # Every malformed-input path in here is a DatasetParseError carrying the wire code and
+    # status, so a broken upload answers 4xx with a diagnosis instead of a 500 traceback.
+    try:
+        records = storage.read_records(
+            staged_path, source_format=intake_request.source_format
+        )
+    except dataset_parsing.DatasetParseError as exc:
+        raise APIError(exc.http_status, exc.code, exc.message) from exc
     if not records:
         raise APIError(400, "EMPTY_DATASET", "No records found in staged file")
 
@@ -108,27 +135,58 @@ def validate_intake(
     report.content_hash = checksum
     db.commit()
 
-    blocking_errors = sum(
-        1
-        for errs in (report.per_record_errors or [])
-        for e in errs
-        if isinstance(e, dict) and e.get("severity") == "error"
+    # Issue #241: `blocking_errors` was counted as
+    # `sum(1 for e in errs if isinstance(e, dict) and e.get("severity") == "error")`, but
+    # `per_record_errors` holds lists of rule-code *strings* (H1_missing_required_field, ...),
+    # never dicts -- so the count was structurally always 0. The response therefore reported
+    # `valid_records == total_records` and `blocking_error_count: 0` for a dataset in which
+    # every record failed validation. The report's own `status_counts.INVALID` is the number
+    # the service already computed correctly, so read it from there.
+    status_counts = (
+        report.status_counts if isinstance(report.status_counts, dict) else {}
     )
+    blocking_errors = int(status_counts.get("INVALID", 0) or 0)
+    statistics = (
+        report.dataset_statistics if isinstance(report.dataset_statistics, dict) else {}
+    )
+    duplicate_count = int(statistics.get("duplicate_count", 0) or 0)
+    leakage_check = statistics.get("leakage_check") or {}
+    leakage_overlaps = int(leakage_check.get("overlaps_found", 0) or 0)
+
     warnings = 0
     if isinstance(report.warnings_summary, dict):
         warnings = report.warnings_summary.get("total_warnings", 0)
 
+    # Issue #241: the `leakage` check used to report FAIL/ purely from the gate decision,
+    # so a dataset that failed only on hard errors showed "leakage: FAIL" with no leakage
+    # present. Each check now states what it actually checked, and the dataset-level
+    # verdict is its own entry so a client can render NEEDS_REVIEW without re-deriving it.
     checks = [
         {"name": "parse", "status": "PASS", "message": ""},
         {"name": "schema_compliance", "status": "PASS", "message": ""},
         {"name": "required_fields", "status": "PASS", "message": ""},
-        {"name": "duplicate_ids", "status": "PASS", "message": ""},
+        {
+            "name": "duplicate_ids",
+            "status": "FAIL" if duplicate_count else "PASS",
+            "message": f"{duplicate_count} duplicate record(s)"
+            if duplicate_count
+            else "",
+        },
         {
             "name": "leakage",
-            "status": "PASS" if report.gate_decision == "PASS" else "FAIL",
-            "message": report.gate_reason or "",
+            "status": "FAIL" if leakage_overlaps else "PASS",
+            "message": (
+                f"{leakage_overlaps} record(s) overlap the eval set"
+                if leakage_overlaps
+                else ""
+            ),
         },
         {"name": "checksum", "status": "PASS", "message": f"sha256:{checksum}"},
+        {
+            "name": "gate",
+            "status": report.gate_decision,
+            "message": report.gate_reason or "",
+        },
     ]
 
     return {
@@ -189,6 +247,11 @@ def commit_intake(
         )
     if vr.gate_decision == "FAIL":
         raise APIError(409, "VALIDATION_FAILED", "Cannot commit: validation gate FAIL")
+    # Issue #241: NEEDS_REVIEW is deliberately committable. The bytes are on disk and the
+    # report says exactly what is wrong with them, so keeping the version in the registry
+    # (marked PROCESSED, with the gate on its validation report) is what lets a human
+    # inspect and fix it. What NEEDS_REVIEW blocks is *training* -- see
+    # `app/api/training.py`, which refuses any gate that is not PASS.
 
     checksum = storage.compute_checksum(staged_path)
     if vr.content_hash and checksum != vr.content_hash:

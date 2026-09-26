@@ -85,6 +85,12 @@ def dataset_version_key(dataset_id: str, version: int, filename: str) -> str:
 
 
 class DatasetStorage:
+    # Internal sidecar holding where a staged file came from (issue #240). Underscore-prefixed
+    # so it is never mistaken for the payload: `resolve_staged` and `commit_file` both skip
+    # underscore-prefixed entries, which is what keeps "the staged dataset" unambiguous now
+    # that a staging directory can hold more than one file.
+    PROVENANCE_FILENAME = "_provenance.json"
+
     def __init__(
         self,
         base_dir: str | Path | None = None,
@@ -98,9 +104,20 @@ class DatasetStorage:
         # importing this module never constructs a boto3 client.
         self._store = store if store is not None else get_artifact_storage()
 
+    def _payload_files(self, staging_dir: Path) -> list[Path]:
+        """The staged dataset file(s), excluding internal sidecars."""
+
+        return sorted(
+            p
+            for p in staging_dir.iterdir()
+            if p.is_file() and not p.name.startswith("_")
+        )
+
     # --- staging (local, transient) ------------------------------------------------
 
-    def stage_upload(self, filename: str, content: bytes) -> dict:
+    def stage_upload(
+        self, filename: str, content: bytes, provenance: dict | None = None
+    ) -> dict:
         staging_id = uuid.uuid4().hex
         staging_dir = self._staging / staging_id
         staging_dir.mkdir(parents=True, exist_ok=True)
@@ -117,6 +134,13 @@ class DatasetStorage:
                 f"Refusing to stage {filename!r}: resolved path escapes {resolved_dir}"
             )
         dest.write_bytes(content)
+        if provenance:
+            # Provenance travels with the bytes it describes rather than being re-sent as
+            # request fields on `validate`, so a client cannot claim a different origin for
+            # a given file than the one recorded when it was staged.
+            (staging_dir / self.PROVENANCE_FILENAME).write_text(
+                json.dumps(provenance, indent=2, default=str)
+            )
         return {
             "staging_id": staging_id,
             "path": str(dest),
@@ -124,11 +148,27 @@ class DatasetStorage:
             "size_bytes": len(content),
         }
 
+    def read_provenance(self, staging_id: str) -> dict:
+        """Where a staged file came from, or {} for a plain upload.
+
+        A missing or unreadable sidecar is not an error: a file staged before issue #240 has
+        none, and its origin is simply "an upload".
+        """
+
+        path = self._staging / staging_id / self.PROVENANCE_FILENAME
+        if not path.is_file():
+            return {}
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
     def resolve_staged(self, staging_id: str) -> Path | None:
         d = self._staging / staging_id
         if not d.is_dir():
             return None
-        files = [f for f in d.iterdir() if f.is_file()]
+        files = self._payload_files(d)
         return files[0] if files else None
 
     def read_records(self, path: Path, source_format: str = "jsonl") -> list:
@@ -171,9 +211,7 @@ class DatasetStorage:
         """
 
         src_dir = self._staging / staging_id
-        files = (
-            [f for f in src_dir.iterdir() if f.is_file()] if src_dir.is_dir() else []
-        )
+        files = self._payload_files(src_dir) if src_dir.is_dir() else []
         if not files:
             raise FileNotFoundError(f"No files in staging {staging_id}")
         # `f.name` comes from a directory listing, never from client input, so it is a

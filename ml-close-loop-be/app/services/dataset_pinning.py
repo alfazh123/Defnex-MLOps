@@ -82,9 +82,7 @@ class DatasetPin:
         """
 
         missing = [
-            k
-            for k in ("dataset_id", "dataset_version")
-            if payload.get(k) in (None, "")
+            k for k in ("dataset_id", "dataset_version") if payload.get(k) in (None, "")
         ]
         if missing:
             raise DatasetPinError(

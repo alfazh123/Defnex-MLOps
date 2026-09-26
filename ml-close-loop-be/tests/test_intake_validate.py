@@ -122,6 +122,10 @@ class _FakeStorage:
     ) -> str:
         return ""
 
+    def read_provenance(self, staging_id: str) -> dict:
+        """Issue #240: a plain upload carries no origin sidecar."""
+        return {}
+
 
 @pytest.fixture
 def fake_storage(tmp_path):

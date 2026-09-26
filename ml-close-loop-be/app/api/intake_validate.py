@@ -277,7 +277,7 @@ def commit_intake(
         )
     version_num = dv.version
 
-    canonical_uri = storage.commit_file(
+    canonical_uri, committed_name, committed_size = storage.commit_file(
         intake_request.staging_id, intake_request.dataset_id, version_num
     )
 
@@ -294,12 +294,24 @@ def commit_intake(
         "source_format": intake_request.source_format,
         "row_count": vr.record_count,
         "checksum_sha256": checksum,
+        # Issue #214: recorded in the manifest as well as on the row, because the row is
+        # only half the record — the other half is the object in storage, and these are what
+        # let a reader of the stored bytes tell which upload they came from.
+        "canonical_file_uri": canonical_uri,
+        "filename": committed_name,
+        "size_bytes": committed_size,
+        "gate_decision": vr.gate_decision,
         "created_at": datetime.now(UTC).isoformat(),
         "created_by": _user.username,
     }
-    storage.write_validation_report(intake_request.dataset_id, version_num, manifest)
-    storage.write_schema(
-        intake_request.dataset_id, version_num, {"schema": "defnex_scenario_v1"}
+    storage.write_sidecar(
+        intake_request.dataset_id, version_num, "validation_report.json", manifest
+    )
+    storage.write_sidecar(
+        intake_request.dataset_id,
+        version_num,
+        "schema.json",
+        {"schema": "defnex_scenario_v1"},
     )
 
     if intake_request.display_name:

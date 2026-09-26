@@ -33,6 +33,49 @@ class ArtifactStorage(Protocol):
         """Return True if the artifact at `uri` passes its recorded checksum."""
         ...
 
+    # --- Object access (issue #214, PRD §13.1/§13.2) -------------------------------
+    #
+    # These four exist because dataset bytes must live in the *same* object storage as model
+    # artifacts. PRD §22 is explicit about why: "Object storage holds immutable
+    # datasets/artifacts so model bytes are not tied to a particular compute machine." With
+    # dataset bytes on local disk only, a remote training provider (gpu_vps / colab) has no
+    # way to read the dataset it was asked to train on.
+    #
+    # They are deliberately generic (key in, URI out) rather than dataset-shaped: the
+    # dataset key layout belongs to `DatasetStorage`, not to the storage backend, and a
+    # presigned-URL path (issue #254) will reuse these same methods.
+
+    def put_immutable(self, key: str, data: bytes) -> str:
+        """Store `data` at `key` and return its URI, refusing to overwrite an existing key.
+
+        Immutable because both callers write once: a model artifact version is immutable
+        (issue #38) and a dataset version is immutable (`uq_dataset_version`).
+
+        Raises:
+            ArtifactExistsError: `key` already holds an object.
+        """
+        ...
+
+    def get_bytes(self, uri: str) -> bytes:
+        """Read the object at `uri` fully into memory.
+
+        Only for objects known to be small enough to hold in memory (dataset files, sidecar
+        metadata). Streaming to a file is `download_to`.
+        """
+        ...
+
+    def download_to(self, uri: str, dest: Path) -> Path:
+        """Copy the object at `uri` to local path `dest` and return `dest`.
+
+        This is how a training worker gets a local file to hand to the trainer subprocess:
+        the pin may be `s3://` even though `run_training.py` can only read a local path.
+        """
+        ...
+
+    def exists(self, uri: str) -> bool:
+        """Return True if `uri` names an existing object."""
+        ...
+
 
 def compute_checksum_from_bytes(entries: list[tuple[str, bytes]]) -> str:
     """Deterministic SHA-256 over a list of (relative_path, data) pairs.
@@ -161,6 +204,39 @@ class LocalFilesystemArtifactStorage:
             return {}
         return json.loads(meta_path.read_text())
 
+    # --- Object access (issue #214) -------------------------------------------------
+
+    def put_immutable(self, key: str, data: bytes) -> str:
+        path = self._base_dir / key
+        if path.exists():
+            raise ArtifactExistsError(
+                f"Refusing to overwrite existing immutable object at {path}"
+            )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return f"file://{path}"
+
+    def get_bytes(self, uri: str) -> bytes:
+        path = _uri_to_path(uri)
+        if not path.is_file():
+            raise FileNotFoundError(f"No stored object at {uri}")
+        return path.read_bytes()
+
+    def download_to(self, uri: str, dest: Path) -> Path:
+        """For the local backend the object is already on this filesystem.
+
+        The copy is still made (rather than handing back the stored path) so callers get the
+        same guarantee in both backends: `dest` is a private file they may move or delete
+        without touching the immutable stored copy.
+        """
+        data = self.get_bytes(uri)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+        return dest
+
+    def exists(self, uri: str) -> bool:
+        return _uri_to_path(uri).is_file()
+
     def verify_checksum(self, uri: str) -> bool:
         """Recompute the SHA-256 of the artifact payload and compare against the checksum
         recorded in metadata.json at finalize time (issue #62). Returns False only when the
@@ -272,6 +348,62 @@ class MinioArtifactStorage:
             return json.loads(resp["Body"].read())
         except client.exceptions.NoSuchKey:
             return {}
+
+    # --- Object access (issue #214) -------------------------------------------------
+
+    def put_immutable(self, key: str, data: bytes) -> str:
+        client = self._client()
+        self._ensure_bucket(client)
+        if self._head(client, self._bucket, key) is not None:
+            raise ArtifactExistsError(
+                f"Refusing to overwrite existing immutable object at "
+                f"s3://{self._bucket}/{key}"
+            )
+        client.put_object(Bucket=self._bucket, Key=key, Body=data)
+        return f"s3://{self._bucket}/{key}"
+
+    def get_bytes(self, uri: str) -> bytes:
+        client = self._client()
+        bucket, key = _uri_to_s3(uri)
+        try:
+            return client.get_object(Bucket=bucket, Key=key)["Body"].read()
+        except client.exceptions.NoSuchKey as exc:
+            raise FileNotFoundError(f"No stored object at {uri}") from exc
+
+    def download_to(self, uri: str, dest: Path) -> Path:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        # Downloaded via the streaming body and written in chunks: a dataset file can be
+        # 100 MB (settings.max_upload_file_size), and `get_bytes` would hold two copies
+        # (the S3 buffer and the file) at once.
+        client = self._client()
+        bucket, key = _uri_to_s3(uri)
+        try:
+            body = client.get_object(Bucket=bucket, Key=key)["Body"]
+        except client.exceptions.NoSuchKey as exc:
+            raise FileNotFoundError(f"No stored object at {uri}") from exc
+        with body as stream, dest.open("wb") as fh:
+            for chunk in stream.iter_chunks(chunk_size=1024 * 1024):
+                if chunk:
+                    fh.write(chunk)
+        return dest
+
+    def exists(self, uri: str) -> bool:
+        client = self._client()
+        bucket, key = _uri_to_s3(uri)
+        return self._head(client, bucket, key) is not None
+
+    @staticmethod
+    def _head(client, bucket: str, key: str):
+        """Return the object metadata dict, or None when the key is absent."""
+        try:
+            return client.head_object(Bucket=bucket, Key=key)
+        except client.exceptions.ClientError as exc:
+            # botocore surfaces a missing key as a generic ClientError with a 404 code;
+            # a missing *bucket* raises NoSuchBucket, which is a real error and must not be
+            # silently read as "object absent".
+            if exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+                return None
+            raise
 
     def verify_checksum(self, uri: str) -> bool:
         """Recompute the SHA-256 of the artifact payload and compare against the checksum

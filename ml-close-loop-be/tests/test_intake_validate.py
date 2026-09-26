@@ -101,7 +101,11 @@ class _FakeStorage:
 
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    def commit_file(self, staging_id: str, dataset_id: str, version: int) -> str:
+    def commit_file(
+        self, staging_id: str, dataset_id: str, version: int
+    ) -> tuple[str, str, int]:
+        """Issue #214: the real DatasetStorage promotes staged bytes into object storage and
+        returns `(uri, filename, size_bytes)`."""
         src = self._files.pop(staging_id, None)
         if src is None:
             raise FileNotFoundError(f"staging {staging_id} not found")
@@ -111,13 +115,12 @@ class _FakeStorage:
         import shutil
 
         shutil.move(str(src), str(dest))
-        return str(dest)
+        return f"file://{dest}", src.name, dest.stat().st_size
 
-    def write_validation_report(self, dataset_id: str, version: int, report_dict: dict):
-        pass
-
-    def write_schema(self, dataset_id: str, version: int, schema_dict: dict):
-        pass
+    def write_sidecar(
+        self, dataset_id: str, version: int, name: str, payload: dict
+    ) -> str:
+        return ""
 
 
 @pytest.fixture

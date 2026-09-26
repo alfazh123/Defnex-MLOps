@@ -19,6 +19,7 @@ import pytest
 
 from tests.conftest import auth_header
 
+from app.services.artifact_storage import LocalFilesystemArtifactStorage
 from app.services.dataset_storage import (
     DatasetStorage,
     UnsafeFilenameError,
@@ -35,13 +36,18 @@ ANSWER = (
 
 @pytest.fixture(autouse=True)
 def storage(tmp_path, monkeypatch):
-    """Point both intake routers' DatasetStorage at this test's tmp dir.
+    """Point both intake routers' DatasetStorage — and the object store behind it — at tmp.
 
-    Autouse and defined once: every test in this file uploads, and patching the two router
-    modules individually is the kind of duplication that lets a test quietly exercise the
-    real `data/datasets` directory instead.
+    Issue #214 moved committed dataset bytes into `ArtifactStorage`, whose local backend
+    defaults to the repo's real `data/artifacts`. Injecting a tmp-rooted store is what keeps
+    these tests from writing into the working tree. Autouse and defined once: every test in
+    this file uploads, and patching the two router modules individually is the kind of
+    duplication that lets a test quietly exercise real directories.
     """
-    store = DatasetStorage(tmp_path / "datasets")
+    store = DatasetStorage(
+        tmp_path / "datasets",
+        store=LocalFilesystemArtifactStorage(tmp_path / "artifacts"),
+    )
     monkeypatch.setattr("app.api.intake.DatasetStorage", lambda: store)
     monkeypatch.setattr("app.api.intake_validate.DatasetStorage", lambda: store)
     return store
@@ -767,14 +773,28 @@ class TestFilenameSanitization:
         assert resp.status_code == 200
         assert resp.json()["filename"] == "train.jsonl"
 
-    def test_commit_destination_stays_inside_the_version_dir(self, tmp_path):
+    def test_commit_destination_stays_inside_the_version_prefix(self, tmp_path):
         """`commit_file` takes its name from a directory listing, never from client input --
-        asserted so a future refactor cannot reintroduce the traversal there."""
-        store = DatasetStorage(tmp_path)
+        asserted so a future refactor cannot reintroduce the traversal there.
+
+        Since issue #214 the destination is an object key, not a path, so the property to
+        assert is that the key stays under `datasets/{id}/v{N}/` with a single filename
+        component.
+        """
+        store = DatasetStorage(
+            tmp_path / "datasets",
+            store=LocalFilesystemArtifactStorage(tmp_path / "artifacts"),
+        )
         store.stage_upload("../../evil.jsonl", b'{"a":1}\n')
         staging_id = next(
-            p.name for p in (tmp_path / "_staging").iterdir() if p.is_dir()
+            p.name for p in (tmp_path / "datasets" / "_staging").iterdir() if p.is_dir()
         )
-        committed = Path(store.commit_file(staging_id, "ds-1", 1))
-        assert committed.parent == (tmp_path / "ds-1" / "v1").resolve()
-        assert committed.name == "evil.jsonl"
+        uri, filename, size = store.commit_file(staging_id, "ds-1", 1)
+        assert filename == "evil.jsonl"
+        assert size == len(b'{"a":1}\n')
+        assert uri == f"file://{tmp_path / 'artifacts' / 'datasets/ds-1/v1/evil.jsonl'}"
+        # The stored object really is where the URI says, and it is a single component.
+        stored = Path(uri.removeprefix("file://"))
+        assert stored.is_file()
+        assert stored.name == "evil.jsonl"
+        assert ".." not in uri

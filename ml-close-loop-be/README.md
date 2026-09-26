@@ -167,10 +167,9 @@ it.
 ## Tests & Quality
 
 ```bash
-.venv/bin/pytest tests/ -q          # 1011 tests, ~92% coverage (threshold --cov-fail-under=80)
-                                     # 27 of these (tests/test_file_signaling.py) currently fail
-                                     # in this dev environment with ModuleNotFoundError: gpu_controller
-                                     # (pre-existing, tracked separately, not caused by app code)
+.venv/bin/pytest tests/ -q          # 1155 tests, ~93% coverage (threshold --cov-fail-under=80)
+                                     # 27 of these (tests/test_file_signaling.py) skip unless
+                                     # DEFNEX_GPU_CONTROLLER_PATH points at the host daemon
 ruff check .                        # lint
 ruff format --check .               # format check
 ```
@@ -357,14 +356,19 @@ sections of this README and code comments.
   Both are optional extras (`pip install -e ".[s3]"` / `".[otel]"`), not part of the base
   or `[dev]` install; tests that need them (`tests/test_artifact_storage_minio_integration.py`,
   the RED-metrics tests in `tests/test_telemetry.py`) skip automatically when absent.
-- **`(trapped) error reading bcrypt version` warning in test/server logs** — harmless.
-  `passlib`'s bcrypt backend probes `bcrypt.__about__`, which newer `bcrypt` releases removed;
-  password hashing itself still works correctly. Nothing to fix here.
-- **27 pre-existing failures in `tests/test_file_signaling.py` with
-  `ModuleNotFoundError: No module named 'gpu_controller'`** — a known, tracked, pre-existing
-  gap (not introduced by your change) where that test file's import path assumes a working
-  directory / PYTHONPATH this repo's default `pytest tests/` invocation doesn't set up. Not
-  yet fixed; see git history/issues before assuming a change you made caused it.
+- **Password hashing uses `bcrypt` directly, not passlib.** passlib's last release was 2020
+  and its bcrypt backend runs a self-test at import time (`detect_wrap_bug`) that
+  `bcrypt >= 4.1` rejects, so the backend never loaded and *every* password operation raised
+  `ValueError: password cannot be longer than 72 bytes` — which turned the whole auth test
+  module red in CI. `auth_service.hash_password` / `verify_password` now call `bcrypt`
+  directly; the wire format (`$2b$12$...`) and the work factor are unchanged, so existing
+  credentials keep verifying.
+- **27 tests in `tests/test_file_signaling.py` skip** — they exercise `gpu_controller`, the
+  host-side daemon script deployed per host (issue #163), which is deliberately not vendored
+  in this repo. Set `DEFNEX_GPU_CONTROLLER_PATH` to the deployed script to run them; the ~30
+  tests in that file that cover this repo's own `gpu_orchestrator.py` run either way. These
+  used to fail with `ModuleNotFoundError`, which said nothing about this repo's code and had
+  trained everyone to ignore the file.
 - **GPU-lock timeout (`GPU_LOCK_TIMEOUT`, 503) on deploy or training** — see "Training
   concurrency & GPU lock" above; another operation (or a stale lock file) is holding it. Do
   not manually kill GPU processes to "fix" this (project policy — the GPU is shared with

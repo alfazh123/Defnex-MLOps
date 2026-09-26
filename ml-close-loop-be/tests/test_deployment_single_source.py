@@ -253,24 +253,53 @@ def test_concurrent_same_version_deploy_keeps_single_deployed(tmp_path):
 
 
 def test_concurrent_different_versions_one_winner(tmp_path):
+    """Two concurrent deploys of DIFFERENT versions must leave exactly one DEPLOYED.
+
+    Note what this asserts, and why it used to be flaky. The test previously required exactly
+    one thread to return "OK" and the other to get a conflict `ValueError`. That is only true
+    when the two transactions genuinely overlap. SQLite allows one writer at a time, so quite
+    often it simply SERIALIZES them: the first commits, the second then sees that state and
+    deploys normally, superseding the first (deploy's documented job -- "retiring whichever
+    version currently holds it"). Both return "OK" and the outcome is still correct: one
+    DEPLOYED, the other RETIRED.
+
+    So the assertion is on the invariant, not on which thread won. The conflict path is still
+    checked, just as "if there is a loser it is a clear error" -- never a silent double-deploy,
+    which is the property that actually matters.
+    """
     engine = _fresh_engine(tmp_path, "diff.db", [1, 2])
     results = _run_race(engine, [1, 2])
 
     oks = [name for name, outcome in results.items() if outcome == "OK"]
-    assert len(oks) == 1  # exactly one winner
-    loser = next(outcome for outcome in results.values() if outcome != "OK")
-    assert isinstance(loser, ValueError)
-    assert str(loser).startswith(
-        CONFLICT_MESSAGE
-    )  # loser gets a clear error, not fake success
+    assert oks, f"neither deploy succeeded: {results}"
+    for name, outcome in results.items():
+        if name in oks:
+            continue
+        # A loser must fail loudly with the conflict, never "succeed" into a double-deploy.
+        assert isinstance(outcome, ValueError), outcome
+        assert str(outcome).startswith(CONFLICT_MESSAGE)
 
     with Session(engine) as db:
         deployed = _deployed_versions(db)
+        # The real safety property: at most one version holds the pointer.
         assert len(deployed) == 1
         # GET .../deployment (registry-backed) points at that single winner.
         status = deployment_service.get_deployment_status(db, "m1")
         assert status.current_deployed_version == deployed[0].version
-        assert deployed[0].version == (1 if oks[0] == "A" else 2)
+
+    # Whichever thread won, the version it deployed is the one left DEPLOYED. The other is
+    # RETIRED if it had held the pointer at the time, and still PROMOTED if it never did --
+    # both are correct end states, so the assertion is on which one is deployed.
+    winner_version = 1 if oks[0] == "A" else 2
+    assert deployed[0].version == winner_version
+    with Session(engine) as db:
+        other = db.scalars(
+            select(ModelVersion).where(
+                ModelVersion.model_id == "m1", ModelVersion.version != winner_version
+            )
+        ).one()
+        assert other.status in ("RETIRED", "PROMOTED")
+        assert other.status != "DEPLOYED"
 
 
 def test_concurrent_deploy_and_rollback_consistent(tmp_path):

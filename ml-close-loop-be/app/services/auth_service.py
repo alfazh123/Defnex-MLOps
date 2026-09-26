@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 import secrets
 import uuid
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 import structlog
@@ -17,15 +17,56 @@ PASSWORD_RESET_TOKEN_TTL_MINUTES = 30
 
 logger = structlog.get_logger(__name__)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt's cost factor. 12 is what passlib's CryptContext used and what every existing
+# `hashed_password` in a deployed database was written with, so this keeps new hashes
+# consistent with old ones instead of silently changing the work factor.
+BCRYPT_ROUNDS = 12
+
+# bcrypt's hard limit: the algorithm only consumes the first 72 bytes of a password.
+# Exceeding it used to be passlib's job to truncate and it did not do so correctly across
+# versions; truncating explicitly here makes the behaviour identical on every install.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _prepare(password: str) -> bytes:
+    """Encode and truncate a password to bcrypt's 72-byte limit.
+
+    Truncation is what bcrypt itself has always done with the bytes past 72, so this changes
+    no existing behaviour -- it just stops depending on a library layer to do it, and stops
+    the >72-byte input from raising `ValueError` out of `hashpw`/`checkpw`.
+    """
+
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a password with bcrypt, returning a self-describing `$2b$<rounds>$<salt><hash>`.
+
+    Uses the `bcrypt` package directly rather than `passlib.context.CryptContext`. passlib's
+    last release was 2020 and its bcrypt backend runs a self-test at import time
+    (`detect_wrap_bug`) that bcrypt >= 4.1 rejects outright, so the backend fails to load and
+    EVERY password operation raises `ValueError: password cannot be longer than 72 bytes` --
+    which is why the whole auth test module was red in CI. The wire format is identical
+    (`$2b$12$...`), so existing hashes keep verifying; `test_hash_password_is_bcrypt_and_
+    verifies` covers that.
+    """
+
+    return bcrypt.hashpw(
+        _prepare(password), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+    ).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    """Constant-time check of `plain` against a stored bcrypt hash.
+
+    Returns False for a malformed hash instead of raising: a corrupted `hashed_password`
+    row means "this login fails", not "the login endpoint 500s".
+    """
+
+    try:
+        return bcrypt.checkpw(_prepare(plain), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(data: dict, family_id: str | None = None) -> str:

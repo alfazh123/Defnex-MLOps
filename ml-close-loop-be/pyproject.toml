@@ -10,7 +10,10 @@ dependencies = [
     "alembic>=1.13",
     "pydantic-settings>=2.5",
     "python-jose[cryptography]>=3.3",
-    "passlib[bcrypt]>=1.7",
+    # `bcrypt` is used directly, not through passlib (see auth_service.hash_password).
+    # passlib's last release was 2020; its bcrypt backend runs a self-test at import time
+    # that bcrypt >= 4.1 rejects, so the backend never loads and every password operation
+    # raises. It was pinned against bcrypt==5.0.0 here and broke the whole auth surface.
     "bcrypt==5.0.0",
     "slowapi>=0.1.10",
     "structlog>=26.1.0",

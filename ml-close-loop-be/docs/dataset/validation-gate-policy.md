@@ -70,14 +70,14 @@ Kalau bisnis memutuskan dataset NEEDS_REVIEW tidak boleh sama sekali masuk regis
 ubah satu kondisi di `app/api/intake_validate.py` (`commit_intake`) — bukan dengan
 menulis ulang status versi, karena itu akan mengaburkan makna `PROCESSED`.
 
-### Apa yang **tidak** decides gate ini
+### Apa yang **tidak** menentukan gate ini
 
 - **Warning (PII, W1–W5).** `PII_*` sengaja hanya warning dan tidak pernah memengaruhi
   gate — lihat komentar `_PII_PATTERNS` di `validation_service.py`. Menyiszipkan PII ke
-  dataset pertahanan adalah keputusan review manusia, bukangrounds untuk menolak file.
+  dataset pertahanan adalah keputusan review manusia, bukan alasan untuk menolak file.
 - **Per-record `status_counts.NEEDS_REVIEW`.** Selalu `0`. Status per-record butuh
   threshold kelas warning (W2/W5) yang memang tidak didefinisikan di `validation-rules.md`
-  §9 — persis yang dortau rekomendasikan untuk ditunda. `NEEDS_REVIEW` di
+  §9 — persis yang dokumen itu rekomendasikan untuk ditunda. `NEEDS_REVIEW` di
   `gate_decision` adalah verdict tingkat-dataset yang berbeda dan **reachable**. Keduanya
   tidak boleh dicampur.
 

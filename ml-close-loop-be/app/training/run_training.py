@@ -146,17 +146,49 @@ def _run_training(config: dict, staging: str) -> int:
 
     import os
 
+    # Issue #208: the worker resolves the run's dataset pin to a local file before spawning
+    # us and passes it as `dataset_local_path`. That is the only path this trainer reads a
+    # dataset from: it is the one whose bytes match the checksum the run recorded, so
+    # "trained on version N" is a claim that can be checked.
+    #
+    # `hf_dataset` is retained only for pre-#209 runs, and the worker labels those
+    # `legacy_hf_dataset` in the run's event log. It is an unpinned reference (a bare Hub
+    # name or arbitrary local path), which is exactly what issue #208 removes -- so it is
+    # reported loudly rather than treated as an equal alternative.
+    local_path = config.get("dataset_local_path")
     hf_dataset = config.get("hf_dataset")
-    if os.path.isfile(hf_dataset):
-        # nosec B615 - this branch loads a local JSON file (`data_files=`), not a remote
-        # HuggingFace Hub dataset name; "revision pinning" doesn't apply to a local path.
+
+    if local_path:
+        if not os.path.isfile(local_path):
+            print(
+                f"pinned dataset file not found: {local_path}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 5
+        # nosec B615 - `dataset_local_path` is a local file resolved by the worker from the
+        # run's dataset pin (verified against the pinned checksum), not a remote Hub name.
+        dataset = load_dataset("json", data_files=local_path, split="train")  # nosec B615
+    elif hf_dataset and os.path.isfile(hf_dataset):
+        # Legacy run: a local path in the old `hf_dataset` field.
+        # nosec B615 - local file (`data_files=`), not a remote Hub dataset name.
+        print(
+            "warning: training on legacy unpinned hf_dataset path "
+            f"({hf_dataset}); runs created after issue #208 use a pinned dataset",
+            file=sys.stderr,
+            flush=True,
+        )
         dataset = load_dataset("json", data_files=hf_dataset, split="train")  # nosec B615
     else:
-        # Genuine finding (issue #182): this branch DOES resolve a remote Hub dataset name
-        # with no revision pin. Not fixed here - no revision/commit field is threaded
-        # through TrainingConfig/config today, so pinning it would need a schema addition,
-        # not just a one-line change. Left in the bandit baseline until that's scoped.
-        dataset = load_dataset(hf_dataset)
+        # No pin, and no usable legacy field. Refusing is the point: silently loading
+        # something else is the failure this issue exists to prevent.
+        print(
+            "no dataset to train on: expected 'dataset_local_path' (resolved from the "
+            "run's dataset pin) or a legacy 'hf_dataset' local path",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 6
 
     training_args = SFTConfig(
         output_dir=staging,

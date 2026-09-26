@@ -1,0 +1,26 @@
+ml-close-loop-be/tests/test_auth_service.py
+  h_0fbac3cbabbc88 18-54
+ml-close-loop-be/tests/test_file_signaling.py
+  h_0fbac3cbabbc88 18-19,39-82,230,311,536,771,970,1227
+ml-close-loop-be/pyproject.toml
+  h_0fbac3cbabbc88 13-16
+ml-close-loop-be/app/services/auth_service.py
+  h_0fbac3cbabbc88 5,20-39,43-56,60-69
+ml-close-loop-be/tests/test_deployment_single_source.py
+  h_0fbac3cbabbc88 256-269,274-280,284,289-302
+ml-close-loop-be/README.md
+  h_0fbac3cbabbc88 170-172,359-371
+ml-close-loop-fe/pnpm-lock.yaml
+  h_0fbac3cbabbc88 36-37,58,77,80,94-95,98,312-313,334-335,402-403,408-409,414-415,420-421,426-427,432-433,438-439,444-445,450-451,456-457,462-463,468-469,474-475,480-481,486-487,685-686,706-707,714-715,734-735,938-939,1139-1140,1550-1551,1741-1742,1745,1747-1749,1796-1797,1990-1992,1995-1996,1998-1999,2044-2045,2182,2368,2393,2395,2416,2418,2428,2450,2457,2483,2497,2504,2524,2527,2530,2533,2536,2539,2542,2545,2548,2551,2554,2557,2560,2563,2566,2636,2641,2672,2731,2759,2761-2765,2769,2787,2873,2880,2916,2945,3170,3462,3641,3644-3645,3682,3684,3687-3701,3758,3765,3767,3770,3789,3931-3935,3943,3945,3957,3963,3968
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8cd532b06359f5676e65a58849d92a49c14bdf32",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

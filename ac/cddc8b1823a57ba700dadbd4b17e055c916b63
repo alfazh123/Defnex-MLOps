@@ -1,0 +1,20 @@
+ml-close-loop-be/docs/dataset/validation-gate-policy.md
+  h_0fbac3cbabbc88 1-127
+ml-close-loop-be/openapi.yaml
+  h_0fbac3cbabbc88 5459-5464,5469-5474,5478,5514-5521
+ml-close-loop-be/tests/test_intake_batch0.py
+  h_0fbac3cbabbc88 1-780
+ml-close-loop-be/tests/test_intake_validate.py
+  h_0fbac3cbabbc88 15-26,31,40,49,91-97,172-174,176-186,553-567,574-575,586-597,604-605,613-617,652-654
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "accddc8b1823a57ba700dadbd4b17e055c916b63",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}

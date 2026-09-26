@@ -1,0 +1,14 @@
+ml-close-loop-be/tests/test_deployment_single_source.py
+  h_0fbac3cbabbc88 269-273,295-305,308,311-312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4a48a53f796663a405617e97c7e9a2c5b0f7c90a",
+  "prompts": {},
+  "humans": {
+    "h_0fbac3cbabbc88": {
+      "author": "user.email <maulana17anjari@gmail.com>"
+    }
+  }
+}
